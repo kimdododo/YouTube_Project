@@ -187,7 +187,3 @@ npm run dev
 AmaanP314/youtube-xlm-roberta-base-sentiment-multilingual
 
 LLM-SocialMedia/Qwen3-8B-Korean-Sentiment (좋지만 메모리 요구가 큼 colab에서 불가)
-<<<<<<< HEAD
->>>>>>> bdc56553ea1f99a2e04176a77c0830ba85d6c085
-=======
->>>>>>> bdc56553ea1f99a2e04176a77c0830ba85d6c085
