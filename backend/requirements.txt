@@ -1,0 +1,29 @@
+# FastAPI 백엔드 필수 패키지
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-dotenv==1.0.0
+pymysql==1.1.0
+sqlalchemy==2.0.23
+pydantic==2.5.0
+pydantic-settings==2.1.0
+
+# 추가 유틸리티
+python-multipart==0.0.6
+
+# Auth & Security
+passlib[bcrypt]==1.7.4
+PyJWT==2.8.0
+
+# Pydantic EmailStr dependency
+email-validator==2.1.0.post1
+
+# NLP (offline HF models)
+transformers==4.44.2
+torch>=2.1.0
+sentence-transformers==3.0.1
+redis==5.0.1
+
+# ML API client & similarity
+httpx==0.25.2
+numpy==1.24.3
+
