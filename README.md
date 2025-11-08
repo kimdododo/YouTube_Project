@@ -1,8 +1,15 @@
+<<<<<<< HEAD
 # YouTube Travel Video Recommendation Project
+=======
+# 20251107
+
+# Cloud SQL + FastAPI + React 데이터 파이프라인
+# ##클라우드 비용 문제로 인한 로컬MYSQL 사용중###
+>>>>>>> 6f0bd53dd533a9b99accfbdf5c2942b7b7fdca3b
 
 유튜브 API 데이터를 활용한 여행 영상 추천 서비스입니다.
 
-## 🏗️ 아키텍처
+## 아키텍처
 
 ```
 ┌─────────────────────────────────┐
@@ -269,6 +276,10 @@ npm run dev
 
 ## 🔗 링크
 
+<<<<<<< HEAD
 - **프로덕션 프런트엔드**: https://yt-frontend-hqgyuzrwxq-du.a.run.app
 - **프로덕션 백엔드**: https://yt-backend-678086020431.asia-northeast3.run.app
 - **API 문서**: https://yt-backend-678086020431.asia-northeast3.run.app/docs
+=======
+LLM-SocialMedia/Qwen3-8B-Korean-Sentiment (좋지만 메모리 요구가 큼 colab에서 불가)
+>>>>>>> 6f0bd53dd533a9b99accfbdf5c2942b7b7fdca3b
