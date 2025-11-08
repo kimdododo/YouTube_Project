@@ -17,18 +17,38 @@ depends_on = None
 
 
 def upgrade():
+    # users 테이블 존재 여부 확인
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    existing_tables = inspector.get_table_names()
+    users_exists = 'users' in existing_tables
+    
     # user_travel_preferences 테이블 생성
-    op.create_table(
-        'user_travel_preferences',
-        sa.Column('id', sa.Integer(), nullable=False, autoincrement=True),
-        sa.Column('user_id', sa.Integer(), nullable=False),
-        sa.Column('preference_id', sa.Integer(), nullable=False, comment='여행 취향 ID (1-11)'),
-        sa.Column('created_at', sa.DateTime(), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=False),
-        sa.Column('updated_at', sa.DateTime(), server_default=sa.text('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'), nullable=False),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('user_id', 'preference_id', name='uq_user_preference'),
-        sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE')
-    )
+    if users_exists:
+        # users 테이블이 존재하면 외래 키 포함
+        op.create_table(
+            'user_travel_preferences',
+            sa.Column('id', sa.Integer(), nullable=False, autoincrement=True),
+            sa.Column('user_id', sa.Integer(), nullable=False),
+            sa.Column('preference_id', sa.Integer(), nullable=False, comment='여행 취향 ID (1-11)'),
+            sa.Column('created_at', sa.DateTime(), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=False),
+            sa.Column('updated_at', sa.DateTime(), server_default=sa.text('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'), nullable=False),
+            sa.PrimaryKeyConstraint('id'),
+            sa.UniqueConstraint('user_id', 'preference_id', name='uq_user_preference'),
+            sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE')
+        )
+    else:
+        # users 테이블이 없으면 외래 키 없이 생성
+        op.create_table(
+            'user_travel_preferences',
+            sa.Column('id', sa.Integer(), nullable=False, autoincrement=True),
+            sa.Column('user_id', sa.Integer(), nullable=False),
+            sa.Column('preference_id', sa.Integer(), nullable=False, comment='여행 취향 ID (1-11)'),
+            sa.Column('created_at', sa.DateTime(), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=False),
+            sa.Column('updated_at', sa.DateTime(), server_default=sa.text('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'), nullable=False),
+            sa.PrimaryKeyConstraint('id'),
+            sa.UniqueConstraint('user_id', 'preference_id', name='uq_user_preference')
+        )
     # 인덱스 생성
     op.create_index(op.f('ix_user_travel_preferences_id'), 'user_travel_preferences', ['id'], unique=False)
     op.create_index(op.f('ix_user_travel_preferences_user_id'), 'user_travel_preferences', ['user_id'], unique=False)

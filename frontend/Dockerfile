@@ -25,7 +25,14 @@ COPY --from=builder /app/dist /usr/share/nginx/html
 # Copy nginx configuration
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
+# 빌드 확인
+RUN ls -la /usr/share/nginx/html/ || echo "Warning: dist directory is empty"
+
+# Nginx 설정 검증
+RUN nginx -t
+
 EXPOSE 80
 
+# Nginx 시작 (daemon off로 포그라운드 실행)
 CMD ["nginx", "-g", "daemon off;"]
 

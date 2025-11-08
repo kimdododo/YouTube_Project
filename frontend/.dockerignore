@@ -1,13 +1,47 @@
-node_modules
-dist
-.git
-.gitignore
-README.md
-.env.local
-.env.*.local
+# Node
+node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+.pnpm-debug.log*
+.npm
+.eslintcache
+dist/
+dist-ssr/
+*.local
+
+# 환경 변수
+.env
+.env.local
+.env.*.local
+
+# Git
+.git/
+.gitignore
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
 .DS_Store
+Thumbs.db
+
+# 로그
 *.log
 
+# 임시 파일
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# Docker
+Dockerfile.dev
+docker-compose.yml
+
+# Backend (프런트엔드 빌드 시 제외)
+../backend/
+backend/

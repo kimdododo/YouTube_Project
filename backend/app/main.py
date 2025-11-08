@@ -16,9 +16,12 @@ app = FastAPI(
 )
 
 # CORS 설정 (React 프론트엔드에서 호출 가능하도록)
+import os
+FRONTEND_URL = os.getenv("FRONTEND_URL", "*")
+cors_origins = [FRONTEND_URL] if FRONTEND_URL != "*" else ["*"]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 프로덕션에서는 특정 도메인으로 제한
+    allow_origins=cors_origins,  # 프로덕션에서는 특정 도메인으로 제한
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -18,14 +18,33 @@ if not DB_PASSWORD:
 # 비밀번호에 특수 문자가 있을 수 있으므로 quote_plus 사용
 encoded_password = quote_plus(str(DB_PASSWORD))
 encoded_user = quote_plus(str(DB_USER))
-DATABASE_URL = f"mysql+pymysql://{encoded_user}:{encoded_password}@{DB_HOST}:{DB_PORT}/{DB_NAME}?charset=utf8mb4"
 
-# 디버그: 연결 정보 출력 (비밀번호는 마스킹)
-print(f"[DEBUG] Database connection: mysql+pymysql://{DB_USER}:{'*' * len(str(DB_PASSWORD))}@{DB_HOST}:{DB_PORT}/{DB_NAME}")
+# Unix 소켓 경로 확인 (/cloudsql/... 형식)
+is_unix_socket = DB_HOST.startswith('/cloudsql/') or (DB_HOST.startswith('/') and ':' not in DB_HOST)
+
+if is_unix_socket:
+    # Unix 소켓 사용 (Cloud SQL)
+    # PyMySQL에서 Unix 소켓을 사용하려면 host를 None으로 설정하고 unix_socket을 전달
+    DATABASE_URL = f"mysql+pymysql://{encoded_user}:{encoded_password}@localhost/{DB_NAME}?charset=utf8mb4"
+    connect_args = {
+        'host': None,  # host를 None으로 설정
+        'unix_socket': DB_HOST,  # Unix 소켓 경로
+        'charset': 'utf8mb4',
+        'sql_mode': 'TRADITIONAL'
+    }
+    print(f"[DEBUG] Database connection (Unix socket): mysql+pymysql://{DB_USER}:{'*' * len(str(DB_PASSWORD))}@unix_socket={DB_HOST}/{DB_NAME}")
+else:
+    # 일반 TCP 연결
+    DATABASE_URL = f"mysql+pymysql://{encoded_user}:{encoded_password}@{DB_HOST}:{DB_PORT}/{DB_NAME}?charset=utf8mb4"
+    connect_args = {
+        'charset': 'utf8mb4'
+    }
+    print(f"[DEBUG] Database connection (TCP): mysql+pymysql://{DB_USER}:{'*' * len(str(DB_PASSWORD))}@{DB_HOST}:{DB_PORT}/{DB_NAME}")
 
 # SQLAlchemy 엔진 생성
 engine = create_engine(
     DATABASE_URL,
+    connect_args=connect_args,
     pool_pre_ping=True,  # 연결 상태 확인
     pool_recycle=3600,   # 1시간마다 연결 재생성
     echo=False  # SQL 쿼리 로깅 (개발 시 True로 설정)

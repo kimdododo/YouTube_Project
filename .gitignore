@@ -99,6 +99,7 @@ check_*.sql
 *.ps1
 *.md
 !README.md
+!DEPLOY.md
 
 # Airflow
 airflow.cfg

@@ -15,9 +15,9 @@ export const getMostLikedVideos = async (limit = 10) => {
   try {
     console.log('[videos.js] Fetching most liked videos from:', `${API_BASE_URL}/videos/most-liked?limit=${limit}`)
     
-    // 타임아웃 추가 (10초)
+    // 타임아웃 추가 (30초)
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 10000)
+    const timeoutId = setTimeout(() => controller.abort(), 30000)
     
     const response = await fetch(`${API_BASE_URL}/videos/most-liked?limit=${limit}`, {
       signal: controller.signal
@@ -230,9 +230,9 @@ export const getRecommendedVideos = async (query = null, useRerank = false, limi
     const url = `${API_BASE_URL}/videos/recommended${params.toString() ? '?' + params.toString() : ''}`
     console.log('[videos.js] Fetching recommended videos from:', url)
     
-    // 타임아웃 추가 (10초)
+    // 타임아웃 추가 (30초)
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 10000)
+    const timeoutId = setTimeout(() => controller.abort(), 30000)
     
     const response = await fetch(url, {
       signal: controller.signal
@@ -288,9 +288,9 @@ export const getTrendVideos = async () => {
   try {
     console.log('[videos.js] Fetching trend videos from:', `${API_BASE_URL}/videos/trends`)
     
-    // 타임아웃 추가 (10초)
+    // 타임아웃 추가 (30초)
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 10000)
+    const timeoutId = setTimeout(() => controller.abort(), 30000)
     
     const response = await fetch(`${API_BASE_URL}/videos/trends`, {
       signal: controller.signal
