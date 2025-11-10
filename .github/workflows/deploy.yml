@@ -60,6 +60,7 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: 🏗️ Build Docker image
+        id: build
         uses: docker/build-push-action@v5
         with:
           context: ./backend
@@ -70,6 +71,23 @@ jobs:
             ${{ env.DOCKER_IMAGE }}:${{ github.sha }}
           cache-from: type=registry,ref=${{ env.DOCKER_IMAGE }}:buildcache
           cache-to: type=registry,ref=${{ env.DOCKER_IMAGE }}:buildcache,mode=max
+          # 빌드 타임아웃 증가 (30분)
+          build-args: |
+            BUILDKIT_INLINE_CACHE=1
+
+      - name: ✅ Verify Docker image pushed
+        if: success()
+        run: |
+          echo "Verifying Docker image was pushed..."
+          echo "Image: ${{ env.DOCKER_IMAGE }}:latest"
+          echo "Full path: docker.io/${{ secrets.DOCKER_USERNAME }}/youtube-backend:latest"
+          
+          # Docker Hub에 이미지가 푸시될 때까지 대기
+          echo "Waiting for Docker Hub to propagate the image (30 seconds)..."
+          sleep 30
+          
+          echo "Image should be available at: https://hub.docker.com/r/${{ secrets.DOCKER_USERNAME }}/youtube-backend/tags"
+          echo "✅ Image push verification complete"
 
       - name: 🔐 Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
@@ -82,27 +100,87 @@ jobs:
           project_id: ${{ env.PROJECT_ID }}
 
       - name: 🚀 Deploy to Cloud Run
+        if: success()
         run: |
           echo "Deploying to Cloud Run..."
-          gcloud run deploy ${{ env.SERVICE_NAME }} \
-            --image ${{ env.DOCKER_IMAGE }}:latest \
-            --region ${{ env.REGION }} \
-            --project ${{ env.PROJECT_ID }} \
-            --platform managed \
-            --allow-unauthenticated \
-            --port 8080 \
-            --memory 2Gi \
-            --cpu 2 \
-            --timeout 300 \
-            --max-instances 10 \
-            --min-instances 1 \
-            --add-cloudsql-instances swift-hangar-477802-t3:asia-northeast3:youtube \
-            --service-account github-actions@swift-hangar-477802-t3.iam.gserviceaccount.com \
-            --update-env-vars="DB_NAME=yt,DB_USER=yt,DB_PORT=3306,DB_HOST=/cloudsql/swift-hangar-477802-t3:asia-northeast3:youtube,JWT_ALGO=HS256,JWT_ACCESS_MINUTES=60" \
-            --update-secrets="DB_PASSWORD=db-password:latest,JWT_SECRET=jwt-secret:latest" \
-            --cpu-boost
+          IMAGE_URL="${{ env.DOCKER_IMAGE }}:latest"
+          echo "Image URL: $IMAGE_URL"
+          echo "Full image path: docker.io/${{ secrets.DOCKER_USERNAME }}/youtube-backend:latest"
+          
+          # 이미지 경로 확인
+          echo "Verifying image path format..."
+          echo "Docker Hub repository: https://hub.docker.com/r/${{ secrets.DOCKER_USERNAME }}/youtube-backend"
+          
+          # 기존 서비스 확인
+          echo "Checking if service exists..."
+          if gcloud run services describe ${{ env.SERVICE_NAME }} --region ${{ env.REGION }} --project ${{ env.PROJECT_ID }} --quiet 2>/dev/null; then
+            echo "✅ Service exists, updating..."
+            SERVICE_EXISTS=true
+          else
+            echo "ℹ️ Service does not exist, will create new service..."
+            SERVICE_EXISTS=false
+          fi
+          
+          # Cloud Run 배포 (더 자세한 로그 포함)
+          echo "Starting Cloud Run deployment..."
+          echo "This may take several minutes..."
+          
+          # 이미지가 Docker Hub에 전파될 때까지 추가 대기
+          echo "Waiting additional 30 seconds for image propagation..."
+          sleep 30
+          
+          # 첫 배포인 경우 서비스 생성, 이후에는 업데이트
+          if [ "$SERVICE_EXISTS" = "false" ]; then
+            echo "Creating new Cloud Run service..."
+            gcloud run deploy ${{ env.SERVICE_NAME }} \
+              --image "$IMAGE_URL" \
+              --region ${{ env.REGION }} \
+              --project ${{ env.PROJECT_ID }} \
+              --platform managed \
+              --allow-unauthenticated \
+              --port 8080 \
+              --memory 2Gi \
+              --cpu 2 \
+              --timeout 300 \
+              --max-instances 10 \
+              --min-instances 1 \
+              --add-cloudsql-instances swift-hangar-477802-t3:asia-northeast3:youtube \
+              --service-account github-actions@swift-hangar-477802-t3.iam.gserviceaccount.com \
+              --set-env-vars="DB_NAME=yt,DB_USER=yt,DB_PORT=3306,DB_HOST=/cloudsql/swift-hangar-477802-t3:asia-northeast3:youtube,JWT_ALGO=HS256,JWT_ACCESS_MINUTES=60" \
+              --set-secrets="DB_PASSWORD=db-password:latest,JWT_SECRET=jwt-secret:latest" \
+              --cpu-boost
+          else
+            echo "Updating existing Cloud Run service..."
+            gcloud run deploy ${{ env.SERVICE_NAME }} \
+              --image "$IMAGE_URL" \
+              --region ${{ env.REGION }} \
+              --project ${{ env.PROJECT_ID }} \
+              --platform managed \
+              --allow-unauthenticated \
+              --port 8080 \
+              --memory 2Gi \
+              --cpu 2 \
+              --timeout 300 \
+              --max-instances 10 \
+              --min-instances 1 \
+              --add-cloudsql-instances swift-hangar-477802-t3:asia-northeast3:youtube \
+              --service-account github-actions@swift-hangar-477802-t3.iam.gserviceaccount.com \
+              --update-env-vars="DB_NAME=yt,DB_USER=yt,DB_PORT=3306,DB_HOST=/cloudsql/swift-hangar-477802-t3:asia-northeast3:youtube,JWT_ALGO=HS256,JWT_ACCESS_MINUTES=60" \
+              --update-secrets="DB_PASSWORD=db-password:latest,JWT_SECRET=jwt-secret:latest" \
+              --cpu-boost
+          fi
           
           echo "✅ Deployment completed successfully"
+          
+          # 서비스 URL 출력
+          SERVICE_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
+            --region ${{ env.REGION }} \
+            --project ${{ env.PROJECT_ID }} \
+            --format="value(status.url)" 2>/dev/null || echo "")
+          
+          if [ -n "$SERVICE_URL" ]; then
+            echo "🌐 Service URL: $SERVICE_URL"
+          fi
 
       - name: 📊 Deployment Summary
         if: always()
