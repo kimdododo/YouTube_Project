@@ -30,6 +30,20 @@ jobs:
       - name: 📥 Checkout code
         uses: actions/checkout@v4
 
+      - name: 🔍 Verify Secrets
+        run: |
+          if [ -z "${{ secrets.GCP_PROJECT_ID }}" ]; then
+            echo "❌ GCP_PROJECT_ID secret is not set"
+            exit 1
+          fi
+          if [ -z "${{ secrets.GCP_SA_KEY }}" ]; then
+            echo "❌ GCP_SA_KEY secret is not set"
+            exit 1
+          fi
+          echo "✅ Secrets are set"
+          echo "Project ID: ${{ secrets.GCP_PROJECT_ID }}"
+          echo "Service Account Key length: ${#GCP_SA_KEY}"
+
       - name: 🔐 Authenticate to Google Cloud
         id: auth
         uses: google-github-actions/auth@v2
