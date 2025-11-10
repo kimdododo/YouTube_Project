@@ -70,10 +70,11 @@ jobs:
           echo "Short SHA: $SHORT_SHA"
           
           # Cloud Build 트리거 실행
+          # 주의: substitution 키는 _로 시작하는 커스텀 변수만 가능
           gcloud builds submit \
             --config=cloudbuild.yaml \
             --region=${{ env.REGION }} \
-            --substitutions=_SERVICE_NAME=${{ env.SERVICE_NAME }},_REGION=${{ env.REGION }},SHORT_SHA=$SHORT_SHA \
+            --substitutions=_SERVICE_NAME=${{ env.SERVICE_NAME }},_REGION=${{ env.REGION }},_SHORT_SHA=$SHORT_SHA \
             --project=${{ env.PROJECT_ID }}
           
           echo "✅ Build completed successfully"
