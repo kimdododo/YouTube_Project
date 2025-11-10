@@ -9,7 +9,6 @@ function Login() {
   const location = useLocation()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [rememberMe, setRememberMe] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -32,15 +31,10 @@ function Login() {
       // 백엔드 로그인 API 호출
       const result = await login(email, password)
       
-      // 로그인 성공 시 상태 저장
-      localStorage.setItem('isLoggedIn', 'true')
+      // 로그인 성공 시 상태 저장 (sessionStorage 사용 - 브라우저 닫으면 로그아웃)
+      sessionStorage.setItem('isLoggedIn', 'true')
       if (result.user?.username || result.username) {
-        localStorage.setItem('userName', result.user?.username || result.username)
-      }
-      
-      // rememberMe 체크 시 추가 정보 저장 가능 (현재는 기본 토큰만 저장)
-      if (rememberMe) {
-        // 토큰은 이미 저장됨
+        sessionStorage.setItem('userName', result.user?.username || result.username)
       }
       
       // 홈으로 이동
@@ -180,16 +174,7 @@ function Login() {
             </div>
 
             {/* 옵션 행 */}
-            <div className="flex items-center justify-between">
-              <label className="flex items-center space-x-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-600 bg-gray-800/50 text-purple-600 focus:ring-purple-500"
-                />
-                <span className="text-white text-sm">로그인 유지</span>
-              </label>
+            <div className="flex items-center justify-end">
               <Link to="/forgot-password" className="text-white text-sm hover:text-purple-400 transition-colors">
                 비밀번호 찾기
               </Link>

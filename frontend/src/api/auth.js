@@ -97,6 +97,9 @@ export const login = async (username, password) => {
 export const logout = () => {
   localStorage.removeItem('access_token')
   localStorage.removeItem('token_type')
+  sessionStorage.removeItem('isLoggedIn')
+  sessionStorage.removeItem('userName')
+  // localStorage에서도 제거 (이전 버전 호환성)
   localStorage.removeItem('isLoggedIn')
   localStorage.removeItem('userName')
 }

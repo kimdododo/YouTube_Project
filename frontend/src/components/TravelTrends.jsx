@@ -20,7 +20,7 @@ function TravelTrends() {
   // 로그인 상태 체크
   useEffect(() => {
     const checkLoginStatus = () => {
-      setIsLoggedIn(localStorage.getItem('isLoggedIn') === 'true')
+      setIsLoggedIn(sessionStorage.getItem('isLoggedIn') === 'true' || localStorage.getItem('isLoggedIn') === 'true')
     }
     checkLoginStatus()
     window.addEventListener('storage', checkLoginStatus)

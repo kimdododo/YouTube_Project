@@ -17,7 +17,7 @@ function MyPage() {
   // 로그인 상태 체크
   useEffect(() => {
     const checkLoginStatus = () => {
-      setIsLoggedIn(localStorage.getItem('isLoggedIn') === 'true')
+      setIsLoggedIn(sessionStorage.getItem('isLoggedIn') === 'true' || localStorage.getItem('isLoggedIn') === 'true')
     }
     checkLoginStatus()
     window.addEventListener('storage', checkLoginStatus)
@@ -103,7 +103,9 @@ function MyPage() {
   }
 
   const handleLogout = () => {
-    // localStorage에서 로그인 관련 데이터 제거
+    // sessionStorage와 localStorage에서 로그인 관련 데이터 제거
+    sessionStorage.removeItem('isLoggedIn')
+    sessionStorage.removeItem('userName')
     localStorage.removeItem('isLoggedIn')
     localStorage.removeItem('hasAccount')
     localStorage.removeItem('userName')

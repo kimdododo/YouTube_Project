@@ -18,7 +18,7 @@ function FindChannel() {
   // 로그인 상태 체크
   useEffect(() => {
     const checkLoginStatus = () => {
-      setIsLoggedIn(localStorage.getItem('isLoggedIn') === 'true')
+      setIsLoggedIn(sessionStorage.getItem('isLoggedIn') === 'true' || localStorage.getItem('isLoggedIn') === 'true')
     }
     checkLoginStatus()
     window.addEventListener('storage', checkLoginStatus)
@@ -113,9 +113,9 @@ function FindChannel() {
   useEffect(() => {
     if (!searchQuery.trim()) {
       fetchVideos()
-      // 주기적 업데이트 (30초마다)
-      const interval = setInterval(fetchVideos, 30000)
-      return () => clearInterval(interval)
+      // 주기적 업데이트 제거 - 사용자가 수동으로 새로고침할 수 있도록
+      // const interval = setInterval(fetchVideos, 30000)
+      // return () => clearInterval(interval)
     }
   }, [])
 

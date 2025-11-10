@@ -154,7 +154,7 @@ function Dashboard() {
   // 로그인 상태 체크
   useEffect(() => {
     const checkLoginStatus = () => {
-      setIsLoggedIn(localStorage.getItem('isLoggedIn') === 'true')
+      setIsLoggedIn(sessionStorage.getItem('isLoggedIn') === 'true' || localStorage.getItem('isLoggedIn') === 'true')
     }
     checkLoginStatus()
     window.addEventListener('storage', checkLoginStatus)
@@ -165,14 +165,13 @@ function Dashboard() {
     }
   }, [])
 
-  // API에서 실제 데이터 가져오기 (컴포넌트 마운트 시 즉시 실행)
+  // API에서 실제 데이터 가져오기 (컴포넌트 마운트 시 한 번만 실행)
   useEffect(() => {
     fetchVideos()
     
-    // 주기적 업데이트 (30초마다)
-    const interval = setInterval(fetchVideos, 30000)
+    // 주기적 업데이트 제거 - 사용자가 수동으로 새로고침할 수 있도록
+    // const interval = setInterval(fetchVideos, 30000)
     return () => {
-      clearInterval(interval)
       // cleanup: 자동 스크롤 정리
       if (autoScrollRef.current) {
         cancelAnimationFrame(autoScrollRef.current)

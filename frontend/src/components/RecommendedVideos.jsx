@@ -17,7 +17,7 @@ function RecommendedVideos() {
   // 로그인 상태 체크
   useEffect(() => {
     const checkLoginStatus = () => {
-      setIsLoggedIn(localStorage.getItem('isLoggedIn') === 'true')
+      setIsLoggedIn(sessionStorage.getItem('isLoggedIn') === 'true' || localStorage.getItem('isLoggedIn') === 'true')
     }
     checkLoginStatus()
     // storage 이벤트 리스너 추가 (다른 탭에서 로그인/로그아웃 시)
@@ -33,9 +33,9 @@ function RecommendedVideos() {
   // API에서 실제 데이터 가져오기
   useEffect(() => {
     fetchVideos()
-    // 주기적 업데이트 (60초마다 - 개인 맞춤 추천은 자주 업데이트할 필요 없음)
-    const interval = setInterval(fetchVideos, 60000)
-    return () => clearInterval(interval)
+    // 주기적 업데이트 제거 - 사용자가 수동으로 새로고침할 수 있도록
+    // const interval = setInterval(fetchVideos, 60000)
+    // return () => clearInterval(interval)
   }, [usePersonalized])
 
   // 스크롤 하단 도달 시 자동으로 더 불러오기 (2x2 단위)

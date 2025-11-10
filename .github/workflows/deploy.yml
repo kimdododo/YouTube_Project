@@ -1,4 +1,4 @@
-name: Deploy to Cloud Run
+name: Build and Deploy to Cloud Run
 
 on:
   push:
@@ -7,7 +7,6 @@ on:
       - master
     paths:
       - 'backend/**'
-      - 'cloudbuild.yaml'
       - '.github/workflows/deploy.yml'
   workflow_dispatch: # 수동 실행 가능
 
@@ -15,16 +14,17 @@ env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   SERVICE_NAME: yt-backend
   REGION: asia-northeast3
-  GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+  DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+  DOCKER_IMAGE: docker.io/${{ secrets.DOCKER_USERNAME }}/youtube-backend
 
 jobs:
-  deploy:
-    name: Build and Deploy to Cloud Run
+  build-and-deploy:
+    name: Build, Push to Docker Hub, and Deploy
     runs-on: ubuntu-latest
     
     permissions:
       contents: read
-      id-token: write # OIDC 인증용
+      id-token: write
 
     steps:
       - name: 📥 Checkout code
@@ -40,12 +40,38 @@ jobs:
             echo "❌ GCP_SA_KEY secret is not set"
             exit 1
           fi
-          echo "✅ Secrets are set"
-          echo "Project ID: ${{ secrets.GCP_PROJECT_ID }}"
-          echo "Service Account Key length: ${#GCP_SA_KEY}"
+          if [ -z "${{ secrets.DOCKER_USERNAME }}" ]; then
+            echo "❌ DOCKER_USERNAME secret is not set"
+            exit 1
+          fi
+          if [ -z "${{ secrets.DOCKER_PASSWORD }}" ]; then
+            echo "❌ DOCKER_PASSWORD secret is not set"
+            exit 1
+          fi
+          echo "✅ All secrets are set"
+
+      - name: 🐳 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🐳 Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: 🏗️ Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
+          tags: |
+            ${{ env.DOCKER_IMAGE }}:latest
+            ${{ env.DOCKER_IMAGE }}:${{ github.sha }}
+          cache-from: type=registry,ref=${{ env.DOCKER_IMAGE }}:buildcache
+          cache-to: type=registry,ref=${{ env.DOCKER_IMAGE }}:buildcache,mode=max
 
       - name: 🔐 Authenticate to Google Cloud
-        id: auth
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
@@ -55,31 +81,30 @@ jobs:
         with:
           project_id: ${{ env.PROJECT_ID }}
 
-      - name: 🔧 Configure Docker for GCR
+      - name: 🚀 Deploy to Cloud Run
         run: |
-          gcloud auth configure-docker asia-northeast3-docker.pkg.dev --quiet
+          echo "Deploying to Cloud Run..."
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --image ${{ env.DOCKER_IMAGE }}:latest \
+            --region ${{ env.REGION }} \
+            --project ${{ env.PROJECT_ID }} \
+            --platform managed \
+            --allow-unauthenticated \
+            --port 8080 \
+            --memory 2Gi \
+            --cpu 2 \
+            --timeout 300 \
+            --max-instances 10 \
+            --min-instances 1 \
+            --add-cloudsql-instances swift-hangar-477802-t3:asia-northeast3:youtube \
+            --service-account github-actions@swift-hangar-477802-t3.iam.gserviceaccount.com \
+            --update-env-vars="DB_NAME=yt,DB_USER=yt,DB_PORT=3306,DB_HOST=/cloudsql/swift-hangar-477802-t3:asia-northeast3:youtube,JWT_ALGO=HS256,JWT_ACCESS_MINUTES=60" \
+            --update-secrets="DB_PASSWORD=db-password:latest,JWT_SECRET=jwt-secret:latest" \
+            --cpu-boost
+          
+          echo "✅ Deployment completed successfully"
 
-      - name: 🚀 Submit build to Cloud Build
-        id: build
-        run: |
-          echo "Starting Cloud Build..."
-          
-          # SHORT_SHA 생성 (커밋 해시의 처음 7자리)
-          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-          echo "Commit SHA: ${{ github.sha }}"
-          echo "Short SHA: $SHORT_SHA"
-          
-          # Cloud Build 트리거 실행
-          # 주의: substitution 키는 _로 시작하는 커스텀 변수만 가능
-          gcloud builds submit \
-            --config=cloudbuild.yaml \
-            --region=${{ env.REGION }} \
-            --substitutions=_SERVICE_NAME=${{ env.SERVICE_NAME }},_REGION=${{ env.REGION }},_SHORT_SHA=$SHORT_SHA \
-            --project=${{ env.PROJECT_ID }}
-          
-          echo "✅ Build completed successfully"
-
-      - name: 📊 Build Summary
+      - name: 📊 Deployment Summary
         if: always()
         run: |
           echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
@@ -87,16 +112,19 @@ jobs:
           echo "- **Service**: ${{ env.SERVICE_NAME }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Region**: ${{ env.REGION }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Project**: ${{ env.PROJECT_ID }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Docker Image**: ${{ env.DOCKER_IMAGE }}:latest" >> $GITHUB_STEP_SUMMARY
           echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
           if [ "${{ job.status }}" == "success" ]; then
             echo "✅ **Status**: Deployment successful" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "View service:" >> $GITHUB_STEP_SUMMARY
+            echo "https://console.cloud.google.com/run/detail/${{ env.REGION }}/${{ env.SERVICE_NAME }}?project=${{ env.PROJECT_ID }}" >> $GITHUB_STEP_SUMMARY
           else
             echo "❌ **Status**: Deployment failed" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "Check Cloud Build logs for details:" >> $GITHUB_STEP_SUMMARY
-            echo "https://console.cloud.google.com/cloud-build/builds?project=${{ env.PROJECT_ID }}" >> $GITHUB_STEP_SUMMARY
+            echo "Check GitHub Actions logs for details." >> $GITHUB_STEP_SUMMARY
           fi
 

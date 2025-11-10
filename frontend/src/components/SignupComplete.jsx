@@ -4,8 +4,8 @@ function SignupComplete() {
   const navigate = useNavigate()
 
   const handleStart = () => {
-    // 로그인 상태 저장
-    localStorage.setItem('isLoggedIn', 'true')
+    // 로그인 상태 저장 (sessionStorage 사용 - 브라우저 닫으면 로그아웃)
+    sessionStorage.setItem('isLoggedIn', 'true')
     // 홈으로 이동
     navigate('/')
   }

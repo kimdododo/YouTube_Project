@@ -16,14 +16,22 @@ export const getHighQualityThumbnail = (thumbnailUrl, videoId, isShorts = false)
   // 기본 패턴: https://i.ytimg.com/vi/{VIDEO_ID}/{QUALITY}.jpg
   // 또는: https://img.youtube.com/vi/{VIDEO_ID}/{QUALITY}.jpg
   
-  // 이미 고화질 URL인 경우 (maxresdefault, sddefault, hqdefault)
-  if (thumbnailUrl && (thumbnailUrl.includes('maxresdefault') || thumbnailUrl.includes('sddefault') || thumbnailUrl.includes('hqdefault'))) {
-    return thumbnailUrl
+  // 원본 URL이 유효한 YouTube URL인 경우 우선 사용
+  if (thumbnailUrl && (thumbnailUrl.includes('ytimg.com') || thumbnailUrl.includes('youtube.com'))) {
+    // 이미 고화질 URL인 경우 그대로 반환
+    if (thumbnailUrl.includes('maxresdefault') || thumbnailUrl.includes('sddefault') || thumbnailUrl.includes('hqdefault')) {
+      return thumbnailUrl
+    }
+    // 원본 URL이 유효한 YouTube URL이면 그대로 사용 (백엔드에서 제공한 URL 신뢰)
+    // 단, 기본 화질(default.jpg)인 경우에만 업그레이드
+    if (!thumbnailUrl.includes('/default.jpg') && !thumbnailUrl.includes('/mqdefault.jpg')) {
+      return thumbnailUrl
+    }
   }
 
   // YouTube 썸네일 URL 생성 (최고 화질)
-  // maxresdefault: 1280x720 (가장 높은 화질, 일반 동영상용)
-  // sddefault: 640x480 (표준 화질, Shorts에도 제공됨)
+  // maxresdefault: 1280x720 (가장 높은 화질, 일반 동영상용) - 모든 비디오에서 지원되지 않음
+  // sddefault: 640x480 (표준 화질, Shorts에도 제공됨) - 더 안정적
   // hqdefault: 480x360 (높은 화질)
   // mqdefault: 320x180 (중간 화질)
   // default: 120x90 (기본 화질)
@@ -44,9 +52,9 @@ export const getHighQualityThumbnail = (thumbnailUrl, videoId, isShorts = false)
     return `https://i.ytimg.com/vi/${extractedVideoId}/sddefault.jpg`
   }
 
-  // 일반 동영상의 경우 최고 화질 URL 반환 (maxresdefault)
-  // maxresdefault가 없을 경우를 대비해 sddefault도 시도 가능
-  return `https://i.ytimg.com/vi/${extractedVideoId}/maxresdefault.jpg`
+  // 일반 동영상의 경우 sddefault를 기본값으로 사용 (maxresdefault보다 안정적)
+  // maxresdefault는 모든 비디오에서 지원되지 않아 404 오류가 발생할 수 있음
+  return `https://i.ytimg.com/vi/${extractedVideoId}/sddefault.jpg`
 }
 
 /**
@@ -122,27 +130,45 @@ export const handleImageError = (event, videoId, isShorts = false) => {
   const img = event.target
   const currentSrc = img.src
   
-  // 무한 루프 방지: 이미 고화질 버전을 시도했으면 중단
-  if (currentSrc.includes('maxresdefault') || currentSrc.includes('sddefault')) {
-    // sddefault도 실패하면 hqdefault로 재시도
-    if (currentSrc.includes('sddefault') && !currentSrc.includes('hqdefault')) {
-      const hqUrl = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`
-      img.src = hqUrl
+  // 무한 루프 방지: 이미 여러 버전을 시도했으면 중단
+  if (currentSrc.includes('maxresdefault')) {
+    // maxresdefault 실패 시 sddefault로 폴백
+    if (!currentSrc.includes('sddefault')) {
+      img.src = `https://i.ytimg.com/vi/${videoId}/sddefault.jpg`
       return
     }
-    // hqdefault도 실패하면 0.jpg로 최종 폴백
+  }
+  
+  if (currentSrc.includes('sddefault')) {
+    // sddefault도 실패하면 hqdefault로 재시도
+    if (!currentSrc.includes('hqdefault')) {
+      img.src = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`
+      return
+    }
+  }
+  
+  if (currentSrc.includes('hqdefault')) {
+    // hqdefault도 실패하면 0.jpg로 최종 폴백 (항상 제공됨)
     if (!currentSrc.includes('/0.jpg')) {
       img.src = `https://i.ytimg.com/vi/${videoId}/0.jpg`
       return
     }
-    // 0.jpg도 실패하면 placeholder 표시
+  }
+  
+  // 0.jpg도 실패하면 placeholder 표시
+  if (currentSrc.includes('/0.jpg')) {
     img.style.display = 'none'
     return
   }
   
-  // 고화질 버전으로 재시도
+  // 기타 경우: 고화질 버전으로 재시도
   const highQualityUrl = getHighQualityThumbnail(currentSrc, videoId, isShorts)
-  img.src = highQualityUrl
+  if (highQualityUrl !== currentSrc) {
+    img.src = highQualityUrl
+  } else {
+    // 이미 최적화된 URL인데 실패한 경우 0.jpg로 폴백
+    img.src = `https://i.ytimg.com/vi/${videoId}/0.jpg`
+  }
 }
 
 /**
@@ -158,8 +184,19 @@ export const optimizeThumbnailUrl = (thumbnailUrl, videoId, isShorts = false) =>
     return thumbnailUrl || null
   }
   
-  // videoId가 있으면 항상 고화질 URL 생성 (원본 URL 무시)
-  // YouTube 썸네일 URL은 항상 videoId로 생성 가능
+  // 원본 thumbnailUrl이 유효한 YouTube URL인 경우 우선 사용
+  // 백엔드에서 제공한 URL을 신뢰하고, 필요할 때만 고화질 URL 생성
+  if (thumbnailUrl && (thumbnailUrl.includes('ytimg.com') || thumbnailUrl.includes('youtube.com'))) {
+    // 이미 고화질 URL이거나 유효한 URL이면 그대로 사용
+    if (thumbnailUrl.includes('maxresdefault') || 
+        thumbnailUrl.includes('sddefault') || 
+        thumbnailUrl.includes('hqdefault') ||
+        (!thumbnailUrl.includes('/default.jpg') && !thumbnailUrl.includes('/mqdefault.jpg'))) {
+      return thumbnailUrl
+    }
+  }
+  
+  // 원본 URL이 없거나 저화질인 경우에만 고화질 URL 생성
   return getHighQualityThumbnail(thumbnailUrl, videoId, isShorts)
 }
 

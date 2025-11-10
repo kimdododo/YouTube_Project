@@ -12,7 +12,6 @@ function Signup() {
     password: '',
     confirmPassword: ''
   })
-  const [rememberMe, setRememberMe] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -233,18 +232,6 @@ function Signup() {
               </div>
             </div>
 
-            {/* 옵션 행 */}
-            <div className="flex items-center">
-              <label className="flex items-center space-x-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-600 bg-gray-800/50 text-purple-600 focus:ring-purple-500"
-                />
-                <span className="text-white text-sm">로그인 유지</span>
-              </label>
-            </div>
 
             {/* 회원가입 버튼 */}
             <button
