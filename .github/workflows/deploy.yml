@@ -64,11 +64,16 @@ jobs:
         run: |
           echo "Starting Cloud Build..."
           
+          # SHORT_SHA 생성 (커밋 해시의 처음 7자리)
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          echo "Commit SHA: ${{ github.sha }}"
+          echo "Short SHA: $SHORT_SHA"
+          
           # Cloud Build 트리거 실행
           gcloud builds submit \
             --config=cloudbuild.yaml \
             --region=${{ env.REGION }} \
-            --substitutions=_SERVICE_NAME=${{ env.SERVICE_NAME }},_REGION=${{ env.REGION }} \
+            --substitutions=_SERVICE_NAME=${{ env.SERVICE_NAME }},_REGION=${{ env.REGION }},SHORT_SHA=$SHORT_SHA \
             --project=${{ env.PROJECT_ID }}
           
           echo "✅ Build completed successfully"
