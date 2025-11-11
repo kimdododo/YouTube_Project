@@ -6,13 +6,20 @@ import Logo from './Logo'
 function MyPage() {
   const navigate = useNavigate()
   const [isLoggedIn, setIsLoggedIn] = useState(false)
-  const [activeTab, setActiveTab] = useState('settings')
+  const [activeTab, setActiveTab] = useState('insight')
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-  const [userName, setUserName] = useState('김여행')
-  const [userEmail, setUserEmail] = useState('travel@example.com')
+  const [userName, setUserName] = useState(localStorage.getItem('userName') || '떡볶이')
+  const [userEmail, setUserEmail] = useState(localStorage.getItem('userEmail') || 'travel@example.com')
   const [editName, setEditName] = useState('김여행')
   const [editEmail, setEditEmail] = useState('travel@example.com')
   const [bookmarks, setBookmarks] = useState([])
+  const [preferenceScores, setPreferenceScores] = useState([
+    { key: '맛집탐방형', value: 83 },
+    { key: '도시탐험형', value: 52 },
+    { key: '문화체험형', value: 42 },
+    { key: '자연힐링형', value: 38 },
+    { key: '액티비티형', value: 28 }
+  ])
 
   // 로그인 상태 체크
   useEffect(() => {
@@ -39,6 +46,29 @@ function MyPage() {
         setBookmarks([])
       }
     }
+  }, [])
+
+  // 여행 키워드/취향 기반 점수 가공 (저장값 있으면 반영)
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('travelKeywords') || '[]')
+      if (Array.isArray(saved) && saved.length > 0) {
+        // 간단 가중치 매핑으로 예시 점수 생성
+        const base = {
+          '맛집탐방형': 30,
+          '도시탐험형': 20,
+          '문화체험형': 15,
+          '자연힐링형': 15,
+          '액티비티형': 10
+        }
+        const add = saved.length * 5
+        const computed = Object.entries(base).map(([k, v], idx) => ({
+          key: k,
+          value: Math.min(95, v + (idx === 0 ? add + 20 : add))
+        }))
+        setPreferenceScores(computed)
+      }
+    } catch (_) {}
   }, [])
 
   // 북마크 저장
@@ -391,9 +421,9 @@ function MyPage() {
         <div className="bg-[#0f1629]/60 backdrop-blur-lg border border-blue-900/40 rounded-xl p-1.5 mb-6">
           <div className="relative flex">
             {[
-              { id: 'saved', label: '저장된 계획', icon: Pin },
+              { id: 'insight', label: '취향 분석', icon: User },
+              { id: 'history', label: '시청 기록', icon: Pin },
               { id: 'bookmarks', label: '북마크', icon: Bookmark },
-              { id: 'activity', label: '최근 활동', icon: User },
               { id: 'settings', label: '설정', icon: Settings }
             ].map((tab, idx) => (
               <button
@@ -417,9 +447,9 @@ function MyPage() {
             <div
               className="absolute top-1.5 bottom-1.5 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg transition-all duration-300"
               style={{
-                left: activeTab === 'saved' ? '0.5rem' : 
-                      activeTab === 'bookmarks' ? 'calc(25% + 0.25rem)' :
-                      activeTab === 'activity' ? 'calc(50% + 0.25rem)' : 
+                left: activeTab === 'insight' ? '0.5rem' : 
+                      activeTab === 'history' ? 'calc(25% + 0.25rem)' :
+                      activeTab === 'bookmarks' ? 'calc(50% + 0.25rem)' : 
                       'calc(75% + 0.25rem)',
                 width: 'calc(25% - 0.5rem)'
               }}
@@ -428,7 +458,39 @@ function MyPage() {
         </div>
 
         {/* Content */}
-        {activeTab === 'saved' && (
+        {activeTab === 'insight' && (
+          <div className="space-y-6">
+            <h2 className="text-white font-extrabold" style={{ fontSize: '28px', lineHeight: '36px' }}>
+              나의 여행 취향 분석
+            </h2>
+
+            <div className="bg-[#0f1629]/60 backdrop-blur-lg border border-blue-900/40 rounded-2xl p-6">
+              <h3 className="text-white font-bold mb-2" style={{ fontSize: '18px', lineHeight: '26px' }}>
+                여행 성향
+              </h3>
+              <p className="text-white/70 mb-6" style={{ fontSize: '14px', lineHeight: '20px' }}>
+                혼자 여행하며 맛집을 찾는 “고도한 미식가”
+              </p>
+
+              <div className="space-y-4">
+                {preferenceScores.map(({ key, value }) => (
+                  <div key={key} className="flex items-center gap-4">
+                    <div className="w-28 text-white/90" style={{ fontSize: '14px' }}>{key}</div>
+                    <div className="flex-1 h-4 bg-[#0b1026] rounded-full border border-blue-900/40 overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-purple-600 to-blue-600"
+                        style={{ width: `${value}%` }}
+                      />
+                    </div>
+                    <div className="w-10 text-right text-white/80" style={{ fontSize: '14px' }}>{value}%</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'history' && (
           <div className="space-y-4">
             {savedPlans.map((plan) => (
               <div key={plan.id} className="bg-[#0f1629]/60 backdrop-blur-lg border border-blue-900/40 rounded-xl p-5 flex items-center gap-4">

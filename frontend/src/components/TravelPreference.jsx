@@ -38,8 +38,8 @@ function TravelPreference() {
     }
     // 선택된 취향 저장
     localStorage.setItem('travelPreferences', JSON.stringify(selectedPreferences))
-    // 다음 단계로 이동 (2 추천 채널)
-    navigate('/recommend-channels')
+    // 다음 단계로 이동 (2 키워드 선택)
+    navigate('/travel-keywords')
   }
 
   const handlePrevious = () => {
@@ -128,7 +128,7 @@ function TravelPreference() {
             <div className="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center">
               <span className="text-gray-400 font-bold">2</span>
             </div>
-            <span className="ml-2 text-gray-400 text-sm">추천 채널</span>
+            <span className="ml-2 text-gray-400 text-sm">키워드 선택</span>
           </div>
           
           {/* 구분선 */}

@@ -5,7 +5,7 @@ import TravelTrends from './components/TravelTrends'
 import Login from './components/Login'
 import Signup from './components/Signup'
 import TravelPreference from './components/TravelPreference'
-import RecommendChannels from './components/RecommendChannels'
+import KeywordSelection from './components/KeywordSelection'
 import SignupComplete from './components/SignupComplete'
 import FindChannel from './components/FindChannel'
 import MyPage from './components/MyPage'
@@ -28,7 +28,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/travel-preference" element={<TravelPreference />} />
-        <Route path="/recommend-channels" element={<RecommendChannels />} />
+        <Route path="/travel-keywords" element={<KeywordSelection />} />
         <Route path="/signup-complete" element={<SignupComplete />} />
         <Route path="/find-channel" element={<FindChannel />} />
         <Route path="/mypage" element={<MyPage />} />
