@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
 from app.models.user_travel_preference import UserTravelPreference
+from app.models.user_travel_keyword import UserTravelKeyword
 from typing import List
 
 
@@ -66,6 +67,67 @@ def delete_user_preferences(db: Session, user_id: int) -> bool:
         UserTravelPreference.user_id == user_id
     ).delete()
     
+    db.commit()
+    return deleted > 0
+
+
+def save_user_keywords(db: Session, user_id: int, keywords: List[str]) -> List[UserTravelKeyword]:
+    """
+    사용자 여행 키워드 저장 (기존 키워드 삭제 후 새로 저장)
+    """
+    try:
+        normalized_keywords = []
+        for keyword in keywords:
+            if not keyword:
+                continue
+            normalized_keywords.append(keyword.strip())
+
+        # 기존 키워드 삭제
+        db.query(UserTravelKeyword).filter(
+            UserTravelKeyword.user_id == user_id
+        ).delete()
+
+        saved = []
+        for key in normalized_keywords:
+            if not key:
+                continue
+            keyword = UserTravelKeyword(
+                user_id=user_id,
+                keyword=key
+            )
+            db.add(keyword)
+            saved.append(keyword)
+
+        db.commit()
+
+        for kw in saved:
+            db.refresh(kw)
+
+        return saved
+    except Exception as e:
+        db.rollback()
+        print(f"[ERROR] Failed to save user keywords: {e}")
+        raise
+
+
+def get_user_keywords(db: Session, user_id: int) -> List[str]:
+    """
+    사용자 여행 키워드 조회
+    """
+    try:
+        keywords = db.query(UserTravelKeyword).filter(
+            UserTravelKeyword.user_id == user_id
+        ).order_by(UserTravelKeyword.keyword).all()
+        return [kw.keyword for kw in keywords]
+    except Exception as e:
+        print(f"[WARN] Failed to get user keywords (table may not exist): {e}")
+        return []
+
+
+def delete_user_keywords(db: Session, user_id: int) -> bool:
+    deleted = db.query(UserTravelKeyword).filter(
+        UserTravelKeyword.user_id == user_id
+    ).delete()
     db.commit()
     return deleted > 0
 

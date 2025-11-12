@@ -16,3 +16,11 @@ class UserOut(BaseModel):
         from_attributes = True
 
 
+class PasswordChangeRequest(BaseModel):
+    current_password: str = Field(..., min_length=6, max_length=72, description="현재 비밀번호")
+    new_password: str = Field(
+        ...,
+        min_length=10,
+        max_length=72,
+        description="새 비밀번호 (영문, 숫자, 특수문자 중 2종류 이상 조합, 최소 10자)"
+    )

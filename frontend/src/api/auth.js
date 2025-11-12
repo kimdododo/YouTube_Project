@@ -120,3 +120,80 @@ export const getToken = () => {
   return localStorage.getItem('access_token')
 }
 
+const authHeaders = () => {
+  const token = getToken()
+  if (!token) {
+    throw new Error('로그인이 필요합니다.')
+  }
+  return {
+    Authorization: `Bearer ${token}`
+  }
+}
+
+export const changePassword = async (currentPassword, newPassword) => {
+  const headers = {
+    'Content-Type': 'application/json',
+    ...authHeaders()
+  }
+
+  const response = await fetch(`${API_BASE_URL}/auth/change-password`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      current_password: currentPassword,
+      new_password: newPassword
+    })
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ detail: response.statusText }))
+    throw new Error(errorData.detail || '비밀번호 변경에 실패했습니다.')
+  }
+
+  const result = await response.json()
+  return result.data || result
+}
+
+export const saveTravelPreferences = async (preferenceIds = [], keywords = []) => {
+  const headers = {
+    'Content-Type': 'application/json',
+    ...authHeaders()
+  }
+
+  const response = await fetch(`${API_BASE_URL}/auth/preferences`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      preference_ids: preferenceIds,
+      keywords
+    })
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ detail: response.statusText }))
+    throw new Error(errorData.detail || '여행 취향을 저장하지 못했습니다.')
+  }
+
+  const result = await response.json()
+  return result.data || result
+}
+
+export const fetchTravelPreferences = async () => {
+  const headers = {
+    ...authHeaders()
+  }
+
+  const response = await fetch(`${API_BASE_URL}/auth/preferences`, {
+    method: 'GET',
+    headers
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ detail: response.statusText }))
+    throw new Error(errorData.detail || '여행 취향을 불러오지 못했습니다.')
+  }
+
+  const result = await response.json()
+  return result.data || result
+}
+

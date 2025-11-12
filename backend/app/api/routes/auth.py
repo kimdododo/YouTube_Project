@@ -5,12 +5,21 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from app.core.auth import create_access_token, get_current_user_id
 from app.core.responses import ok
 from app.core.database import get_db
-from app.schemas.user import UserCreate, UserOut
+from app.schemas.user import UserCreate, UserOut, PasswordChangeRequest
 from app.schemas.user_preference import TravelPreferenceCreate, TravelPreferenceResponse
-from app.crud.user import create_user, authenticate, get_by_username_or_email
-from app.crud.user_preference import save_user_preferences, get_user_preferences, delete_user_preferences
+from app.crud.user import create_user, authenticate, get_by_username_or_email, get_by_id, update_password
+from app.crud.user_preference import (
+    save_user_preferences,
+    get_user_preferences,
+    delete_user_preferences,
+    save_user_keywords,
+    get_user_keywords,
+    delete_user_keywords,
+)
+from app.core.security import verify_password
 from app.models.login_history import LoginHistory
 import traceback
+import re
 
 router = APIRouter(tags=["auth"])
 
@@ -156,14 +165,30 @@ def save_preferences(
     try:
         current_user_id = int(current_user_id_str)
         # 취향 저장
+        keywords = payload.keywords or []
+        unique_keywords: list[str] = []
+        for key in keywords:
+            if not key:
+                continue
+            normalized = key.strip()
+            if not normalized:
+                continue
+            if normalized in unique_keywords:
+                continue
+            unique_keywords.append(normalized)
+            if len(unique_keywords) >= 5:
+                break
+
         save_user_preferences(db, current_user_id, payload.preference_ids)
+        save_user_keywords(db, current_user_id, unique_keywords)
         
-        # 저장된 취향 반환
         saved_preferences = get_user_preferences(db, current_user_id)
+        saved_keywords = get_user_keywords(db, current_user_id)
         
         return TravelPreferenceResponse(
             user_id=current_user_id,
-            preference_ids=saved_preferences
+            preference_ids=saved_preferences,
+            keywords=saved_keywords
         )
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid user ID")
@@ -184,9 +209,11 @@ def get_preferences(
     try:
         current_user_id = int(current_user_id_str)
         preferences = get_user_preferences(db, current_user_id)
+        keywords = get_user_keywords(db, current_user_id)
         return TravelPreferenceResponse(
             user_id=current_user_id,
-            preference_ids=preferences
+            preference_ids=preferences,
+            keywords=keywords
         )
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid user ID")
@@ -205,12 +232,61 @@ def delete_preferences(
     """
     try:
         current_user_id = int(current_user_id_str)
-        deleted = delete_user_preferences(db, current_user_id)
-        return ok({"deleted": deleted > 0}).model_dump()
+        deleted_prefs = delete_user_preferences(db, current_user_id)
+        deleted_keywords = delete_user_keywords(db, current_user_id)
+        return ok({"deleted": deleted_prefs or deleted_keywords}).model_dump()
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid user ID")
     except Exception as e:
         print(f"[ERROR] Error deleting preferences: {str(e)}")
         raise HTTPException(status_code=500, detail=f"취향 삭제 중 오류가 발생했습니다: {str(e)}")
+
+
+def _validate_new_password(password: str):
+    if len(password) < 10:
+        raise HTTPException(status_code=400, detail="비밀번호는 10자 이상이어야 합니다.")
+    categories = 0
+    if any(c.isalpha() for c in password):
+        categories += 1
+    if any(c.isdigit() for c in password):
+        categories += 1
+    if any(not c.isalnum() for c in password):
+        categories += 1
+    if categories < 2:
+        raise HTTPException(
+            status_code=400,
+            detail="비밀번호는 영문, 숫자, 특수문자 중 2종류 이상을 포함해야 합니다."
+        )
+
+
+@router.post("/change-password")
+def change_password(
+    payload: PasswordChangeRequest,
+    current_user_id_str: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    try:
+        current_user_id = int(current_user_id_str)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid user ID")
+
+    user = get_by_id(db, current_user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
+
+    if not verify_password(payload.current_password, user.password_hash):
+        raise HTTPException(status_code=400, detail="현재 비밀번호가 일치하지 않습니다.")
+
+    if verify_password(payload.new_password, user.password_hash):
+        raise HTTPException(status_code=400, detail="새 비밀번호가 기존 비밀번호와 동일합니다.")
+
+    _validate_new_password(payload.new_password)
+
+    try:
+        update_password(db, current_user_id, payload.new_password)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"비밀번호 변경 중 오류가 발생했습니다: {str(e)}")
+
+    return ok({"message": "비밀번호가 변경되었습니다. 다시 로그인해주세요."}).model_dump()
 
 

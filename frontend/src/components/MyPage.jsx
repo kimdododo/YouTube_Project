@@ -1,7 +1,40 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { User, MapPin, Calendar, CreditCard, Plane, Globe, Settings, Camera, Edit3, Pin, Bell, Lock, X, LogOut, Bookmark } from 'lucide-react'
+import { User, Settings, Camera, Edit3, X, LogOut, Bookmark, Bell, Lock, Eye, EyeOff } from 'lucide-react'
 import Logo from './Logo'
+import { getRecommendedVideos } from '../api/videos'
+import { changePassword, saveTravelPreferences, fetchTravelPreferences, getToken, logout as clearAuth } from '../api/auth'
+
+const DEFAULT_PREFERENCE_SUMMARY = '도시탐험형, 맛집탐방형, 자연힐링형'
+const DEFAULT_KEYWORD_SUMMARY = '#카페투어, #혼자여행, #호캉스, #자유여행'
+
+const TRAVEL_PREFERENCE_LABELS = {
+  1: '자연힐링형',
+  2: '도시탐험형',
+  3: '액티비티형',
+  4: '문화체험형',
+  5: '럭셔리휴양형',
+  6: '맛집탐방형',
+  7: '로맨틱감성형',
+  8: '사진명소형',
+  9: '자기계발형',
+  10: '가족친구형',
+  11: '에코지속가능형'
+}
+
+const TRAVEL_KEYWORD_LABELS = {
+  solo: '혼자여행',
+  budget: '가성비여행',
+  vlog: '브이로그',
+  aesthetic: '감성여행',
+  domestic: '국내여행',
+  global: '해외여행',
+  oneday: '당일치기',
+  food: '맛집투어',
+  stay: '숙소리뷰',
+  camping: '캠핑',
+  cafe: '카페투어'
+}
 
 function MyPage() {
   const navigate = useNavigate()
@@ -10,8 +43,8 @@ function MyPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [userName, setUserName] = useState(localStorage.getItem('userName') || '떡볶이')
   const [userEmail, setUserEmail] = useState(localStorage.getItem('userEmail') || 'travel@example.com')
-  const [editName, setEditName] = useState('김여행')
-  const [editEmail, setEditEmail] = useState('travel@example.com')
+  const [editName, setEditName] = useState(userName)
+  const [editEmail, setEditEmail] = useState(userEmail)
   const [bookmarks, setBookmarks] = useState([])
   const [preferenceScores, setPreferenceScores] = useState([
     { key: '맛집탐방형', value: 83 },
@@ -20,6 +53,162 @@ function MyPage() {
     { key: '자연힐링형', value: 38 },
     { key: '액티비티형', value: 28 }
   ])
+  const [watchHistory, setWatchHistory] = useState([])
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false)
+  const [historyError, setHistoryError] = useState('')
+  const [travelPreferenceSummary, setTravelPreferenceSummary] = useState(DEFAULT_PREFERENCE_SUMMARY)
+  const [travelKeywordSummary, setTravelKeywordSummary] = useState(DEFAULT_KEYWORD_SUMMARY)
+  const [selectedPreferences, setSelectedPreferences] = useState([])
+  const [selectedKeywords, setSelectedKeywords] = useState([])
+  const [preferenceDraft, setPreferenceDraft] = useState([])
+  const [keywordDraft, setKeywordDraft] = useState([])
+  const [preferenceModalError, setPreferenceModalError] = useState('')
+  const [keywordModalError, setKeywordModalError] = useState('')
+  const [isPreferenceModalOpen, setIsPreferenceModalOpen] = useState(false)
+  const [isKeywordModalOpen, setIsKeywordModalOpen] = useState(false)
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false)
+  const [isPasswordSuccessModalOpen, setIsPasswordSuccessModalOpen] = useState(false)
+  const [isSavingPreferences, setIsSavingPreferences] = useState(false)
+  const [isSavingPassword, setIsSavingPassword] = useState(false)
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+    showCurrent: false,
+    showNew: false,
+    showConfirm: false,
+    error: ''
+  })
+
+  const keywordCloud = useMemo(() => ([
+    { text: '카페투어', size: 44, color: '#F9FAFB' },
+    { text: '미슐랭', size: 24, color: '#A5B4FC' },
+    { text: '포토존', size: 22, color: '#E0E7FF' },
+    { text: '한식', size: 26, color: '#FBBF24' },
+    { text: '숨은식당', size: 20, color: '#38BDF8' },
+    { text: '신메뉴', size: 18, color: '#FCA5A5' },
+    { text: '디저트', size: 21, color: '#F9A8D4' },
+    { text: '브런치', size: 20, color: '#FCD34D' },
+    { text: '로컬맛집', size: 24, color: '#BFDBFE' },
+    { text: '전시', size: 18, color: '#C4B5FD' },
+    { text: '캠핑', size: 16, color: '#38BDF8' },
+    { text: '거리', size: 18, color: '#FCA5A5' },
+    { text: '이국적', size: 20, color: '#FDBA74' },
+    { text: '사진스팟', size: 20, color: '#F87171' },
+    { text: '한입', size: 17, color: '#FDE68A' },
+    { text: '로컬', size: 18, color: '#60A5FA' },
+    { text: '자연', size: 17, color: '#67E8F9' },
+    { text: '트렌디', size: 19, color: '#FB7185' },
+    { text: '감성', size: 16, color: '#F5D0FE' },
+    { text: '거닐기', size: 16, color: '#F9A8D4' },
+    { text: '브이로그', size: 18, color: '#FACC15' },
+    { text: '건축', size: 16, color: '#93C5FD' },
+    { text: '로컬', size: 15, color: '#FBBF24' }
+  ]), [])
+  const preferenceOptions = useMemo(
+    () => Object.entries(TRAVEL_PREFERENCE_LABELS).map(([id, label]) => ({ id: Number(id), label })),
+    []
+  )
+  const keywordOptions = useMemo(
+    () => Object.entries(TRAVEL_KEYWORD_LABELS).map(([id, label]) => ({ id, label })),
+    []
+  )
+  const passwordFieldConfig = useMemo(
+    () => [
+      { id: 'currentPassword', label: '기존 비밀번호', toggle: 'showCurrent', autoComplete: 'current-password' },
+      { id: 'newPassword', label: '새 비밀번호', toggle: 'showNew', autoComplete: 'new-password' },
+      { id: 'confirmPassword', label: '새 비밀번호 재입력', toggle: 'showConfirm', autoComplete: 'new-password' }
+    ],
+    []
+  )
+  const contentPreferenceData = useMemo(() => ([
+    { label: '여행브이로그', value: 35, color: '#FACC15' },
+    { label: '맛집리뷰', value: 25, color: '#F87171' },
+    { label: '액티비티 체험', value: 18, color: '#38BDF8' },
+    { label: '문화 탐험', value: 12, color: '#4ADE80' },
+    { label: '호캉스', value: 10, color: '#A855F7' }
+  ]), [])
+  const pieSegments = useMemo(() => {
+    let offset = 25
+    return contentPreferenceData.map((item) => {
+      const segment = {
+        ...item,
+        dashArray: `${item.value} ${100 - item.value}`,
+        dashOffset: offset
+      }
+      offset -= item.value
+      return segment
+    })
+  }, [contentPreferenceData])
+
+  const computePreferenceScores = (preferenceIds = []) => {
+    const base = {
+      '맛집탐방형': 30,
+      '도시탐험형': 20,
+      '문화체험형': 15,
+      '자연힐링형': 15,
+      '액티비티형': 10
+    }
+    const bonus = (preferenceIds?.length || 0) * 5
+    return Object.entries(base).map(([key, baseValue], idx) => ({
+      key,
+      value: Math.min(95, baseValue + (idx === 0 ? bonus + 20 : bonus))
+    }))
+  }
+
+  const formatPreferenceSummary = (preferenceIds = []) => {
+    if (!preferenceIds || preferenceIds.length === 0) {
+      return DEFAULT_PREFERENCE_SUMMARY
+    }
+    const names = preferenceIds
+      .map((id) => TRAVEL_PREFERENCE_LABELS[id])
+      .filter(Boolean)
+    if (!names.length) {
+      return DEFAULT_PREFERENCE_SUMMARY
+    }
+    return names.join(', ')
+  }
+
+  const formatKeywordSummary = (keywords = []) => {
+    if (!keywords || keywords.length === 0) {
+      return DEFAULT_KEYWORD_SUMMARY
+    }
+    const names = keywords
+      .map((key) => TRAVEL_KEYWORD_LABELS[key] || key)
+      .filter(Boolean)
+    if (!names.length) {
+      return DEFAULT_KEYWORD_SUMMARY
+    }
+    return names
+      .map((name) => (name.startsWith('#') ? name : `#${name}`))
+      .join(', ')
+  }
+
+  const applyPreferenceState = (preferencesList = [], keywordsList = []) => {
+    const normalizedPreferences = Array.from(
+      new Set(
+        (preferencesList || [])
+          .map((id) => Number(id))
+          .filter((id) => Number.isInteger(id) && id >= 1 && id <= 11)
+      )
+    )
+    const normalizedKeywords = Array.from(
+      new Set(
+        (keywordsList || [])
+          .map((key) => (key || '').toString().trim())
+          .filter(Boolean)
+      )
+    ).slice(0, 5)
+
+    setPreferenceScores(computePreferenceScores(normalizedPreferences))
+    setTravelPreferenceSummary(formatPreferenceSummary(normalizedPreferences))
+    setTravelKeywordSummary(formatKeywordSummary(normalizedKeywords))
+    setSelectedPreferences(normalizedPreferences)
+    setSelectedKeywords(normalizedKeywords)
+
+    localStorage.setItem('travelPreferences', JSON.stringify(normalizedPreferences))
+    localStorage.setItem('travelKeywords', JSON.stringify(normalizedKeywords))
+  }
 
   // 로그인 상태 체크
   useEffect(() => {
@@ -35,6 +224,25 @@ function MyPage() {
     }
   }, [])
 
+  useEffect(() => {
+    const loadHistory = async () => {
+      setIsLoadingHistory(true)
+      setHistoryError('')
+      try {
+        const videos = await getRecommendedVideos(null, false, 6)
+        setWatchHistory(videos)
+      } catch (error) {
+        console.error('[MyPage] Failed to load watch history:', error)
+        setHistoryError(error?.message || '시청 기록을 가져오지 못했습니다.')
+      } finally {
+        setIsLoadingHistory(false)
+      }
+    }
+    if (activeTab === 'history' && watchHistory.length === 0 && !isLoadingHistory) {
+      loadHistory()
+    }
+  }, [activeTab, isLoadingHistory, watchHistory.length])
+
   // 북마크 데이터 로드
   useEffect(() => {
     const savedBookmarks = localStorage.getItem('bookmarks')
@@ -48,73 +256,51 @@ function MyPage() {
     }
   }, [])
 
-  // 여행 키워드/취향 기반 점수 가공 (저장값 있으면 반영)
   useEffect(() => {
     try {
-      const saved = JSON.parse(localStorage.getItem('travelKeywords') || '[]')
-      if (Array.isArray(saved) && saved.length > 0) {
-        // 간단 가중치 매핑으로 예시 점수 생성
-        const base = {
-          '맛집탐방형': 30,
-          '도시탐험형': 20,
-          '문화체험형': 15,
-          '자연힐링형': 15,
-          '액티비티형': 10
-        }
-        const add = saved.length * 5
-        const computed = Object.entries(base).map(([k, v], idx) => ({
-          key: k,
-          value: Math.min(95, v + (idx === 0 ? add + 20 : add))
-        }))
-        setPreferenceScores(computed)
+      const storedPrefs = JSON.parse(localStorage.getItem('travelPreferences') || '[]')
+      const storedKeywords = JSON.parse(localStorage.getItem('travelKeywords') || '[]')
+      if ((storedPrefs && storedPrefs.length) || (storedKeywords && storedKeywords.length)) {
+        applyPreferenceState(storedPrefs, storedKeywords)
+      } else {
+        applyPreferenceState([], [])
       }
-    } catch (_) {}
+    } catch {
+      applyPreferenceState([], [])
+    }
+  }, [])
+
+  useEffect(() => {
+    const token = getToken()
+    if (!token) {
+      return
+    }
+    const loadPreferences = async () => {
+      try {
+        const result = await fetchTravelPreferences()
+        const preferences = result.preference_ids || result.preferences || []
+        const keywords = result.keywords || []
+        applyPreferenceState(preferences, keywords)
+      } catch (error) {
+        console.error('[MyPage] Failed to load travel preferences:', error)
+      }
+    }
+    loadPreferences()
   }, [])
 
   // 북마크 저장
   useEffect(() => {
-    if (bookmarks.length > 0 || localStorage.getItem('bookmarks')) {
-      localStorage.setItem('bookmarks', JSON.stringify(bookmarks))
-    }
+    localStorage.setItem('bookmarks', JSON.stringify(bookmarks))
   }, [bookmarks])
-
-  // 사용자 데이터
-  const userData = {
-    stats: {
-      totalTrips: 12,
-      countriesVisited: 8,
-      totalExpenses: 15000000,
-      nextTrip: '2025.12.15'
-    }
+  const handleToggleBookmark = (video) => {
+    setBookmarks((prev) => {
+      const exists = prev.some((item) => (item.id || item.video_id) === (video.id || video.video_id))
+      if (exists) {
+        return prev.filter((item) => (item.id || item.video_id) !== (video.id || video.video_id))
+      }
+      return [...prev, video]
+    })
   }
-
-  // 여행 계획 기능 제거됨
-  const savedPlans = [
-    {
-      id: 1,
-      location: '제주도',
-      dates: '2025.12.01 - 12.05',
-      budget: 800000,
-      status: '예정',
-      statusColor: 'bg-yellow-500'
-    },
-    {
-      id: 2,
-      location: '교토',
-      dates: '2026.03.10 - 03.15',
-      budget: 1500000,
-      status: '계획중',
-      statusColor: 'bg-purple-500'
-    },
-    {
-      id: 3,
-      location: '파리',
-      dates: '2026.05.20 - 05.27',
-      budget: 2500000,
-      status: '계획중',
-      statusColor: 'bg-purple-500'
-    }
-  ]
 
   const handleEditClick = () => {
     setEditName(userName)
@@ -125,6 +311,8 @@ function MyPage() {
   const handleSave = () => {
     setUserName(editName)
     setUserEmail(editEmail)
+    localStorage.setItem('userName', editName)
+    localStorage.setItem('userEmail', editEmail)
     setIsEditModalOpen(false)
   }
 
@@ -132,22 +320,277 @@ function MyPage() {
     setIsEditModalOpen(false)
   }
 
-  const handleLogout = () => {
-    // sessionStorage와 localStorage에서 로그인 관련 데이터 제거
+  const handleLogout = (redirectPath = '/') => {
+    clearAuth()
     sessionStorage.removeItem('isLoggedIn')
     sessionStorage.removeItem('userName')
-    localStorage.removeItem('isLoggedIn')
     localStorage.removeItem('hasAccount')
     localStorage.removeItem('userName')
     localStorage.removeItem('travelPreferences')
+    localStorage.removeItem('travelKeywords')
     localStorage.removeItem('subscribedChannels')
-    
-    // 로그인 상태 업데이트
     setIsLoggedIn(false)
-    
-    // 홈으로 이동
-    navigate('/')
+    navigate(redirectPath)
   }
+
+  const openPasswordModal = () => {
+    setPasswordForm({
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: '',
+      showCurrent: false,
+      showNew: false,
+      showConfirm: false,
+      error: ''
+    })
+    setIsPasswordModalOpen(true)
+  }
+
+  const closePasswordModal = () => {
+    setIsPasswordModalOpen(false)
+    setPasswordForm({
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: '',
+      showCurrent: false,
+      showNew: false,
+      showConfirm: false,
+      error: ''
+    })
+  }
+
+  const handlePasswordInputChange = (field, value) => {
+    setPasswordForm((prev) => ({
+      ...prev,
+      [field]: value,
+      error: ''
+    }))
+  }
+
+  const togglePasswordVisibility = (field) => {
+    setPasswordForm((prev) => ({
+      ...prev,
+      [field]: !prev[field]
+    }))
+  }
+
+  const submitPasswordChange = async (event) => {
+    event.preventDefault()
+    if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+      setPasswordForm((prev) => ({ ...prev, error: '모든 비밀번호를 입력해주세요.' }))
+      return
+    }
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPasswordForm((prev) => ({ ...prev, error: '새 비밀번호가 일치하지 않습니다.' }))
+      return
+    }
+    setIsSavingPassword(true)
+    try {
+      await changePassword(passwordForm.currentPassword, passwordForm.newPassword)
+      setIsPasswordModalOpen(false)
+      setIsPasswordSuccessModalOpen(true)
+    } catch (error) {
+      setPasswordForm((prev) => ({ ...prev, error: error?.message || '비밀번호 변경에 실패했습니다.' }))
+    } finally {
+      setIsSavingPassword(false)
+    }
+  }
+
+  const handlePasswordSuccessConfirm = () => {
+    setIsPasswordSuccessModalOpen(false)
+    handleLogout('/login')
+  }
+
+  const openPreferenceModal = () => {
+    setPreferenceDraft(selectedPreferences)
+    setPreferenceModalError('')
+    setIsPreferenceModalOpen(true)
+  }
+
+  const closePreferenceModal = () => {
+    setIsPreferenceModalOpen(false)
+    setPreferenceModalError('')
+  }
+
+  const openKeywordModal = () => {
+    setKeywordDraft(selectedKeywords)
+    setKeywordModalError('')
+    setIsKeywordModalOpen(true)
+  }
+
+  const closeKeywordModal = () => {
+    setIsKeywordModalOpen(false)
+    setKeywordModalError('')
+  }
+
+  const togglePreferenceSelection = (id) => {
+    setPreferenceDraft((prev) => {
+      if (prev.includes(id)) {
+        const next = prev.filter((pref) => pref !== id)
+        setPreferenceModalError('')
+        return next
+      }
+      if (prev.length >= 5) {
+        setPreferenceModalError('여행 성향은 최대 5개까지 선택할 수 있습니다.')
+        return prev
+      }
+      setPreferenceModalError('')
+      return [...prev, id]
+    })
+  }
+
+  const toggleKeywordSelection = (key) => {
+    setKeywordDraft((prev) => {
+      if (prev.includes(key)) {
+        const next = prev.filter((item) => item !== key)
+        setKeywordModalError('')
+        return next
+      }
+      if (prev.length >= 5) {
+        setKeywordModalError('키워드는 최대 5개까지 선택할 수 있습니다.')
+        return prev
+      }
+      setKeywordModalError('')
+      return [...prev, key]
+    })
+  }
+
+  const persistPreferences = async (preferences, keywords, onClose, setError) => {
+    setIsSavingPreferences(true)
+    setError('')
+    try {
+      const result = await saveTravelPreferences(preferences, keywords)
+      const updatedPreferences = result.preference_ids || preferences
+      const updatedKeywords = result.keywords || keywords
+      applyPreferenceState(updatedPreferences, updatedKeywords)
+      onClose()
+    } catch (error) {
+      console.error('[MyPage] Failed to save preferences:', error)
+      setError(error?.message || '변경에 실패했습니다.')
+    } finally {
+      setIsSavingPreferences(false)
+    }
+  }
+
+  const submitPreferenceChanges = async () => {
+    if (!preferenceDraft.length) {
+      setPreferenceModalError('최소 한 개의 여행 성향을 선택해주세요.')
+      return
+    }
+    await persistPreferences(
+      preferenceDraft,
+      selectedKeywords,
+      closePreferenceModal,
+      setPreferenceModalError
+    )
+  }
+
+  const submitKeywordChanges = async () => {
+    if (!keywordDraft.length) {
+      setKeywordModalError('최소 한 개의 키워드를 선택해주세요.')
+      return
+    }
+    await persistPreferences(
+      selectedPreferences,
+      keywordDraft,
+      closeKeywordModal,
+      setKeywordModalError
+    )
+  }
+
+  const settingsCards = [
+    {
+      id: 'profile',
+      icon: <Settings className="w-5 h-5 text-white" />,
+      title: '내 설정',
+      items: [
+        {
+          label: '이메일',
+          value: userEmail
+        },
+        {
+          label: '비밀번호 변경',
+          action: (
+            <button onClick={openPasswordModal} className="text-blue-300 hover:text-blue-200 text-sm">
+              변경하기
+            </button>
+          )
+        }
+      ]
+    },
+    {
+      id: 'interest',
+      icon: <User className="w-5 h-5 text-white" />,
+      title: '관심사 설정',
+      items: [
+        {
+          label: '여행 성향 변경',
+          value: travelPreferenceSummary,
+          action: (
+            <button onClick={openPreferenceModal} className="text-blue-300 hover:text-blue-200 text-sm">
+              변경하기
+            </button>
+          )
+        },
+        {
+          label: '키워드 변경',
+          value: travelKeywordSummary,
+          action: (
+            <button onClick={openKeywordModal} className="text-blue-300 hover:text-blue-200 text-sm">
+              변경하기
+            </button>
+          )
+        },
+        {
+          label: '관심 국가',
+          value: '오스트레일리아, 국내, 핀란드'
+        }
+      ]
+    },
+    {
+      id: 'notification',
+      icon: <Bell className="w-5 h-5 text-white" />,
+      title: '알림 설정',
+      items: [
+        {
+          label: '푸시 알림',
+          value: '새로운 추천 여행 알림 받기',
+          toggle: { defaultChecked: true }
+        },
+        {
+          label: '이메일 업데이트',
+          value: '여행 트렌드 및 소식 받기',
+          toggle: { defaultChecked: false }
+        }
+      ]
+    },
+    {
+      id: 'account',
+      icon: <Lock className="w-5 h-5 text-white" />,
+      title: '계정 관리',
+      items: [
+        {
+          label: '로그아웃',
+          action: (
+            <button
+              onClick={() => handleLogout()}
+              className="text-red-400 hover:text-red-300 text-sm font-semibold"
+            >
+              로그아웃
+            </button>
+          )
+        },
+        {
+          label: '탈퇴하기',
+          action: (
+            <button className="text-white/50 hover:text-white/80 text-sm">
+              탈퇴하기
+            </button>
+          )
+        }
+      ]
+    }
+  ]
 
   return (
     <div className="min-h-screen relative overflow-hidden" style={{
@@ -271,147 +714,62 @@ function MyPage() {
         paddingBottom: '64px'
       }}>
         {/* User Profile Card */}
-        <div className="bg-[#0f1629]/60 backdrop-blur-lg border border-blue-900/40 rounded-2xl p-6 mb-6">
-          <div className="flex items-start justify-between">
-            {/* Left: Profile Info */}
-            <div className="flex items-start gap-4">
-              {/* Profile Picture */}
+        <div
+          className="relative rounded-3xl mb-6"
+          style={{
+            background: 'linear-gradient(135deg, #1F2D7A, #111845)',
+            padding: '3px'
+          }}
+        >
+          <div
+            className="rounded-3xl bg-[#050b24] flex items-center justify-between px-8 py-6"
+            style={{
+              minHeight: '140px'
+            }}
+          >
+            <div className="flex items-center gap-6">
               <div className="relative">
-                <div className="w-24 h-24 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center" style={{
-                  background: 'linear-gradient(135deg, #9333EA 0%, #3B82F6 100%)'
-                }}>
-                  <span className="text-white font-bold" style={{
-                    fontSize: '32px',
-                    lineHeight: '40px',
-                    fontFamily: 'Arial, sans-serif'
-                  }}>
-                    {userName.charAt(0)}
-                  </span>
+                <div
+                  className="w-24 h-24 rounded-full flex items-center justify-center text-white font-bold"
+                  style={{
+                    background: 'linear-gradient(135deg, #9333EA 0%, #3B82F6 100%)',
+                    fontSize: '32px'
+                  }}
+                >
+                  {userName.charAt(0)}
                 </div>
-                {/* Camera Icon */}
-                <div className="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-yellow-400 flex items-center justify-center border-2 border-[#0f1629] cursor-pointer">
-                  <Camera className="w-3.5 h-3.5 text-white" />
+                <div className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-yellow-400 flex items-center justify-center border-2 border-[#050b24] cursor-pointer shadow-lg">
+                  <Camera className="w-4 h-4 text-white" />
                 </div>
               </div>
-              
-              {/* Name and Email */}
               <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <h2 className="text-white font-bold" style={{
-                    fontSize: '24px',
-                    lineHeight: '32px',
-                    fontFamily: 'Arial, sans-serif'
-                  }}>
+                <div className="flex items-center gap-3 mb-2">
+                  <h2
+                    className="text-white font-bold"
+                    style={{
+                      fontSize: '28px',
+                      lineHeight: '36px'
+                    }}
+                  >
                     {userName}
                   </h2>
-                  <button 
+                  <button
                     onClick={handleEditClick}
-                    className="flex items-center gap-1 text-gray-400 hover:text-gray-300 transition-colors"
+                    className="flex items-center gap-1 text-gray-400 hover:text-gray-200 transition-colors"
                   >
                     <Edit3 className="w-4 h-4" />
-                    <span className="text-sm" style={{
-                      fontSize: '14px',
-                      lineHeight: '20px',
-                      fontFamily: 'Arial, sans-serif'
-                    }}>
-                      프로필 수정
-                    </span>
+                    <span className="text-sm">프로필 수정</span>
                   </button>
                 </div>
-                <p className="text-gray-400" style={{
-                  fontSize: '14px',
-                  lineHeight: '20px',
-                  fontFamily: 'Arial, sans-serif'
-                }}>
+                <p
+                  className="text-blue-200"
+                  style={{
+                    fontSize: '16px',
+                    lineHeight: '24px'
+                  }}
+                >
                   {userEmail}
                 </p>
-              </div>
-            </div>
-
-            {/* Right: Statistics */}
-            <div className="grid grid-cols-4 gap-6">
-              {/* Total Trips */}
-              <div className="flex flex-col items-start">
-                <div className="flex items-center gap-2 mb-2">
-                  <Plane className="w-5 h-5 text-white" />
-                  <span className="text-white" style={{
-                    fontSize: '14px',
-                    lineHeight: '20px',
-                    fontFamily: 'Arial, sans-serif'
-                  }}>
-                    총 여행
-                  </span>
-                </div>
-                <span className="text-white font-bold" style={{
-                  fontSize: '20px',
-                  lineHeight: '28px',
-                  fontFamily: 'Arial, sans-serif'
-                }}>
-                  {userData.stats.totalTrips}회
-                </span>
-              </div>
-
-              {/* Countries Visited */}
-              <div className="flex flex-col items-start">
-                <div className="flex items-center gap-2 mb-2">
-                  <Globe className="w-5 h-5 text-white" />
-                  <span className="text-white" style={{
-                    fontSize: '14px',
-                    lineHeight: '20px',
-                    fontFamily: 'Arial, sans-serif'
-                  }}>
-                    방문 국가
-                  </span>
-                </div>
-                <span className="text-white font-bold" style={{
-                  fontSize: '20px',
-                  lineHeight: '28px',
-                  fontFamily: 'Arial, sans-serif'
-                }}>
-                  {userData.stats.countriesVisited}개국
-                </span>
-              </div>
-
-              {/* Total Expenses */}
-              <div className="flex flex-col items-start">
-                <div className="flex items-center gap-2 mb-2">
-                  <CreditCard className="w-5 h-5 text-white" />
-                  <span className="text-white" style={{
-                    fontSize: '14px',
-                    lineHeight: '20px',
-                    fontFamily: 'Arial, sans-serif'
-                  }}>
-                    총 경비
-                  </span>
-                </div>
-                <span className="text-white font-bold" style={{
-                  fontSize: '20px',
-                  lineHeight: '28px',
-                  fontFamily: 'Arial, sans-serif'
-                }}>
-                  {userData.stats.totalExpenses.toLocaleString()}원
-                </span>
-              </div>
-
-              {/* Next Trip */}
-              <div className="flex flex-col items-start">
-                <div className="flex items-center gap-2 mb-2">
-                  <Calendar className="w-5 h-5 text-white" />
-                  <span className="text-white" style={{
-                    fontSize: '14px',
-                    lineHeight: '20px',
-                    fontFamily: 'Arial, sans-serif'
-                  }}>
-                    다음 여행
-                  </span>
-                </div>
-                <span className="text-white font-bold" style={{
-                  fontSize: '20px',
-                  lineHeight: '28px',
-                  fontFamily: 'Arial, sans-serif'
-                }}>
-                  {userData.stats.nextTrip}
-                </span>
               </div>
             </div>
           </div>
@@ -487,157 +845,266 @@ function MyPage() {
                 ))}
               </div>
             </div>
+
+            <div className="space-y-6">
+              <div
+                className="relative rounded-3xl"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(59,130,246,0.6), rgba(147,51,234,0.6))',
+                  padding: '2px'
+                }}
+              >
+                <div className="rounded-3xl bg-[#060d2c] px-6 py-6">
+                  <h3 className="text-white font-bold mb-6" style={{ fontSize: '18px', lineHeight: '26px' }}>
+                    나의 키워드
+                  </h3>
+                  <div className="flex flex-wrap gap-x-6 gap-y-4 justify-center">
+                    {keywordCloud.map(({ text, size, color }, idx) => (
+                      <span
+                        key={`${text}-${idx}`}
+                        style={{
+                          fontSize: `${size}px`,
+                          color,
+                          lineHeight: '1.1'
+                        }}
+                        className="font-semibold"
+                      >
+                        {text}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div
+                className="relative rounded-3xl"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(59,130,246,0.6), rgba(147,51,234,0.6))',
+                  padding: '2px'
+                }}
+              >
+                <div className="rounded-3xl bg-[#060d2c] px-6 py-6">
+                  <h3 className="text-white font-bold mb-6" style={{ fontSize: '18px', lineHeight: '26px' }}>
+                    내가 좋아한 콘텐츠
+                  </h3>
+                  <div className="flex flex-col lg:flex-row items-center gap-8">
+                    <div className="relative w-56 h-56 flex items-center justify-center">
+                      <svg viewBox="0 0 36 36" className="w-full h-full">
+                        <circle
+                          cx="18"
+                          cy="18"
+                          r="16"
+                          fill="#0b1130"
+                          stroke="#1e2550"
+                          strokeWidth="1.5"
+                        />
+                        {pieSegments.map((segment, idx) => (
+                          <circle
+                            key={`${segment.label}-${idx}`}
+                            cx="18"
+                            cy="18"
+                            r="15.915"
+                            fill="none"
+                            stroke={segment.color}
+                            strokeWidth="3.5"
+                            strokeDasharray={segment.dashArray}
+                            strokeDashoffset={segment.dashOffset}
+                            strokeLinecap="round"
+                            transform="rotate(-90 18 18)"
+                          />
+                        ))}
+                      </svg>
+                      <div className="absolute text-center">
+                        <p className="text-sm text-blue-200">선호 콘텐츠</p>
+                      </div>
+                    </div>
+                    <div className="w-full">
+                      <ul className="space-y-3">
+                        {contentPreferenceData.map((item) => (
+                          <li key={item.label} className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <span
+                                className="w-3.5 h-3.5 rounded-full"
+                                style={{ backgroundColor: item.color }}
+                              />
+                              <span className="text-white" style={{ fontSize: '16px' }}>{item.label}</span>
+                            </div>
+                            <span className="text-white/70" style={{ fontSize: '16px' }}>
+                              {item.value}%
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
         {activeTab === 'history' && (
-          <div className="space-y-4">
-            {savedPlans.map((plan) => (
-              <div key={plan.id} className="bg-[#0f1629]/60 backdrop-blur-lg border border-blue-900/40 rounded-xl p-5 flex items-center gap-4">
-                {/* Left: Icon */}
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center flex-shrink-0">
-                  <Pin className="w-6 h-6 text-white" />
-                </div>
-
-                {/* Center: Plan Info */}
-                <div className="flex-1">
-                  <h3 className="text-white font-bold mb-2" style={{
-                    fontSize: '18px',
-                    lineHeight: '26px',
-                    fontFamily: 'Arial, sans-serif'
-                  }}>
-                    {plan.location}
-                  </h3>
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-2 text-white/70">
-                      <Calendar className="w-4 h-4" />
-                      <span style={{
-                        fontSize: '14px',
-                        lineHeight: '20px',
-                        fontFamily: 'Arial, sans-serif'
-                      }}>
-                        {plan.dates}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 text-white/70">
-                      <CreditCard className="w-4 h-4" />
-                      <span style={{
-                        fontSize: '14px',
-                        lineHeight: '20px',
-                        fontFamily: 'Arial, sans-serif'
-                      }}>
-                        {plan.budget.toLocaleString()}원
-                      </span>
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h3 className="text-white font-bold" style={{ fontSize: '20px', lineHeight: '28px' }}>
+                오늘
+              </h3>
+            </div>
+            <div className="space-y-4">
+              {isLoadingHistory && (
+                <div className="bg-[#0f1629]/60 backdrop-blur-lg border border-blue-900/40 rounded-2xl p-6 animate-pulse">
+                  <div className="flex gap-4">
+                    <div className="w-40 h-28 rounded-xl bg-gray-700/60" />
+                    <div className="flex-1 space-y-3">
+                      <div className="w-3/4 h-5 bg-gray-700/60 rounded" />
+                      <div className="w-full h-10 bg-gray-700/40 rounded" />
+                      <div className="w-1/3 h-4 bg-gray-700/60 rounded" />
                     </div>
                   </div>
                 </div>
-
-                {/* Right: Status Badge */}
-                <div className={`${plan.statusColor} px-3 py-1.5 rounded-lg`}>
-                  <span className="text-white font-semibold" style={{
-                    fontSize: '14px',
-                    lineHeight: '20px',
-                    fontFamily: 'Arial, sans-serif'
-                  }}>
-                    {plan.status}
-                  </span>
+              )}
+              {historyError && !isLoadingHistory && (
+                <div className="bg-[#1a1f3a]/80 border border-red-500/40 rounded-2xl p-6 text-red-300">
+                  {historyError}
                 </div>
-              </div>
-            ))}
+              )}
+              {!isLoadingHistory && !historyError && watchHistory.length === 0 && (
+                <div className="bg-[#0f1629]/60 backdrop-blur-lg border border-blue-900/40 rounded-2xl p-6 text-center text-white/60">
+                  아직 시청 기록이 없습니다.
+                </div>
+              )}
+              {!isLoadingHistory && !historyError && watchHistory.map((video, index) => (
+                <a
+                  key={video.id || index}
+                  href={video.youtube_url || `https://www.youtube.com/watch?v=${video.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block bg-[#0f1629]/60 backdrop-blur-lg border border-blue-900/40 rounded-2xl p-5 hover:border-blue-500/50 transition-colors"
+                >
+                  <div className="flex flex-col md:flex-row gap-4">
+                    <div className="relative w-full md:w-52 lg:w-60 h-32 md:h-32 lg:h-36 rounded-xl overflow-hidden bg-gradient-to-br from-blue-500/30 to-purple-500/30">
+                      {video.thumbnail_url ? (
+                        <img
+                          src={video.thumbnail_url}
+                          alt={video.title}
+                          className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-white/60 text-sm">
+                          썸네일 없음
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1 flex flex-col">
+                      <div className="flex items-center justify-between gap-3 mb-2">
+                        <h4 className="text-white font-semibold text-lg leading-7 line-clamp-2">
+                          {video.title}
+                        </h4>
+                        <span className="text-sm text-blue-200 whitespace-nowrap">
+                          조회수 {video.views}
+                        </span>
+                      </div>
+                      {video.description && (
+                        <p className="text-white/60 text-sm leading-6 line-clamp-2">
+                          {video.description}
+                        </p>
+                      )}
+                      <div className="mt-auto pt-4 flex items-center gap-3 text-xs text-white/50">
+                        {video.category && <span>{video.category}</span>}
+                        <span>•</span>
+                        <span>{index === 0 ? '방금 시청' : index === 1 ? '1시간 전' : `${index + 1}시간 전`}</span>
+                      </div>
+                    </div>
+                  </div>
+                </a>
+              ))}
+            </div>
           </div>
         )}
 
         {activeTab === 'bookmarks' && (
           <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h3 className="text-white font-bold" style={{ fontSize: '20px', lineHeight: '28px' }}>
+                오늘
+              </h3>
+            </div>
             {bookmarks.length === 0 ? (
-              <div className="bg-[#0f1629]/60 backdrop-blur-lg border border-blue-900/40 rounded-xl p-12 text-center">
-                <Bookmark className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-white font-bold mb-2" style={{
-                  fontSize: '20px',
-                  lineHeight: '28px',
-                  fontFamily: 'Arial, sans-serif'
-                }}>
+              <div className="bg-[#0f1629]/60 backdrop-blur-lg border border-blue-900/40 rounded-2xl p-12 text-center">
+                <Bookmark className="w-16 h-16 text-gray-500 mx-auto mb-4" />
+                <h3 className="text-white font-semibold mb-2" style={{ fontSize: '18px' }}>
                   저장된 북마크가 없습니다
                 </h3>
-                <p className="text-gray-400" style={{
-                  fontSize: '14px',
-                  lineHeight: '20px',
-                  fontFamily: 'Arial, sans-serif'
-                }}>
-                  비디오나 콘텐츠를 북마크하여 나중에 쉽게 찾아보세요.
+                <p className="text-white/60 text-sm">
+                  관심 있는 영상을 북마크하면 이곳에 모아둘 수 있어요.
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-4">
-                {bookmarks.map((bookmark) => (
-                  <div
-                    key={bookmark.id}
-                    className="bg-[#0f1629]/60 backdrop-blur-lg border border-blue-900/40 rounded-xl p-4 hover:border-blue-600/50 transition-all cursor-pointer"
-                  >
-                    <div className="flex gap-4">
-                      {bookmark.thumbnail_url && (
-                        <div className="relative flex-shrink-0 w-32 h-24 rounded-lg overflow-hidden bg-gray-900">
-                          <img
-                            src={bookmark.thumbnail_url}
-                            alt={bookmark.title}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              e.target.style.display = 'none'
-                            }}
-                          />
+              <div className="space-y-4">
+                {bookmarks.map((bookmark, index) => {
+                  const videoId = bookmark.id || bookmark.video_id
+                  const youtubeUrl = bookmark.youtube_url || (videoId ? `https://www.youtube.com/watch?v=${videoId}` : null)
+                  return (
+                    <a
+                      key={videoId || index}
+                      href={youtubeUrl || '#'}
+                      target={youtubeUrl ? '_blank' : undefined}
+                      rel={youtubeUrl ? 'noopener noreferrer' : undefined}
+                      className="block bg-[#0f1629]/60 backdrop-blur-lg border border-blue-900/40 rounded-2xl p-5 hover:border-blue-500/50 transition-colors"
+                    >
+                      <div className="flex flex-col md:flex-row gap-4">
+                        <div className="relative w-full md:w-52 lg:w-60 h-32 md:h-32 lg:h-36 rounded-xl overflow-hidden bg-gradient-to-br from-blue-500/30 to-purple-500/30 group">
+                          {bookmark.thumbnail_url ? (
+                            <img
+                              src={bookmark.thumbnail_url}
+                              alt={bookmark.title}
+                              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-white/60 text-sm">
+                              썸네일 없음
+                            </div>
+                          )}
                         </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between mb-2">
-                          <h3 className="text-white font-semibold line-clamp-2" style={{
-                            fontSize: '16px',
-                            lineHeight: '24px',
-                            fontFamily: 'Arial, sans-serif'
-                          }}>
-                            {bookmark.title}
-                          </h3>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              const newBookmarks = bookmarks.filter(b => b.id !== bookmark.id)
-                              setBookmarks(newBookmarks)
-                            }}
-                            className="flex-shrink-0 ml-2 text-red-400 hover:text-red-300 transition-colors"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                        {bookmark.description && (
-                          <p className="text-gray-400 line-clamp-1 mb-2" style={{
-                            fontSize: '14px',
-                            lineHeight: '20px',
-                            fontFamily: 'Arial, sans-serif'
-                          }}>
-                            {bookmark.description}
-                          </p>
-                        )}
-                        <div className="flex items-center gap-4 text-gray-500" style={{
-                          fontSize: '12px',
-                          lineHeight: '16px',
-                          fontFamily: 'Arial, sans-serif'
-                        }}>
-                          {bookmark.category && (
-                            <span>{bookmark.category}</span>
+                        <div className="flex-1 flex flex-col min-w-0">
+                          <div className="flex items-start gap-4 mb-3">
+                            <div className="flex-1 min-w-0">
+                              <h4 className="text-white font-semibold text-lg leading-7 line-clamp-2">
+                                {bookmark.title}
+                              </h4>
+                              {bookmark.channel && (
+                                <p className="text-blue-200 text-sm mt-1">{bookmark.channel}</p>
+                              )}
+                            </div>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                e.preventDefault()
+                                handleToggleBookmark(bookmark)
+                              }}
+                              className="flex items-center justify-center w-10 h-10 rounded-full border border-blue-500/40 text-white hover:bg-blue-600/20 transition-colors"
+                              title="북마크 해제"
+                            >
+                              <Bookmark className="w-5 h-5 fill-current" />
+                            </button>
+                          </div>
+                          {bookmark.description && (
+                            <p className="text-white/60 text-sm leading-6 line-clamp-2">
+                              {bookmark.description}
+                            </p>
                           )}
-                          {bookmark.views && (
-                            <span>◎ {bookmark.views}</span>
-                          )}
-                          {bookmark.rating && (
-                            <span className="flex items-center gap-1">
-                              <span>⭐</span>
-                              {bookmark.rating}
-                            </span>
-                          )}
+                          <div className="mt-auto pt-4 flex items-center gap-4 text-xs text-white/50">
+                            {bookmark.views && <span>조회수 {bookmark.views}</span>}
+                            <span>•</span>
+                            <span>{index === 0 ? '방금 저장' : `${index}시간 전 저장`}</span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </div>
-                ))}
+                    </a>
+                  )
+                })}
               </div>
             )}
           </div>
@@ -711,96 +1178,50 @@ function MyPage() {
         )}
 
         {activeTab === 'settings' && (
-          <div className="space-y-6">
-            {/* 알림 설정 */}
-            <div className="bg-[#0f1629]/60 backdrop-blur-lg border border-blue-900/40 rounded-xl p-6">
-              <div className="flex items-center gap-2 mb-6">
-                <Bell className="w-5 h-5 text-white" />
-                <h3 className="text-white font-bold" style={{
-                  fontSize: '18px',
-                  lineHeight: '26px',
-                  fontFamily: 'Arial, sans-serif'
-                }}>
-                  알림 설정
-                </h3>
-              </div>
-
-              {/* 푸시 알림 */}
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <p className="text-white font-semibold mb-1" style={{
-                    fontSize: '16px',
-                    lineHeight: '24px',
-                    fontFamily: 'Arial, sans-serif'
-                  }}>
-                    푸시 알림
-                  </p>
-                  <p className="text-white/60" style={{
-                    fontSize: '14px',
-                    lineHeight: '20px',
-                    fontFamily: 'Arial, sans-serif'
-                  }}>
-                    여행 관련 알림 받기
-                  </p>
+          <div className="space-y-4">
+            {settingsCards.map((card) => (
+              <div
+                key={card.id}
+                className="bg-[#0f1629]/80 border border-blue-900/40 rounded-2xl p-6"
+              >
+                <div className="flex items-center gap-3 mb-5">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center">
+                    {card.icon}
+                  </div>
+                  <h3 className="text-white font-semibold text-lg">{card.title}</h3>
                 </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" className="sr-only peer" defaultChecked />
-                  <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                </label>
-              </div>
-
-              {/* 이메일 업데이트 */}
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-white font-semibold mb-1" style={{
-                    fontSize: '16px',
-                    lineHeight: '24px',
-                    fontFamily: 'Arial, sans-serif'
-                  }}>
-                    이메일 업데이트
-                  </p>
-                  <p className="text-white/60" style={{
-                    fontSize: '14px',
-                    lineHeight: '20px',
-                    fontFamily: 'Arial, sans-serif'
-                  }}>
-                    여행 트렌드 및 소식 받기
-                  </p>
+                <div className="space-y-5">
+                  {card.items.map((item, idx) => (
+                    <div
+                      key={`${card.id}-${idx}`}
+                      className="flex items-center justify-between gap-6"
+                    >
+                      <div>
+                        <p className="text-white font-medium text-sm">{item.label}</p>
+                        {item.value && (
+                          <p className="text-white/60 text-sm mt-1">
+                            {item.value}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {item.action ? item.action : null}
+                        {item.toggle ? (
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              className="sr-only peer"
+                              defaultChecked={item.toggle.defaultChecked}
+                            />
+                            <div className="w-12 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                          </label>
+                        ) : null}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" className="sr-only peer" />
-                  <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                </label>
               </div>
-            </div>
-
-            {/* 계정 관리 */}
-            <div className="bg-[#0f1629]/60 backdrop-blur-lg border border-blue-900/40 rounded-xl p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <Lock className="w-5 h-5 text-white" />
-                  <h3 className="text-white font-bold" style={{
-                    fontSize: '18px',
-                    lineHeight: '26px',
-                    fontFamily: 'Arial, sans-serif'
-                  }}>
-                    계정 관리
-                  </h3>
-                </div>
-                <button 
-                  onClick={handleLogout}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600/20 hover:bg-red-600/30 text-red-400 hover:text-red-300 transition-colors font-semibold border border-red-500/30" 
-                  style={{
-                    fontSize: '14px',
-                    lineHeight: '20px',
-                    fontFamily: 'Arial, sans-serif'
-                  }}
-                >
-                  <LogOut className="w-4 h-4" />
-                  로그아웃
-                </button>
-              </div>
-            </div>
+            ))}
           </div>
         )}
       </main>
@@ -896,6 +1317,190 @@ function MyPage() {
                 }}
               >
                 저장
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Password Change Modal */}
+      {isPasswordModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-[#10173a] border border-blue-900/40 rounded-3xl w-full max-w-md p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-white font-semibold text-lg">비밀번호 변경</h3>
+              <button onClick={closePasswordModal} className="text-white/60 hover:text-white transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form className="space-y-4" onSubmit={submitPasswordChange}>
+              {passwordFieldConfig.map((field) => (
+                <div key={field.id}>
+                  <label className="text-white text-sm">{field.label}</label>
+                  <div className="relative mt-2">
+                    <input
+                      type={passwordForm[field.toggle] ? 'text' : 'password'}
+                      value={passwordForm[field.id]}
+                      onChange={(e) => handlePasswordInputChange(field.id, e.target.value)}
+                      autoComplete={field.autoComplete}
+                      className="w-full bg-[#0f1629]/60 border border-blue-900/40 rounded-lg px-4 py-3 pr-12 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => togglePasswordVisibility(field.toggle)}
+                      className="absolute inset-y-0 right-3 flex items-center text-white/60 hover:text-white transition-colors"
+                    >
+                      {passwordForm[field.toggle] ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    </button>
+                  </div>
+                </div>
+              ))}
+              <p className="text-white/40 text-xs">
+                비밀번호는 영문, 숫자, 특수문자 중 2종류 조합으로 10자리 이상 입력해야 합니다.
+              </p>
+              {passwordForm.error && (
+                <p className="text-red-400 text-sm">{passwordForm.error}</p>
+              )}
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={closePasswordModal}
+                  className="px-4 py-2 rounded-lg bg-gray-700 text-white hover:bg-gray-600 transition-colors"
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingPassword}
+                  className="px-5 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {isSavingPassword ? '변경 중...' : '변경하기'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Password Change Success Modal */}
+      {isPasswordSuccessModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-[#10173a] border border-blue-900/40 rounded-3xl w-full max-w-sm p-6 text-center">
+            <p className="text-white text-sm leading-6 mb-6">
+              새 비밀번호 변경이 완료되었습니다.<br />다시 로그인해주세요.
+            </p>
+            <button
+              onClick={handlePasswordSuccessConfirm}
+              className="px-6 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold hover:opacity-90"
+            >
+              확인
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Travel Preference Modal */}
+      {isPreferenceModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-[#10173a] border border-blue-900/40 rounded-3xl w-full max-w-lg p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-white font-semibold text-lg">여행 성향</h3>
+              <button onClick={closePreferenceModal} className="text-white/60 hover:text-white transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-white/60 text-sm mb-4">최대 5개 / 복수선택가능</p>
+            <div className="grid grid-cols-2 gap-3">
+              {preferenceOptions.map((option) => {
+                const isSelected = preferenceDraft.includes(option.id)
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => togglePreferenceSelection(option.id)}
+                    className={`px-4 py-2 rounded-full border transition-all text-sm font-medium ${
+                      isSelected
+                        ? 'bg-gradient-to-r from-blue-600 to-purple-600 border-transparent text-white shadow-lg'
+                        : 'bg-[#0b1026] border-blue-600/40 text-white/70 hover:border-blue-400 hover:text-white'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                )
+              })}
+            </div>
+            {preferenceModalError && (
+              <p className="text-red-400 text-sm mt-4">{preferenceModalError}</p>
+            )}
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                type="button"
+                onClick={closePreferenceModal}
+                className="px-4 py-2 rounded-lg bg-gray-700 text-white hover:bg-gray-600 transition-colors"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={submitPreferenceChanges}
+                disabled={isSavingPreferences}
+                className="px-5 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {isSavingPreferences ? '저장 중...' : '변경하기'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Keyword Preference Modal */}
+      {isKeywordModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-[#10173a] border border-blue-900/40 rounded-3xl w-full max-w-lg p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-white font-semibold text-lg">키워드</h3>
+              <button onClick={closeKeywordModal} className="text-white/60 hover:text-white transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-white/60 text-sm mb-4">최대 5개 / 복수선택가능</p>
+            <div className="grid grid-cols-2 gap-3">
+              {keywordOptions.map((option) => {
+                const isSelected = keywordDraft.includes(option.id)
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => toggleKeywordSelection(option.id)}
+                    className={`px-4 py-2 rounded-full border transition-all text-sm font-medium ${
+                      isSelected
+                        ? 'bg-gradient-to-r from-blue-600 to-purple-600 border-transparent text-white shadow-lg'
+                        : 'bg-[#0b1026] border-blue-600/40 text-white/70 hover:border-blue-400 hover:text-white'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                )
+              })}
+            </div>
+            {keywordModalError && (
+              <p className="text-red-400 text-sm mt-4">{keywordModalError}</p>
+            )}
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                type="button"
+                onClick={closeKeywordModal}
+                className="px-4 py-2 rounded-lg bg-gray-700 text-white hover:bg-gray-600 transition-colors"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={submitKeywordChanges}
+                disabled={isSavingPreferences}
+                className="px-5 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {isSavingPreferences ? '저장 중...' : '변경하기'}
               </button>
             </div>
           </div>

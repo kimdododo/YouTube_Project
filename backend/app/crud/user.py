@@ -10,6 +10,10 @@ def get_by_username_or_email(db: Session, username_or_email: str) -> User | None
     ).first()
 
 
+def get_by_id(db: Session, user_id: int) -> User | None:
+    return db.query(User).filter(User.id == user_id).first()
+
+
 def create_user(db: Session, username: str, email: str, password: str) -> User:
     try:
         # 비밀번호 해시 생성
@@ -50,3 +54,17 @@ def authenticate(db: Session, username_or_email: str, password: str) -> User | N
     return user
 
 
+def update_password(db: Session, user_id: int, new_password: str) -> bool:
+    try:
+        user = get_by_id(db, user_id)
+        if not user:
+            return False
+        user.password_hash = hash_password(new_password)
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        return True
+    except Exception as e:
+        db.rollback()
+        print(f"[ERROR] Failed to update password for user {user_id}: {e}")
+        raise
