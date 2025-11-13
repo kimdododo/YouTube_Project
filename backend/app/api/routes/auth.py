@@ -5,9 +5,26 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from app.core.auth import create_access_token, get_current_user_id
 from app.core.responses import ok
 from app.core.database import get_db
-from app.schemas.user import UserCreate, UserOut, PasswordChangeRequest
+from app.schemas.user import (
+    UserCreate, 
+    UserOut, 
+    PasswordChangeRequest,
+    EmailVerificationRequest,
+    EmailVerificationResponse,
+    ResendCodeRequest
+)
 from app.schemas.user_preference import TravelPreferenceCreate, TravelPreferenceResponse
-from app.crud.user import create_user, authenticate, get_by_username_or_email, get_by_id, update_password
+from app.crud.user import (
+    create_user, 
+    authenticate, 
+    get_by_username_or_email, 
+    get_by_id, 
+    update_password,
+    verify_user_email
+)
+from app.crud import email_verification as crud_email_verification
+from app.utils.email_utils import send_verification_email
+from app.core.config import EMAIL_VERIFICATION_MAX_ATTEMPTS
 from app.crud.user_preference import (
     save_user_preferences,
     get_user_preferences,
@@ -52,11 +69,43 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
             print(f"[DEBUG] Email already exists: {payload.email}")
             raise HTTPException(status_code=400, detail="이미 사용 중인 이메일입니다.")
         
-        # 사용자 생성
+        # 사용자 생성 (is_verified=False로 생성)
         print(f"[DEBUG] Creating user: {payload.username}")
-        user = create_user(db, payload.username, payload.email, payload.password)
-        print(f"[DEBUG] User created successfully: id={user.id}, username={user.username}")
-        return ok(UserOut.model_validate(user).model_dump()).model_dump()
+        user = create_user(db, payload.username, payload.email, payload.password, is_verified=False)
+        print(f"[DEBUG] User created successfully: id={user.id}, username={user.username}, is_verified={user.is_verified}")
+        
+        # 인증코드 생성 및 저장
+        try:
+            verification = crud_email_verification.create_verification_code(
+                db=db,
+                user_id=user.id,
+                code_length=6,
+                expiry_minutes=3
+            )
+            print(f"[DEBUG] Verification code created: code={verification.code}, expires_at={verification.expires_at}")
+            
+            # 이메일 발송
+            email_sent = send_verification_email(
+                to_email=user.email,
+                verification_code=verification.code,
+                username=user.username
+            )
+            
+            if not email_sent:
+                print(f"[WARN] Failed to send verification email to {user.email}")
+                # 이메일 발송 실패해도 사용자는 생성되었으므로 계속 진행
+                # (나중에 재전송 가능)
+            
+        except Exception as email_error:
+            print(f"[ERROR] Error creating/sending verification code: {email_error}")
+            print(f"[ERROR] Traceback: {traceback.format_exc()}")
+            # 이메일 발송 실패해도 사용자는 생성되었으므로 계속 진행
+        
+        return ok({
+            "message": "회원가입이 완료되었습니다. 이메일로 발송된 인증코드를 입력해주세요.",
+            "user": UserOut.model_validate(user).model_dump(),
+            "requires_verification": True
+        }).model_dump()
     
     except HTTPException:
         # HTTPException은 그대로 재발생
@@ -107,6 +156,14 @@ def issue_token(
             else:
                 print(f"[WARN] User not found")
                 raise HTTPException(status_code=401, detail="사용자를 찾을 수 없습니다. 이메일 또는 사용자 이름을 확인해주세요.")
+        
+        # 이메일 인증 여부 확인
+        if not user.is_verified:
+            print(f"[WARN] User {user.id} attempted login but email not verified")
+            raise HTTPException(
+                status_code=403,
+                detail="이메일 인증이 완료되지 않았습니다. 이메일로 발송된 인증코드를 입력해주세요."
+            )
     except HTTPException:
         raise
     except Exception as e:
@@ -489,5 +546,148 @@ def get_my_keywords(
         print(f"[ERROR] Traceback: {traceback.format_exc()}")
         # 에러 발생 시 빈 배열 반환
         return ok([]).model_dump()
+
+
+@router.post("/verify-email", response_model=EmailVerificationResponse)
+def verify_email(
+    payload: EmailVerificationRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    이메일 인증코드 검증
+    인증코드가 맞고 만료되지 않았으면 사용자 이메일을 인증 완료 처리
+    """
+    try:
+        # 사용자 조회
+        user = get_by_username_or_email(db, payload.email)
+        if not user:
+            raise HTTPException(status_code=404, detail="해당 이메일로 가입된 사용자를 찾을 수 없습니다.")
+        
+        # 이미 인증된 경우
+        if user.is_verified:
+            return EmailVerificationResponse(
+                success=True,
+                message="이미 인증된 이메일입니다."
+            )
+        
+        # 유효한 인증코드 조회
+        verification = crud_email_verification.get_valid_verification_code(
+            db=db,
+            user_id=user.id,
+            code=payload.code
+        )
+        
+        if not verification:
+            # 최근 시도 횟수 확인 (brute force 방지)
+            recent_attempts = crud_email_verification.get_recent_verification_attempts(
+                db=db,
+                user_id=user.id,
+                minutes=10
+            )
+            
+            if recent_attempts >= EMAIL_VERIFICATION_MAX_ATTEMPTS:
+                raise HTTPException(
+                    status_code=429,
+                    detail=f"인증 시도 횟수가 너무 많습니다. {EMAIL_VERIFICATION_MAX_ATTEMPTS}회 이상 시도하셨습니다. 잠시 후 다시 시도해주세요."
+                )
+            
+            raise HTTPException(
+                status_code=400,
+                detail="인증코드가 올바르지 않거나 만료되었습니다. 다시 확인해주세요."
+            )
+        
+        # 인증코드 사용 처리
+        crud_email_verification.mark_verification_code_as_used(db, verification.id)
+        
+        # 사용자 이메일 인증 완료 처리
+        verify_user_email(db, user.id)
+        
+        print(f"[DEBUG] Email verified successfully for user {user.id} ({user.email})")
+        
+        return EmailVerificationResponse(
+            success=True,
+            message="이메일 인증이 완료되었습니다. 이제 로그인하실 수 있습니다."
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        print(f"[ERROR] Error verifying email: {str(e)}")
+        print(f"[ERROR] Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"이메일 인증 처리 중 오류가 발생했습니다: {str(e)}")
+
+
+@router.post("/resend-code", response_model=EmailVerificationResponse)
+def resend_verification_code(
+    payload: ResendCodeRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    인증코드 재전송
+    기존 코드를 무효화하고 새로운 인증코드를 발송
+    """
+    try:
+        # 사용자 조회
+        user = get_by_username_or_email(db, payload.email)
+        if not user:
+            raise HTTPException(status_code=404, detail="해당 이메일로 가입된 사용자를 찾을 수 없습니다.")
+        
+        # 이미 인증된 경우
+        if user.is_verified:
+            return EmailVerificationResponse(
+                success=True,
+                message="이미 인증된 이메일입니다."
+            )
+        
+        # 최근 재전송 횟수 확인 (과도한 재전송 방지)
+        recent_attempts = crud_email_verification.get_recent_verification_attempts(
+            db=db,
+            user_id=user.id,
+            minutes=5
+        )
+        
+        if recent_attempts >= 3:
+            raise HTTPException(
+                status_code=429,
+                detail="재전송 요청이 너무 많습니다. 5분 후 다시 시도해주세요."
+            )
+        
+        # 기존 코드 무효화 및 새 코드 생성
+        crud_email_verification.invalidate_user_verification_codes(db, user.id)
+        
+        verification = crud_email_verification.create_verification_code(
+            db=db,
+            user_id=user.id,
+            code_length=6,
+            expiry_minutes=10
+        )
+        print(f"[DEBUG] New verification code created: code={verification.code}, expires_at={verification.expires_at}")
+        
+        # 이메일 발송
+        email_sent = send_verification_email(
+            to_email=user.email,
+            verification_code=verification.code,
+            username=user.username
+        )
+        
+        if not email_sent:
+            raise HTTPException(
+                status_code=500,
+                detail="인증코드 이메일 발송에 실패했습니다. 잠시 후 다시 시도해주세요."
+            )
+        
+        return EmailVerificationResponse(
+            success=True,
+            message="인증코드가 재전송되었습니다. 이메일을 확인해주세요."
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        print(f"[ERROR] Error resending verification code: {str(e)}")
+        print(f"[ERROR] Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"인증코드 재전송 처리 중 오류가 발생했습니다: {str(e)}")
 
 

@@ -21,6 +21,19 @@ JWT_ACCESS_MINUTES = int(os.getenv("JWT_ACCESS_MINUTES", "60").strip())
 # Redis
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0").strip()
 
+# SMTP 설정 (이메일 발송)
+SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com").strip()
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587").strip())
+SMTP_USERNAME = os.getenv("SMTP_USERNAME", "").strip()
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "").strip()
+SMTP_FROM_EMAIL = os.getenv("SMTP_FROM_EMAIL", SMTP_USERNAME).strip()
+SMTP_FROM_NAME = os.getenv("SMTP_FROM_NAME", "여유").strip()
+
+# 이메일 인증 설정
+EMAIL_VERIFICATION_CODE_EXPIRY_MINUTES = int(os.getenv("EMAIL_VERIFICATION_CODE_EXPIRY_MINUTES", "3").strip())
+EMAIL_VERIFICATION_CODE_LENGTH = int(os.getenv("EMAIL_VERIFICATION_CODE_LENGTH", "6").strip())
+EMAIL_VERIFICATION_MAX_ATTEMPTS = int(os.getenv("EMAIL_VERIFICATION_MAX_ATTEMPTS", "5").strip())
+
 # 디버그: 환경 변수 로드 확인 (비밀번호는 마스킹)
 print(f"[DEBUG] Config loaded:")
 print(f"[DEBUG]   DB_USER: {DB_USER if DB_USER else '(empty)'}")
@@ -29,4 +42,7 @@ print(f"[DEBUG]   DB_HOST: {DB_HOST}")
 print(f"[DEBUG]   DB_PORT: {DB_PORT}")
 print(f"[DEBUG]   DB_NAME: {DB_NAME}")
 print(f"[DEBUG]   JWT_ALGO: {JWT_ALGO}")
+print(f"[DEBUG]   SMTP_HOST: {SMTP_HOST}")
+print(f"[DEBUG]   SMTP_PORT: {SMTP_PORT}")
+print(f"[DEBUG]   SMTP_USERNAME: {SMTP_USERNAME if SMTP_USERNAME else '(empty)'}")
 

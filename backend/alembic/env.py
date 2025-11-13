@@ -14,7 +14,7 @@ if config.config_file_name is not None:
 # 모델 메타데이터만 가져온다
 from app.core.database import Base  # 여기서는 engine 안 가져옴
 # 모든 모델을 임포트하여 Base.metadata에 등록
-from app.models import user, video, channel, login_history, user_travel_preference  # noqa: ensure models are imported
+from app.models import user, video, channel, login_history, user_travel_preference, email_verification  # noqa: ensure models are imported
 
 target_metadata = Base.metadata
 

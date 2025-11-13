@@ -5,5 +5,6 @@ from app.models.channel import Channel
 from app.models.login_history import LoginHistory
 from app.models.user_travel_preference import UserTravelPreference
 from app.models.user_travel_keyword import UserTravelKeyword
+from app.models.email_verification import EmailVerification
 
-__all__ = ["User", "Video", "Channel", "LoginHistory", "UserTravelPreference", "UserTravelKeyword"]
+__all__ = ["User", "Video", "Channel", "LoginHistory", "UserTravelPreference", "UserTravelKeyword", "EmailVerification"]

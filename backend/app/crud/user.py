@@ -14,14 +14,14 @@ def get_by_id(db: Session, user_id: int) -> User | None:
     return db.query(User).filter(User.id == user_id).first()
 
 
-def create_user(db: Session, username: str, email: str, password: str) -> User:
+def create_user(db: Session, username: str, email: str, password: str, is_verified: bool = False) -> User:
     try:
         # 비밀번호 해시 생성
         password_hash = hash_password(password)
         print(f"[DEBUG] Password hashed successfully (length: {len(password_hash)})")
         
-        # 사용자 객체 생성
-        user = User(username=username, email=email, password_hash=password_hash)
+        # 사용자 객체 생성 (is_verified 기본값은 False)
+        user = User(username=username, email=email, password_hash=password_hash, is_verified=is_verified)
         print(f"[DEBUG] User object created: {user}")
         
         # DB에 추가
@@ -34,7 +34,7 @@ def create_user(db: Session, username: str, email: str, password: str) -> User:
         
         # 새로고침
         db.refresh(user)
-        print(f"[DEBUG] User refreshed: id={user.id}, username={user.username}, email={user.email}")
+        print(f"[DEBUG] User refreshed: id={user.id}, username={user.username}, email={user.email}, is_verified={user.is_verified}")
         
         return user
     except Exception as e:
@@ -42,6 +42,32 @@ def create_user(db: Session, username: str, email: str, password: str) -> User:
         print(f"[ERROR] Error creating user: {str(e)}")
         import traceback
         print(f"[ERROR] Traceback: {traceback.format_exc()}")
+        raise
+
+
+def verify_user_email(db: Session, user_id: int) -> bool:
+    """
+    사용자 이메일 인증 완료 처리
+    
+    Args:
+        db: 데이터베이스 세션
+        user_id: 사용자 ID
+    
+    Returns:
+        bool: 성공 여부
+    """
+    try:
+        user = get_by_id(db, user_id)
+        if not user:
+            return False
+        
+        user.is_verified = True
+        db.commit()
+        db.refresh(user)
+        return True
+    except Exception as e:
+        db.rollback()
+        print(f"[ERROR] Failed to verify user email for user {user_id}: {e}")
         raise
 
 

@@ -11,9 +11,24 @@ class UserOut(BaseModel):
     id: int
     username: str
     email: EmailStr
+    is_verified: bool = False
 
     class Config:
         from_attributes = True
+
+
+class EmailVerificationRequest(BaseModel):
+    email: EmailStr
+    code: str = Field(..., min_length=6, max_length=10, description="인증코드 (6자리 숫자)")
+
+
+class EmailVerificationResponse(BaseModel):
+    success: bool
+    message: str
+
+
+class ResendCodeRequest(BaseModel):
+    email: EmailStr
 
 
 class PasswordChangeRequest(BaseModel):
