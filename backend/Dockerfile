@@ -50,14 +50,18 @@ echo "Python version: $(python --version)"\n\
 echo "Uvicorn location: $(which uvicorn || echo not found)"\n\
 echo "Running database migrations..."\n\
 MIGRATION_START=$(date +%s)\n\
-if timeout 120 alembic upgrade head 2>&1; then\n\
-  MIGRATION_END=$(date +%s)\n\
-  MIGRATION_DURATION=$((MIGRATION_END - MIGRATION_START))\n\
+MIGRATION_OUTPUT=$(timeout 120 alembic upgrade head 2>&1) || MIGRATION_EXIT_CODE=$?\n\
+MIGRATION_END=$(date +%s)\n\
+MIGRATION_DURATION=$((MIGRATION_END - MIGRATION_START))\n\
+if [ -z "$MIGRATION_EXIT_CODE" ]; then\n\
   echo "✅ Database migrations completed successfully in ${MIGRATION_DURATION}s"\n\
+  echo "$MIGRATION_OUTPUT"\n\
 else\n\
-  MIGRATION_END=$(date +%s)\n\
-  MIGRATION_DURATION=$((MIGRATION_END - MIGRATION_START))\n\
-  echo "⚠️ Migration failed or timed out after ${MIGRATION_DURATION}s, but continuing with server start..."\n\
+  echo "⚠️ Migration failed or timed out after ${MIGRATION_DURATION}s (exit code: $MIGRATION_EXIT_CODE)"\n\
+  echo "=== Migration Error Output ==="\n\
+  echo "$MIGRATION_OUTPUT"\n\
+  echo "=== End Migration Error Output ==="\n\
+  echo "⚠️ Continuing with server start despite migration failure..."\n\
 fi\n\
 echo "Starting FastAPI server on port ${PORT:-8080}..."\n\
 echo "Server start time: $(date)"\n\

@@ -21,6 +21,7 @@ def upgrade():
     from sqlalchemy import inspect, text
     from sqlalchemy.engine import reflection
     from sqlalchemy.exc import OperationalError
+    import pymysql
     
     conn = op.get_bind()
     inspector = inspect(conn)
@@ -30,20 +31,29 @@ def upgrade():
     try:
         op.add_column('users', sa.Column('is_verified', sa.Boolean(), nullable=False, server_default='0'))
         print("[Migration] Added 'is_verified' column to 'users' table")
-    except OperationalError as e:
+    except (OperationalError, pymysql.err.OperationalError) as e:
         # 1060 에러는 컬럼이 이미 존재한다는 의미이므로 무시
         error_str = str(e)
-        if 'Duplicate column name' in error_str or '1060' in error_str or "is_verified" in error_str:
-            print("[Migration] Column 'is_verified' already exists, skipping...")
+        error_code = None
+        # 에러 코드 추출 시도
+        if hasattr(e, 'orig') and hasattr(e.orig, 'args') and len(e.orig.args) > 0:
+            error_code = e.orig.args[0]
+        elif hasattr(e, 'args') and len(e.args) > 0:
+            error_code = e.args[0]
+        
+        if error_code == 1060 or 'Duplicate column name' in error_str or '1060' in error_str or "is_verified" in error_str:
+            print(f"[Migration] Column 'is_verified' already exists (error code: {error_code}), skipping...")
         else:
             # 다른 에러는 다시 발생시킴
+            print(f"[Migration] Unexpected error: {error_str}, error_code: {error_code}")
             raise
     except Exception as e:
         # 다른 예외도 확인 (혹시 모를 경우)
         error_str = str(e)
         if 'Duplicate column name' in error_str or '1060' in error_str or "is_verified" in error_str:
-            print("[Migration] Column 'is_verified' already exists (caught generic exception), skipping...")
+            print(f"[Migration] Column 'is_verified' already exists (caught generic exception: {type(e).__name__}), skipping...")
         else:
+            print(f"[Migration] Unexpected exception: {type(e).__name__}: {error_str}")
             raise
     
     # 인덱스 생성 시도 (이미 존재하면 무시)

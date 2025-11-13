@@ -16,15 +16,15 @@ from app.schemas.user import (
 from app.schemas.user_preference import TravelPreferenceCreate, TravelPreferenceResponse
 # CRUD 함수 import (lazy import로 변경하여 모듈 로딩 문제 방지)
 try:
-from app.crud.user import (
-    create_user, 
-    authenticate, 
-    get_by_username_or_email, 
+    from app.crud.user import (
+        create_user, 
+        authenticate, 
+        get_by_username_or_email, 
         get_by_email,
-    get_by_id, 
-    update_password,
-    verify_user_email
-)
+        get_by_id, 
+        update_password,
+        verify_user_email
+    )
 except ImportError as e:
     # Import 실패 시 상세한 오류 정보 출력
     import traceback
