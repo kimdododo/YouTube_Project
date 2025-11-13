@@ -146,15 +146,17 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
             print(f"[ERROR] DB connection traceback: {traceback.format_exc()}")
             raise HTTPException(status_code=500, detail=f"데이터베이스 연결 실패: {str(db_test_error)}")
         
-        # 이메일 중복 체크만 수행 (username은 중복 허용)
-        existing_user = get_by_email(db, payload.email)
-        if existing_user:
-            print(f"[DEBUG] Email already exists: {payload.email}")
-            raise HTTPException(status_code=400, detail="이미 사용 중인 이메일입니다.")
-        
         # 사용자 생성 (is_verified=False로 생성)
+        # create_user 함수 내부에서 이메일 중복 체크를 수행함
         print(f"[DEBUG] Creating user: {payload.username}")
-        user = create_user(db, payload.username, payload.email, payload.password, is_verified=False)
+        try:
+            user = create_user(db, payload.username, payload.email, payload.password, is_verified=False)
+        except ValueError as ve:
+            # 이메일 중복 등 검증 오류
+            if "이미 사용 중인 이메일" in str(ve):
+                print(f"[DEBUG] Email already exists: {payload.email}")
+                raise HTTPException(status_code=400, detail=str(ve))
+            raise HTTPException(status_code=400, detail=str(ve))
         print(f"[DEBUG] User created successfully: id={user.id}, username={user.username}, is_verified={user.is_verified}")
         
         # 인증코드 생성 및 저장
