@@ -17,27 +17,57 @@ depends_on = None
 
 
 def upgrade():
-    # User 테이블에 is_verified 컬럼 추가
-    op.add_column('users', sa.Column('is_verified', sa.Boolean(), nullable=False, server_default='0'))
-    op.create_index(op.f('ix_users_is_verified'), 'users', ['is_verified'], unique=False)
+    # User 테이블에 is_verified 컬럼 추가 (이미 존재하는 경우 스킵)
+    from sqlalchemy import inspect
+    from sqlalchemy.engine import reflection
     
-    # email_verifications 테이블 생성
-    op.create_table(
-        'email_verifications',
-        sa.Column('id', sa.Integer(), nullable=False, autoincrement=True),
-        sa.Column('user_id', sa.Integer(), nullable=False),
-        sa.Column('code', sa.String(length=10), nullable=False),
-        sa.Column('expires_at', sa.DateTime(), nullable=False),
-        sa.Column('is_used', sa.Boolean(), nullable=False, server_default='0'),
-        sa.Column('created_at', sa.DateTime(), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=False),
-        sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
-        sa.PrimaryKeyConstraint('id')
-    )
-    op.create_index(op.f('ix_email_verifications_user_id'), 'email_verifications', ['user_id'], unique=False)
-    op.create_index(op.f('ix_email_verifications_code'), 'email_verifications', ['code'], unique=False)
-    op.create_index(op.f('ix_email_verifications_expires_at'), 'email_verifications', ['expires_at'], unique=False)
-    op.create_index(op.f('ix_email_verifications_is_used'), 'email_verifications', ['is_used'], unique=False)
-    op.create_index('idx_user_unused', 'email_verifications', ['user_id', 'is_used'], unique=False)
+    conn = op.get_bind()
+    inspector = inspect(conn)
+    columns = [col['name'] for col in inspector.get_columns('users')]
+    
+    if 'is_verified' not in columns:
+        op.add_column('users', sa.Column('is_verified', sa.Boolean(), nullable=False, server_default='0'))
+        op.create_index(op.f('ix_users_is_verified'), 'users', ['is_verified'], unique=False)
+    else:
+        print("[Migration] Column 'is_verified' already exists in 'users' table, skipping...")
+        # 인덱스가 없으면 생성
+        indexes = [idx['name'] for idx in inspector.get_indexes('users')]
+        if 'ix_users_is_verified' not in indexes:
+            op.create_index(op.f('ix_users_is_verified'), 'users', ['is_verified'], unique=False)
+    
+    # email_verifications 테이블 생성 (이미 존재하는 경우 스킵)
+    tables = inspector.get_table_names()
+    if 'email_verifications' not in tables:
+        op.create_table(
+            'email_verifications',
+            sa.Column('id', sa.Integer(), nullable=False, autoincrement=True),
+            sa.Column('user_id', sa.Integer(), nullable=False),
+            sa.Column('code', sa.String(length=10), nullable=False),
+            sa.Column('expires_at', sa.DateTime(), nullable=False),
+            sa.Column('is_used', sa.Boolean(), nullable=False, server_default='0'),
+            sa.Column('created_at', sa.DateTime(), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=False),
+            sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
+            sa.PrimaryKeyConstraint('id')
+        )
+        op.create_index(op.f('ix_email_verifications_user_id'), 'email_verifications', ['user_id'], unique=False)
+        op.create_index(op.f('ix_email_verifications_code'), 'email_verifications', ['code'], unique=False)
+        op.create_index(op.f('ix_email_verifications_expires_at'), 'email_verifications', ['expires_at'], unique=False)
+        op.create_index(op.f('ix_email_verifications_is_used'), 'email_verifications', ['is_used'], unique=False)
+        op.create_index('idx_user_unused', 'email_verifications', ['user_id', 'is_used'], unique=False)
+    else:
+        print("[Migration] Table 'email_verifications' already exists, skipping...")
+        # 인덱스 확인 및 생성
+        ev_indexes = [idx['name'] for idx in inspector.get_indexes('email_verifications')]
+        if 'ix_email_verifications_user_id' not in ev_indexes:
+            op.create_index(op.f('ix_email_verifications_user_id'), 'email_verifications', ['user_id'], unique=False)
+        if 'ix_email_verifications_code' not in ev_indexes:
+            op.create_index(op.f('ix_email_verifications_code'), 'email_verifications', ['code'], unique=False)
+        if 'ix_email_verifications_expires_at' not in ev_indexes:
+            op.create_index(op.f('ix_email_verifications_expires_at'), 'email_verifications', ['expires_at'], unique=False)
+        if 'ix_email_verifications_is_used' not in ev_indexes:
+            op.create_index(op.f('ix_email_verifications_is_used'), 'email_verifications', ['is_used'], unique=False)
+        if 'idx_user_unused' not in ev_indexes:
+            op.create_index('idx_user_unused', 'email_verifications', ['user_id', 'is_used'], unique=False)
 
 
 def downgrade():
