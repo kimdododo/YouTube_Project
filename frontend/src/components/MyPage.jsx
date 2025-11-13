@@ -1260,23 +1260,48 @@ function MyPage() {
                             // 썸네일 로드 실패 시 비디오 ID로 YouTube 썸네일 생성
                             const img = e.target
                             const videoId = video.id || video.video_id
-                            if (videoId && typeof videoId === 'string' && videoId.length >= 10 && videoId.length <= 12) {
-                              // YouTube 썸네일 URL 생성 (여러 품질 시도)
-                              if (!img.src.includes('sddefault')) {
-                                img.src = `https://i.ytimg.com/vi/${videoId}/sddefault.jpg`
-                              } else if (!img.src.includes('hqdefault')) {
-                                img.src = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`
-                              } else if (!img.src.includes('/0.jpg')) {
-                                img.src = `https://i.ytimg.com/vi/${videoId}/0.jpg`
-                              } else {
-                                // 모든 시도 실패 시 placeholder 표시
-                                img.style.display = 'none'
+                            
+                            // 무한 루프 방지: 이미 시도한 횟수 확인
+                            const retryCount = parseInt(img.dataset.retryCount || '0', 10)
+                            if (retryCount >= 3) {
+                              // 3번 이상 시도했으면 포기하고 placeholder 표시
+                              img.style.display = 'none'
+                              if (img.parentElement) {
                                 img.parentElement.innerHTML = '<div class="w-full h-full flex items-center justify-center text-white/60 text-sm">썸네일 없음</div>'
                               }
-                            } else {
+                              return
+                            }
+                            
+                            // 비디오 ID 유효성 검사 강화
+                            const isValidVideoId = videoId && 
+                              typeof videoId === 'string' && 
+                              videoId.length >= 10 && 
+                              videoId.length <= 12 &&
+                              (videoId.match(/[-_]/g) || []).length <= 2 // 특수문자 2개 이하
+                            
+                            if (!isValidVideoId) {
                               // 비디오 ID가 유효하지 않으면 placeholder 표시
                               img.style.display = 'none'
-                              img.parentElement.innerHTML = '<div class="w-full h-full flex items-center justify-center text-white/60 text-sm">썸네일 없음</div>'
+                              if (img.parentElement) {
+                                img.parentElement.innerHTML = '<div class="w-full h-full flex items-center justify-center text-white/60 text-sm">썸네일 없음</div>'
+                              }
+                              return
+                            }
+                            
+                            // YouTube 썸네일 URL 생성 (여러 품질 시도)
+                            img.dataset.retryCount = String(retryCount + 1)
+                            if (retryCount === 0 && !img.src.includes('sddefault')) {
+                              img.src = `https://i.ytimg.com/vi/${videoId}/sddefault.jpg`
+                            } else if (retryCount === 1 && !img.src.includes('hqdefault')) {
+                              img.src = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`
+                            } else if (retryCount === 2 && !img.src.includes('/0.jpg')) {
+                              img.src = `https://i.ytimg.com/vi/${videoId}/0.jpg`
+                            } else {
+                              // 모든 시도 실패 시 placeholder 표시
+                              img.style.display = 'none'
+                              if (img.parentElement) {
+                                img.parentElement.innerHTML = '<div class="w-full h-full flex items-center justify-center text-white/60 text-sm">썸네일 없음</div>'
+                              }
                             }
                           }}
                         />
@@ -1359,23 +1384,48 @@ function MyPage() {
                                 // 썸네일 로드 실패 시 비디오 ID로 YouTube 썸네일 생성
                                 const img = e.target
                                 const videoId = bookmark.id || bookmark.video_id
-                                if (videoId && typeof videoId === 'string' && videoId.length >= 10 && videoId.length <= 12) {
-                                  // YouTube 썸네일 URL 생성 (여러 품질 시도)
-                                  if (!img.src.includes('sddefault')) {
-                                    img.src = `https://i.ytimg.com/vi/${videoId}/sddefault.jpg`
-                                  } else if (!img.src.includes('hqdefault')) {
-                                    img.src = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`
-                                  } else if (!img.src.includes('/0.jpg')) {
-                                    img.src = `https://i.ytimg.com/vi/${videoId}/0.jpg`
-                                  } else {
-                                    // 모든 시도 실패 시 placeholder 표시
-                                    img.style.display = 'none'
+                                
+                                // 무한 루프 방지: 이미 시도한 횟수 확인
+                                const retryCount = parseInt(img.dataset.retryCount || '0', 10)
+                                if (retryCount >= 3) {
+                                  // 3번 이상 시도했으면 포기하고 placeholder 표시
+                                  img.style.display = 'none'
+                                  if (img.parentElement) {
                                     img.parentElement.innerHTML = '<div class="w-full h-full flex items-center justify-center text-white/60 text-sm">썸네일 없음</div>'
                                   }
-                                } else {
+                                  return
+                                }
+                                
+                                // 비디오 ID 유효성 검사 강화
+                                const isValidVideoId = videoId && 
+                                  typeof videoId === 'string' && 
+                                  videoId.length >= 10 && 
+                                  videoId.length <= 12 &&
+                                  (videoId.match(/[-_]/g) || []).length <= 2 // 특수문자 2개 이하
+                                
+                                if (!isValidVideoId) {
                                   // 비디오 ID가 유효하지 않으면 placeholder 표시
                                   img.style.display = 'none'
-                                  img.parentElement.innerHTML = '<div class="w-full h-full flex items-center justify-center text-white/60 text-sm">썸네일 없음</div>'
+                                  if (img.parentElement) {
+                                    img.parentElement.innerHTML = '<div class="w-full h-full flex items-center justify-center text-white/60 text-sm">썸네일 없음</div>'
+                                  }
+                                  return
+                                }
+                                
+                                // YouTube 썸네일 URL 생성 (여러 품질 시도)
+                                img.dataset.retryCount = String(retryCount + 1)
+                                if (retryCount === 0 && !img.src.includes('sddefault')) {
+                                  img.src = `https://i.ytimg.com/vi/${videoId}/sddefault.jpg`
+                                } else if (retryCount === 1 && !img.src.includes('hqdefault')) {
+                                  img.src = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`
+                                } else if (retryCount === 2 && !img.src.includes('/0.jpg')) {
+                                  img.src = `https://i.ytimg.com/vi/${videoId}/0.jpg`
+                                } else {
+                                  // 모든 시도 실패 시 placeholder 표시
+                                  img.style.display = 'none'
+                                  if (img.parentElement) {
+                                    img.parentElement.innerHTML = '<div class="w-full h-full flex items-center justify-center text-white/60 text-sm">썸네일 없음</div>'
+                                  }
                                 }
                               }}
                             />

@@ -8,15 +8,28 @@ import { optimizeThumbnailUrl } from '../utils/imageUtils'
 const API_BASE_URL = import.meta.env?.VITE_API_URL || '/api'
 
 /**
+ * YouTube 비디오 ID 유효성 검사
+ * @param {string} videoId - YouTube 비디오 ID
+ * @returns {boolean} 유효한 비디오 ID인지 여부
+ */
+const isValidYouTubeVideoId = (videoId) => {
+  if (!videoId || typeof videoId !== 'string') return false
+  // YouTube 비디오 ID는 일반적으로 11자리 문자열 (10-12자리 허용)
+  if (videoId.length < 10 || videoId.length > 12) return false
+  // YouTube 비디오 ID는 영숫자와 -, _ 만 포함 (하지만 실제로는 대부분 영숫자만 사용)
+  // 특수문자가 너무 많으면 유효하지 않을 가능성이 높음
+  const specialCharCount = (videoId.match(/[-_]/g) || []).length
+  if (specialCharCount > 2) return false // 특수문자가 2개 이상이면 의심스러움
+  return true
+}
+
+/**
  * YouTube 비디오 ID 유효성 검사 및 URL 생성
  * @param {string} videoId - YouTube 비디오 ID
  * @returns {string|null} 유효한 YouTube URL 또는 null
  */
 const createYouTubeUrl = (videoId) => {
-  if (!videoId) return null
-  // YouTube 비디오 ID는 일반적으로 11자리 문자열 (10-12자리 허용)
-  const isValidVideoId = typeof videoId === 'string' && videoId.length >= 10 && videoId.length <= 12
-  if (!isValidVideoId) {
+  if (!isValidYouTubeVideoId(videoId)) {
     console.warn('[videos.js] Invalid YouTube video ID:', videoId)
     return null
   }
