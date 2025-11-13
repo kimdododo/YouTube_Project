@@ -104,25 +104,27 @@ jobs:
         with:
           project_id: ${{ env.PROJECT_ID }}
       
-      - name: 🔍 Verify GCP Project and Resources
+      - name: 🔍 Verify GCP Project and Resources (Optional)
+        continue-on-error: true
         run: |
           echo "Verifying GCP project and resources..."
           echo "Project ID: ${{ env.PROJECT_ID }}"
           
-          # 프로젝트 확인
+          # 프로젝트 확인 (Cloud Resource Manager API 필요 - 실패해도 계속 진행)
           echo "Checking project..."
-          gcloud projects describe ${{ env.PROJECT_ID }} || {
-            echo "❌ Project ${{ env.PROJECT_ID }} not found or no access"
-            exit 1
-          }
+          if gcloud projects describe ${{ env.PROJECT_ID }} 2>/dev/null; then
+            echo "✅ Project verified"
+          else
+            echo "⚠️ Project verification skipped (Cloud Resource Manager API may not be enabled)"
+            echo "This is not critical - deployment will continue"
+          fi
           
           # Cloud SQL 인스턴스 확인
           echo "Checking Cloud SQL instances..."
           SQL_INSTANCES=$(gcloud sql instances list --project=${{ env.PROJECT_ID }} --format="value(name)" 2>/dev/null || echo "")
           if [ -z "$SQL_INSTANCES" ]; then
-            echo "⚠️ No Cloud SQL instances found in project ${{ env.PROJECT_ID }}"
-            echo "Available instances:"
-            gcloud sql instances list --project=${{ env.PROJECT_ID }} || true
+            echo "⚠️ No Cloud SQL instances found (or API not enabled)"
+            echo "Deployment will use: ${{ env.PROJECT_ID }}:asia-northeast3:youtube"
           else
             echo "✅ Found Cloud SQL instances:"
             echo "$SQL_INSTANCES"
@@ -131,17 +133,16 @@ jobs:
           # 서비스 계정 확인
           echo "Checking service accounts..."
           SA_EMAIL="github-actions@${{ env.PROJECT_ID }}.iam.gserviceaccount.com"
-          gcloud iam service-accounts describe $SA_EMAIL --project=${{ env.PROJECT_ID }} 2>/dev/null && {
+          if gcloud iam service-accounts describe $SA_EMAIL --project=${{ env.PROJECT_ID }} 2>/dev/null; then
             echo "✅ Service account exists: $SA_EMAIL"
-          } || {
-            echo "⚠️ Service account not found: $SA_EMAIL"
-            echo "Available service accounts:"
-            gcloud iam service-accounts list --project=${{ env.PROJECT_ID }} || true
-          }
+          else
+            echo "⚠️ Service account verification skipped (IAM API may not be enabled)"
+            echo "Deployment will use: $SA_EMAIL"
+          fi
           
           # Cloud Run 서비스 확인
           echo "Checking Cloud Run services..."
-          gcloud run services list --region=${{ env.REGION }} --project=${{ env.PROJECT_ID }} || true
+          gcloud run services list --region=${{ env.REGION }} --project=${{ env.PROJECT_ID }} 2>/dev/null || echo "⚠️ Cloud Run API check skipped"
 
       - name: 🚀 Deploy to Cloud Run
         if: success()

@@ -153,9 +153,7 @@ function MyPageLayout({ children, activeTab, setActiveTab }) {
       </header>
 
       {/* Main Content - 마이페이지 전용 레이아웃 */}
-      <main className="relative z-10" style={{
-        width: '990px',
-        margin: '0 auto',
+      <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" style={{
         paddingTop: '32px',
         paddingBottom: '64px'
       }}>
@@ -236,8 +234,10 @@ function MyPageLayout({ children, activeTab, setActiveTab }) {
               ].map((tab) => (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex-1 py-3 rounded-lg font-semibold transition-all relative z-10 flex items-center justify-center gap-2 text-white`}
+                  onClick={() => setActiveTab && setActiveTab(tab.id)}
+                  className={`flex-1 py-3 rounded-lg font-semibold transition-all relative z-10 flex items-center justify-center gap-2 ${
+                    activeTab === tab.id ? 'text-white' : 'text-white/70'
+                  }`}
                   style={{
                     fontSize: '14px',
                     lineHeight: '20px',

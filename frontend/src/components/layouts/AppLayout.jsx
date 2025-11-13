@@ -120,18 +120,19 @@ function AppLayout({ children }) {
               </span>
             </Link>
             <nav className="flex items-center space-x-4 sm:space-x-6" style={{ fontFamily: 'Arial, sans-serif' }}>
-              {/* 돋보기 아이콘 (검색) */}
-              <button
-                className="text-blue-300 hover:text-white transition-colors flex-shrink-0"
+              {/* 돋보기 아이콘 (채널 찾기) */}
+              <Link
+                to="/find-channel"
+                className={`text-blue-300 hover:text-white transition-colors flex-shrink-0 ${location.pathname === '/find-channel' ? 'text-white' : 'text-blue-300'}`}
                 style={{ 
                   fontSize: '16px',
                   lineHeight: '24px',
                   fontFamily: 'Arial, sans-serif'
                 }}
-                aria-label="검색"
+                aria-label="채널 찾기"
               >
                 <Search className="w-5 h-5" />
-              </button>
+              </Link>
               
               {/* 여행 트렌드 */}
               <Link 
@@ -157,19 +158,6 @@ function AppLayout({ children }) {
                 }}
               >
                 개인 맞춤 영상 추천
-              </Link>
-              
-              {/* 채널 찾기 */}
-              <Link 
-                to="/find-channel" 
-                className={`font-bold leading-6 whitespace-nowrap ${location.pathname === '/find-channel' ? 'text-white' : 'text-blue-300'}`}
-                style={{ 
-                  fontSize: '14px',
-                  lineHeight: '24px',
-                  fontFamily: 'Arial, sans-serif'
-                }}
-              >
-                채널 찾기
               </Link>
               
               {/* 마이페이지 또는 로그인하기 */}

@@ -830,6 +830,9 @@ function MyPage() {
     }
   ]
 
+  // 디버깅: activeTab 확인
+  console.log('[MyPage] Rendering with activeTab:', activeTab)
+
   return (
     <MyPageLayout activeTab={activeTab} setActiveTab={setActiveTab}>
       {activeTab === 'insight' && (
