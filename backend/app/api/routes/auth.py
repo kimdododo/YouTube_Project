@@ -53,6 +53,49 @@ import asyncio
 router = APIRouter(tags=["auth"])
 
 
+@router.get("/debug/user-status")
+def debug_user_status(email: str, db: Session = Depends(get_db)):
+    """
+    사용자 상태 확인 엔드포인트
+    이메일로 사용자 정보 및 인증 상태 확인
+    """
+    try:
+        # 소문자로 정규화하여 검색
+        normalized_email = email.strip().lower()
+        user = get_by_email(db=db, email=normalized_email)
+        
+        if not user:
+            # 대소문자 구분 없이 다시 시도
+            user = get_by_username_or_email(db=db, username_or_email=normalized_email)
+        
+        if not user:
+            return ok({
+                "found": False,
+                "message": f"이메일 '{email}'로 가입된 사용자를 찾을 수 없습니다.",
+                "searched_email": normalized_email
+            }).model_dump()
+        
+        return ok({
+            "found": True,
+            "user": {
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "is_verified": user.is_verified,
+                "created_at": user.created_at.isoformat() if user.created_at else None
+            },
+            "message": "이메일 인증이 완료되지 않았습니다." if not user.is_verified else "이메일 인증이 완료되었습니다.",
+            "can_login": user.is_verified
+        }).model_dump()
+    except Exception as e:
+        import traceback
+        return ok({
+            "found": False,
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }).model_dump()
+
+
 @router.get("/debug/crud-check")
 def debug_crud_check():
     """
@@ -249,8 +292,27 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
             print(f"[ERROR] DB connection traceback: {traceback.format_exc()}")
             raise HTTPException(status_code=500, detail=f"데이터베이스 연결 실패: {str(db_test_error)}")
         
+        # 이메일 중복 체크 (회원가입 전에 먼저 확인)
+        existing_user = get_by_email(db, payload.email)
+        if existing_user:
+            # 이미 존재하는 사용자인 경우
+            if not existing_user.is_verified:
+                # 이메일 인증이 완료되지 않은 경우 - 인증코드 재전송 안내
+                print(f"[DEBUG] Email already exists but not verified: {payload.email}")
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"이미 가입된 이메일입니다. 이메일 인증이 완료되지 않았습니다. 인증코드를 재전송하려면 /api/auth/resend-code 엔드포인트를 사용하세요."
+                )
+            else:
+                # 이미 인증된 사용자인 경우
+                print(f"[DEBUG] Email already exists and verified: {payload.email}")
+                raise HTTPException(
+                    status_code=400,
+                    detail="이미 가입된 이메일입니다. 로그인을 시도해주세요."
+                )
+        
         # 사용자 생성 (is_verified=False로 생성)
-        # create_user 함수 내부에서 이메일 중복 체크를 수행함
+        # create_user 함수 내부에서도 이메일 중복 체크를 수행함
         print(f"[DEBUG] Creating user: {payload.username}")
         try:
             user = create_user(db, payload.username, payload.email, payload.password, is_verified=False)
