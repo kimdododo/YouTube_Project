@@ -1256,6 +1256,29 @@ function MyPage() {
                           alt={video.title}
                           className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
                           loading="lazy"
+                          onError={(e) => {
+                            // 썸네일 로드 실패 시 비디오 ID로 YouTube 썸네일 생성
+                            const img = e.target
+                            const videoId = video.id || video.video_id
+                            if (videoId && typeof videoId === 'string' && videoId.length >= 10 && videoId.length <= 12) {
+                              // YouTube 썸네일 URL 생성 (여러 품질 시도)
+                              if (!img.src.includes('sddefault')) {
+                                img.src = `https://i.ytimg.com/vi/${videoId}/sddefault.jpg`
+                              } else if (!img.src.includes('hqdefault')) {
+                                img.src = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`
+                              } else if (!img.src.includes('/0.jpg')) {
+                                img.src = `https://i.ytimg.com/vi/${videoId}/0.jpg`
+                              } else {
+                                // 모든 시도 실패 시 placeholder 표시
+                                img.style.display = 'none'
+                                img.parentElement.innerHTML = '<div class="w-full h-full flex items-center justify-center text-white/60 text-sm">썸네일 없음</div>'
+                              }
+                            } else {
+                              // 비디오 ID가 유효하지 않으면 placeholder 표시
+                              img.style.display = 'none'
+                              img.parentElement.innerHTML = '<div class="w-full h-full flex items-center justify-center text-white/60 text-sm">썸네일 없음</div>'
+                            }
+                          }}
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-white/60 text-sm">
@@ -1332,6 +1355,29 @@ function MyPage() {
                               alt={bookmark.title}
                               className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                               loading="lazy"
+                              onError={(e) => {
+                                // 썸네일 로드 실패 시 비디오 ID로 YouTube 썸네일 생성
+                                const img = e.target
+                                const videoId = bookmark.id || bookmark.video_id
+                                if (videoId && typeof videoId === 'string' && videoId.length >= 10 && videoId.length <= 12) {
+                                  // YouTube 썸네일 URL 생성 (여러 품질 시도)
+                                  if (!img.src.includes('sddefault')) {
+                                    img.src = `https://i.ytimg.com/vi/${videoId}/sddefault.jpg`
+                                  } else if (!img.src.includes('hqdefault')) {
+                                    img.src = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`
+                                  } else if (!img.src.includes('/0.jpg')) {
+                                    img.src = `https://i.ytimg.com/vi/${videoId}/0.jpg`
+                                  } else {
+                                    // 모든 시도 실패 시 placeholder 표시
+                                    img.style.display = 'none'
+                                    img.parentElement.innerHTML = '<div class="w-full h-full flex items-center justify-center text-white/60 text-sm">썸네일 없음</div>'
+                                  }
+                                } else {
+                                  // 비디오 ID가 유효하지 않으면 placeholder 표시
+                                  img.style.display = 'none'
+                                  img.parentElement.innerHTML = '<div class="w-full h-full flex items-center justify-center text-white/60 text-sm">썸네일 없음</div>'
+                                }
+                              }}
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-white/60 text-sm">
