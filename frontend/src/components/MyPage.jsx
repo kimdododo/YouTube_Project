@@ -973,7 +973,6 @@ function MyPage() {
           className="relative rounded-3xl mb-6"
           style={{
             background: '#39489A',
-            padding: '2px',
             border: '2px solid #39489A'
           }}
         >
@@ -1124,7 +1123,6 @@ function MyPage() {
                 className="relative rounded-3xl"
                 style={{
                   background: '#39489A',
-                  padding: '2px',
                   border: '2px solid #39489A'
                 }}
               >
@@ -1186,7 +1184,6 @@ function MyPage() {
                 className="relative rounded-3xl"
                 style={{
                   background: '#39489A',
-                  padding: '2px',
                   border: '2px solid #39489A'
                 }}
               >
