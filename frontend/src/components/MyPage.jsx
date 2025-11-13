@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { User, Settings, Camera, Edit3, X, LogOut, Bookmark, Bell, Lock, Eye, EyeOff, Clock } from 'lucide-react'
 import Logo from './Logo'
 import { getRecommendedVideos } from '../api/videos'
-import { changePassword, saveTravelPreferences, fetchTravelPreferences, getToken, logout as clearAuth, getCurrentUser, getKeywordEmbeddings } from '../api/auth'
+import { changePassword, saveTravelPreferences, fetchTravelPreferences, getToken, logout as clearAuth, getCurrentUser, getMyKeywords } from '../api/auth'
 import {
   Chart as ChartJS,
   ArcElement,
@@ -253,197 +253,6 @@ function MyPage() {
       .join(', ')
   }
 
-  // 더미 임베딩 벡터 생성 (word2vec 시뮬레이션)
-  const generateDummyEmbeddings = (keywords) => {
-    // 키워드 간 유사도를 시뮬레이션하기 위한 더미 데이터
-    const keywordGroups = {
-      // 여행 관련
-      'solo': [0.9, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.1],
-      'budget': [0.1, 0.9, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.2],
-      'vlog': [0.2, 0.2, 0.9, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.3],
-      'aesthetic': [0.3, 0.3, 0.3, 0.9, 0.4, 0.5, 0.6, 0.7, 0.8, 0.4],
-      // 국내/해외
-      'domestic': [0.4, 0.4, 0.4, 0.4, 0.9, 0.5, 0.6, 0.7, 0.8, 0.5],
-      'global': [0.5, 0.5, 0.5, 0.5, 0.5, 0.9, 0.6, 0.7, 0.8, 0.6],
-      // 활동 관련
-      'oneday': [0.6, 0.6, 0.6, 0.6, 0.6, 0.6, 0.9, 0.7, 0.8, 0.7],
-      'food': [0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.9, 0.8, 0.8],
-      'stay': [0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.9, 0.9],
-      'camping': [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.9],
-      'cafe': [0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.8]
-    }
-
-    // 768차원 벡터로 확장 (더미 데이터)
-    const expandTo768 = (baseVec) => {
-      const vec = new Array(768).fill(0)
-      for (let i = 0; i < baseVec.length && i < 768; i++) {
-        vec[i] = baseVec[i]
-        // 노이즈 추가로 자연스러운 벡터 생성
-        for (let j = 0; j < 10; j++) {
-          const idx = (i * 10 + j) % 768
-          vec[idx] += (Math.random() - 0.5) * 0.1 * baseVec[i]
-        }
-      }
-      // 정규화
-      const norm = Math.sqrt(vec.reduce((sum, v) => sum + v * v, 0))
-      return vec.map(v => norm > 0 ? v / norm : 0)
-    }
-
-    return keywords.map(keyword => ({
-      keyword,
-      embedding: expandTo768(keywordGroups[keyword] || new Array(10).fill(0.5).map(() => Math.random()))
-    }))
-  }
-
-  // 코사인 유사도 계산
-  const cosineSimilarity = (vec1, vec2) => {
-    if (!vec1 || !vec2 || vec1.length !== vec2.length) return 0
-    let dotProduct = 0
-    let norm1 = 0
-    let norm2 = 0
-    for (let i = 0; i < vec1.length; i++) {
-      dotProduct += vec1[i] * vec2[i]
-      norm1 += vec1[i] * vec1[i]
-      norm2 += vec2[i] * vec2[i]
-    }
-    const denominator = Math.sqrt(norm1) * Math.sqrt(norm2)
-    return denominator === 0 ? 0 : dotProduct / denominator
-  }
-
-  // 하트 모양 배치 알고리즘
-  const heartShapeLayout = (keywords, embeddings, width = 100, height = 100) => {
-    if (!keywords || keywords.length === 0) return []
-
-    // 유사도 행렬 계산
-    let similarities = []
-    if (embeddings && embeddings.length > 0) {
-      similarities = embeddings.map((emb1, i) =>
-        embeddings.map((emb2, j) => 
-          i === j ? 1 : cosineSimilarity(emb1.embedding, emb2.embedding)
-        )
-      )
-    } else {
-      // 더미 유사도 (키워드 인덱스 기반)
-      similarities = keywords.map((_, i) =>
-        keywords.map((_, j) => i === j ? 1 : 0.3 + Math.random() * 0.4)
-      )
-    }
-
-    // 하트 모양 파라미터 방정식
-    // x = 16sin³(t)
-    // y = 13cos(t) - 5cos(2t) - 2cos(3t) - cos(4t)
-    const numPoints = keywords.length
-    
-    // 하트 모양 경계선을 따라 균등하게 배치 (간단하고 확실한 방법)
-    const positions = keywords.map((keyword, idx) => {
-      // 하트 모양 경계선을 따라 균등하게 배치
-      const t = (idx / numPoints) * Math.PI * 2
-      
-      // 하트 모양 좌표 계산
-      let x = 16 * Math.pow(Math.sin(t), 3)
-      let y = -(13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t))
-      
-      // 하트 모양을 0-100 범위로 정규화
-      x = ((x + 16) / 32) * 80 + 10  // x: 10-90
-      y = ((y + 13) / 26) * 70 + 15  // y: 15-85
-      
-      // 하트 모양 내부로 약간 안쪽으로 이동 (70% 위치)
-      const centerX = 50
-      const centerY = 50
-      x = centerX + (x - centerX) * 0.7
-      y = centerY + (y - centerY) * 0.7
-      
-      // 경계 체크
-      x = Math.max(15, Math.min(85, x))
-      y = Math.max(20, Math.min(80, y))
-      
-      return { x, y }
-    })
-
-    return positions
-  }
-
-  // Force-directed layout 알고리즘 (유사도 기반) - 사용하지 않음
-  const forceDirectedLayout = (keywords, embeddings, width = 100, height = 100, iterations = 100) => {
-    if (!embeddings || embeddings.length === 0) {
-      // 폴백: 스파이럴 배치
-      return keywords.map((kw, idx) => {
-        const angle = idx * 0.5
-        const radius = 15 + (idx * 2.5)
-        return {
-          x: 50 + (radius * Math.cos(angle)),
-          y: 50 + (radius * Math.sin(angle))
-        }
-      })
-    }
-
-    // 유사도 행렬 계산
-    const similarities = embeddings.map((emb1, i) =>
-      embeddings.map((emb2, j) => i === j ? 1 : cosineSimilarity(emb1.embedding, emb2.embedding))
-    )
-
-    // 초기 위치 (원형 배치)
-    const positions = keywords.map((_, idx) => {
-      const angle = (idx / keywords.length) * Math.PI * 2
-      const radius = 20
-      return {
-        x: width / 2 + radius * Math.cos(angle),
-        y: height / 2 + radius * Math.sin(angle),
-        vx: 0,
-        vy: 0
-      }
-    })
-
-    // Force-directed simulation
-    const k = Math.sqrt((width * height) / keywords.length) // 최적 거리
-    const repulsionStrength = 0.1
-    const attractionStrength = 0.05
-    const damping = 0.9
-
-    for (let iter = 0; iter < iterations; iter++) {
-      // 각 노드에 대해 힘 계산
-      for (let i = 0; i < keywords.length; i++) {
-        let fx = 0
-        let fy = 0
-
-        for (let j = 0; j < keywords.length; j++) {
-          if (i === j) continue
-
-          const dx = positions[j].x - positions[i].x
-          const dy = positions[j].y - positions[i].y
-          const distance = Math.sqrt(dx * dx + dy * dy) || 1
-
-          const similarity = similarities[i][j]
-          
-          if (similarity > 0.3) {
-            // 유사한 키워드는 가까이 (인력)
-            const force = attractionStrength * similarity * (distance - k * (1 - similarity))
-            fx += (dx / distance) * force
-            fy += (dy / distance) * force
-          } else {
-            // 유사하지 않은 키워드는 멀리 (반발력)
-            const force = repulsionStrength * (k * k) / distance
-            fx -= (dx / distance) * force
-            fy -= (dy / distance) * force
-          }
-        }
-
-        // 속도 업데이트
-        positions[i].vx = (positions[i].vx + fx) * damping
-        positions[i].vy = (positions[i].vy + fy) * damping
-
-        // 위치 업데이트
-        positions[i].x += positions[i].vx
-        positions[i].y += positions[i].vy
-
-        // 경계 체크
-        positions[i].x = Math.max(10, Math.min(width - 10, positions[i].x))
-        positions[i].y = Math.max(10, Math.min(height - 10, positions[i].y))
-      }
-    }
-
-    return positions.map(p => ({ x: p.x, y: p.y }))
-  }
 
   const applyPreferenceState = async (preferencesList = [], keywordsList = []) => {
     const normalizedPreferences = Array.from(
@@ -484,113 +293,108 @@ function MyPage() {
     setSelectedPreferences(normalizedPreferences)
     setSelectedKeywords(normalizedKeywords)
 
-    // 키워드 클라우드 생성 (word2vec 기반)
-    // 이미지 스타일에 맞춘 색상 팔레트: 노란색/크림, 분홍/빨강, 파란색, 흰색/회색
-    const colorPalettes = {
-      yellow: ['#FBBF24', '#FCD34D', '#FDE68A', '#FEF3C7', '#FFFBEB'], // 노란색/크림 계열
-      pink: ['#F9A8D4', '#FB7185', '#F87171', '#FCA5A5', '#FECACA'], // 분홍/빨강 계열
-      blue: ['#60A5FA', '#3B82F6', '#38BDF8', '#67E8F9', '#A5B4FC'], // 파란색 계열
-      white: ['#F9FAFB', '#F3F4F6', '#E5E7EB', '#D1D5DB', '#FFFFFF'] // 흰색/회색 계열
-    }
-    
-    // 자연스러운 워드 클라우드 레이아웃 생성
-    const createWordCloudLayout = (keywords, width = 100, height = 100) => {
-      const positions = []
-      const usedPositions = new Set()
-      const centerX = width / 2
-      const centerY = height / 2
-      
-      keywords.forEach((keyword, idx) => {
-        let attempts = 0
-        let x, y
-        
-        // 스파이럴 레이아웃으로 자연스럽게 배치
-        const angle = (idx * 137.508) % 360 // 황금각 사용
-        const radius = 15 + (idx * 3) + Math.random() * 10
-        
-        x = centerX + radius * Math.cos((angle * Math.PI) / 180)
-        y = centerY + radius * Math.sin((angle * Math.PI) / 180)
-        
-        // 경계 체크 및 조정
-        x = Math.max(10, Math.min(width - 10, x))
-        y = Math.max(15, Math.min(height - 15, y))
-        
-        positions.push({ x, y })
-      })
-      
-      return positions
-    }
-
-    // word2vec 기반 자연스러운 키워드 클라우드 생성
+    // 키워드 클라우드 생성: 백엔드 API 호출 (word2vec 기반 유사 키워드 추천)
+    // 백엔드에서 유사 키워드 Top-K + 점수를 받아서 UI만 렌더링
     if (normalizedKeywords.length > 0) {
       setIsLoadingKeywordEmbeddings(true)
       
-      // 키워드를 한글 라벨로 변환하고 길이 기준으로 정렬
-      const keywordsWithLabels = normalizedKeywords.map((keywordId) => {
-        const keywordLabel = TRAVEL_KEYWORD_LABELS[keywordId] || keywordId
-        return {
-          id: keywordId,
-          label: keywordLabel,
-          length: keywordLabel.length
-        }
-      })
-      
-      // 길이와 중요도 기준으로 정렬 (긴 키워드가 더 중요하다고 가정)
-      const sortedKeywords = keywordsWithLabels.sort((a, b) => b.length - a.length)
-      
-      // 자연스러운 레이아웃 생성
-      const positions = createWordCloudLayout(sortedKeywords, 100, 100)
-      
-      // 색상 그룹 선택 (이미지 스타일 반영)
-      const allColors = [
-        ...colorPalettes.yellow,
-        ...colorPalettes.pink,
-        ...colorPalettes.blue,
-        ...colorPalettes.white
-      ]
-      
-      const keywordCloudData = sortedKeywords.map((item, idx) => {
-        // 크기 계산: 첫 번째가 가장 크고 점점 작아짐
-        const maxSize = 56
-        const minSize = 16
-        const sizeRange = maxSize - minSize
-        const sizeStep = sizeRange / Math.max(1, sortedKeywords.length - 1)
-        const fontSize = Math.max(minSize, maxSize - (idx * sizeStep))
-        
-        // 색상 선택: 인덱스에 따라 다양한 색상 그룹에서 선택
-        let color
-        if (idx < 3) {
-          // 가장 큰 키워드들은 노란색/크림 계열
-          color = colorPalettes.yellow[idx % colorPalettes.yellow.length]
-        } else if (idx < 6) {
-          // 중간 크기 키워드들은 분홍/빨강 계열
-          color = colorPalettes.pink[(idx - 3) % colorPalettes.pink.length]
-        } else if (idx < 9) {
-          // 작은 키워드들은 파란색 계열
-          color = colorPalettes.blue[(idx - 6) % colorPalettes.blue.length]
-        } else {
-          // 가장 작은 키워드들은 흰색/회색 계열
-          color = colorPalettes.white[(idx - 9) % colorPalettes.white.length]
-        }
-        
-        const pos = positions[idx] || { x: 50, y: 50 }
-        
-        return {
-          text: item.label,
-          size: Math.round(fontSize),
-          color,
-          x: pos.x,
-          y: pos.y
-        }
-      })
-      
-      console.log('[MyPage] 키워드 클라우드 생성 완료:', {
-        normalizedKeywords,
-        keywordCloudData: keywordCloudData.map(item => ({ text: item.text, x: item.x, y: item.y, size: item.size }))
-      })
-      
-      setKeywordCloud(keywordCloudData)
-      setIsLoadingKeywordEmbeddings(false)
+      // 백엔드 API 호출: 사용자 키워드 기반 유사 키워드 추천
+      getMyKeywords(10) // Top-10 키워드 요청
+        .then((keywordsData) => {
+          // keywordsData: [{word: "카페투어", score: 0.91}, ...]
+          if (!keywordsData || keywordsData.length === 0) {
+            setKeywordCloud([])
+            setIsLoadingKeywordEmbeddings(false)
+            return
+          }
+          
+          // 이미지 스타일에 맞춘 색상 팔레트
+          const colorPalettes = {
+            yellow: ['#FBBF24', '#FCD34D', '#FDE68A', '#FEF3C7', '#FFFBEB'], // 노란색/크림 계열
+            pink: ['#F9A8D4', '#FB7185', '#F87171', '#FCA5A5', '#FECACA'], // 분홍/빨강 계열
+            blue: ['#60A5FA', '#3B82F6', '#38BDF8', '#67E8F9', '#A5B4FC'], // 파란색 계열
+            white: ['#F9FAFB', '#F3F4F6', '#E5E7EB', '#D1D5DB', '#FFFFFF'] // 흰색/회색 계열
+          }
+          
+          // 자연스러운 워드 클라우드 레이아웃 생성 (스파이럴)
+          const createWordCloudLayout = (count, width = 100, height = 100) => {
+            const positions = []
+            const centerX = width / 2
+            const centerY = height / 2
+            
+            for (let idx = 0; idx < count; idx++) {
+              // 스파이럴 레이아웃으로 자연스럽게 배치
+              const angle = (idx * 137.508) % 360 // 황금각 사용
+              const radius = 15 + (idx * 3) + Math.random() * 10
+              
+              let x = centerX + radius * Math.cos((angle * Math.PI) / 180)
+              let y = centerY + radius * Math.sin((angle * Math.PI) / 180)
+              
+              // 경계 체크 및 조정
+              x = Math.max(10, Math.min(width - 10, x))
+              y = Math.max(15, Math.min(height - 15, y))
+              
+              positions.push({ x, y })
+            }
+            
+            return positions
+          }
+          
+          // 점수 기준으로 정렬 (이미 정렬되어 있을 수도 있지만 확실하게)
+          const sortedKeywords = [...keywordsData].sort((a, b) => b.score - a.score)
+          
+          // 레이아웃 생성
+          const positions = createWordCloudLayout(sortedKeywords.length, 100, 100)
+          
+          // 키워드 클라우드 데이터 생성 (점수 기반 크기/색상 결정)
+          const keywordCloudData = sortedKeywords.map((item, idx) => {
+            // 점수 기반 크기 계산 (0.5 ~ 1.0 점수 범위를 16px ~ 56px로 매핑)
+            const score = item.score
+            const minSize = 16
+            const maxSize = 56
+            const fontSize = Math.round(minSize + (score - 0.5) * (maxSize - minSize) / 0.5)
+            
+            // 점수/인덱스 기반 색상 선택
+            let color
+            if (score >= 0.95 || idx < 2) {
+              // 가장 높은 점수: 노란색/크림 계열
+              color = colorPalettes.yellow[idx % colorPalettes.yellow.length]
+            } else if (score >= 0.85 || idx < 5) {
+              // 중간 점수: 분홍/빨강 계열
+              color = colorPalettes.pink[(idx - 2) % colorPalettes.pink.length]
+            } else if (score >= 0.75 || idx < 8) {
+              // 낮은 점수: 파란색 계열
+              color = colorPalettes.blue[(idx - 5) % colorPalettes.blue.length]
+            } else {
+              // 가장 낮은 점수: 흰색/회색 계열
+              color = colorPalettes.white[(idx - 8) % colorPalettes.white.length]
+            }
+            
+            const pos = positions[idx] || { x: 50, y: 50 }
+            
+            return {
+              text: item.word,
+              size: Math.max(minSize, Math.min(maxSize, fontSize)),
+              color,
+              x: pos.x,
+              y: pos.y,
+              score: item.score
+            }
+          })
+          
+          console.log('[MyPage] 키워드 클라우드 생성 완료 (백엔드 API):', {
+            keywordsData,
+            keywordCloudData: keywordCloudData.map(item => ({ text: item.text, score: item.score, size: item.size }))
+          })
+          
+          setKeywordCloud(keywordCloudData)
+          setIsLoadingKeywordEmbeddings(false)
+        })
+        .catch((error) => {
+          console.error('[MyPage] 키워드 클라우드 API 호출 실패:', error)
+          setKeywordCloud([])
+          setIsLoadingKeywordEmbeddings(false)
+        })
     } else {
       setKeywordCloud([])
     }

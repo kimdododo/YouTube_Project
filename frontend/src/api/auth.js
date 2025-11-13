@@ -254,6 +254,7 @@ export const fetchTravelPreferences = async () => {
  * 키워드 목록을 임베딩 벡터로 변환 (word2vec 기반 키워드 클라우드용)
  * @param {string[]} keywords - 키워드 ID 배열
  * @returns {Promise<Array<{keyword: string, embedding: number[]}>>} 키워드와 임베딩 매핑
+ * [DEPRECATED] getMyKeywords 사용 권장
  */
 export const getKeywordEmbeddings = async (keywords) => {
   const token = getToken()
@@ -289,6 +290,48 @@ export const getKeywordEmbeddings = async (keywords) => {
     return result.data?.embeddings || result.embeddings || []
   } catch (error) {
     console.error('[auth.js] Error getting keyword embeddings:', error?.message || error)
+    return []
+  }
+}
+
+/**
+ * 사용자 키워드 기반 word2vec 유사 키워드 추천
+ * 백엔드에서 유사 키워드 Top-K + 유사도 점수를 반환
+ * @param {number} topK - 반환할 키워드 개수 (기본값: 7)
+ * @returns {Promise<Array<{word: string, score: number}>>} 유사 키워드와 점수 배열
+ */
+export const getMyKeywords = async (topK = 7) => {
+  const token = getToken()
+  if (!token) {
+    return []
+  }
+
+  try {
+    const headers = {
+      ...authHeaders()
+    }
+
+    const response = await fetch(`${API_BASE_URL}/auth/my_keywords?top_k=${topK}`, {
+      method: 'GET',
+      headers
+    })
+
+    if (!response.ok) {
+      // 401 Unauthorized인 경우 토큰이 만료되었을 수 있음
+      if (response.status === 401) {
+        console.warn('[auth.js] Unauthorized - token may be expired')
+        localStorage.removeItem('access_token')
+        localStorage.removeItem('token_type')
+        return []
+      }
+      console.warn('[auth.js] Failed to get my keywords:', response.status)
+      return []
+    }
+
+    const result = await response.json()
+    return result.data || result || []
+  } catch (error) {
+    console.error('[auth.js] Error getting my keywords:', error?.message || error)
     return []
   }
 }

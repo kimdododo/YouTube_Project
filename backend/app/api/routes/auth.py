@@ -337,6 +337,7 @@ async def get_keyword_embeddings(
 ):
     """
     키워드 목록을 임베딩 벡터로 변환 (word2vec 기반 키워드 클라우드용)
+    [DEPRECATED] 이 엔드포인트는 유지하되, 새로운 /my_keywords 사용 권장
     """
     try:
         if not keywords or len(keywords) == 0:
@@ -379,5 +380,114 @@ async def get_keyword_embeddings(
         print(f"[ERROR] Traceback: {traceback.format_exc()}")
         # 에러 발생 시 빈 배열 반환 (프론트엔드에서 폴백 처리)
         return ok({"embeddings": []}).model_dump()
+
+
+@router.get("/my_keywords")
+def get_my_keywords(
+    top_k: int = 7,
+    current_user_id_str: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """
+    사용자 키워드 기반 word2vec 유사 키워드 추천 (더미 데이터)
+    
+    사용자가 선택한 키워드를 기반으로 유사한 키워드 Top-K를 반환합니다.
+    실제 word2vec 모델이 없으므로 더미 데이터로 시뮬레이션합니다.
+    
+    Returns:
+        [
+            {"word": "카페투어", "score": 0.91},
+            {"word": "디저트", "score": 0.88},
+            ...
+        ]
+    """
+    try:
+        user_id = int(current_user_id_str)
+        
+        # 사용자가 선택한 키워드 가져오기
+        user_keywords = get_user_keywords(db, user_id)
+        
+        if not user_keywords:
+            return ok([]).model_dump()
+        
+        # 키워드 ID -> 한글 라벨 매핑
+        keyword_labels = {
+            'solo': '혼자여행',
+            'budget': '가성비여행',
+            'vlog': '브이로그',
+            'aesthetic': '감성여행',
+            'domestic': '국내여행',
+            'global': '해외여행',
+            'oneday': '당일치기',
+            'food': '맛집투어',
+            'stay': '숙소리뷰',
+            'camping': '캠핑',
+            'cafe': '카페투어'
+        }
+        
+        # 사용자 키워드를 한글로 변환
+        user_keyword_labels = [keyword_labels.get(kw, kw) for kw in user_keywords]
+        
+        # 더미 word2vec 시뮬레이션: 키워드 간 유사도 매트릭스
+        # 실제 word2vec 모델이 있다면 여기서 model.similar_by_vector() 사용
+        all_keywords = list(keyword_labels.values())
+        
+        # 키워드 그룹 정의 (유사한 키워드끼리 묶기)
+        keyword_groups = {
+            '카페투어': ['카페투어', '디저트', '브런치', '로컬맛집', '신메뉴'],
+            '맛집투어': ['맛집투어', '한식', '로컬맛집', '숨은식당', '미슐랭'],
+            '혼자여행': ['혼자여행', '감성여행', '당일치기', '사진스팟', '포토존'],
+            '감성여행': ['감성여행', '혼자여행', '사진스팟', '포토존', '트렌디'],
+            '국내여행': ['국내여행', '당일치기', '로컬', '카페거리', '거리'],
+            '해외여행': ['해외여행', '이국적', '모험심', '트렌디', '전시'],
+            '캠핑': ['캠핑', '자연', '숲속', '등산', '트래킹'],
+            '브이로그': ['브이로그', '사진스팟', '포토존', '트렌디', '전시'],
+            '가성비여행': ['가성비여행', '로컬', '거리', '한입', '챌린지'],
+            '당일치기': ['당일치기', '국내여행', '카페거리', '거리', '야경'],
+            '숙소리뷰': ['숙소리뷰', '럭셔리', '휴양', '여유', '평온']
+        }
+        
+        # 사용자 키워드와 유사한 키워드 찾기
+        similar_keywords = {}
+        
+        for user_kw in user_keyword_labels:
+            # 직접 매칭되는 그룹 찾기
+            for group_key, group_keywords in keyword_groups.items():
+                if user_kw in group_keywords or user_kw == group_key:
+                    for similar_kw in group_keywords:
+                        if similar_kw != user_kw:  # 자기 자신 제외
+                            # 유사도 점수 계산 (그룹 내 위치에 따라)
+                            base_score = 0.85
+                            idx = group_keywords.index(similar_kw) if similar_kw in group_keywords else len(group_keywords)
+                            score = base_score - (idx * 0.05)
+                            
+                            # 이미 있는 키워드면 더 높은 점수로 업데이트
+                            if similar_kw not in similar_keywords or similar_keywords[similar_kw] < score:
+                                similar_keywords[similar_kw] = min(0.99, max(0.5, score))
+        
+        # 사용자가 선택한 키워드도 포함 (점수 1.0)
+        for user_kw in user_keyword_labels:
+            similar_keywords[user_kw] = 1.0
+        
+        # 점수 기준으로 정렬하고 Top-K 선택
+        sorted_keywords = sorted(
+            similar_keywords.items(),
+            key=lambda x: x[1],
+            reverse=True
+        )[:top_k]
+        
+        # 결과 포맷: [{"word": "키워드", "score": 0.91}, ...]
+        result = [
+            {"word": word, "score": round(score, 2)}
+            for word, score in sorted_keywords
+        ]
+        
+        return ok(result).model_dump()
+        
+    except Exception as e:
+        print(f"[ERROR] Error getting my keywords: {str(e)}")
+        print(f"[ERROR] Traceback: {traceback.format_exc()}")
+        # 에러 발생 시 빈 배열 반환
+        return ok([]).model_dump()
 
 
