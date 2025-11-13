@@ -939,18 +939,24 @@ function MyPage() {
               </p>
 
               <div className="space-y-4">
-                {preferenceScores.map(({ key, value }) => (
-                  <div key={key} className="flex items-center gap-4">
-                    <div className="w-28 text-white/90" style={{ fontSize: '14px' }}>{key}</div>
-                    <div className="flex-1 h-4 bg-[#0b1026] rounded-full border border-blue-900/40 overflow-hidden">
-                      <div
-                        className="h-full bg-gradient-to-r from-purple-600 to-blue-600"
-                        style={{ width: `${value}%` }}
-                      />
-                    </div>
-                    <div className="w-10 text-right text-white/80" style={{ fontSize: '14px' }}>{value}%</div>
+                {preferenceScores.length === 0 ? (
+                  <div className="text-white/60 text-center py-8" style={{ fontSize: '14px' }}>
+                    여행 성향 데이터가 없습니다. 취향 분석을 설정해주세요.
                   </div>
-                ))}
+                ) : (
+                  preferenceScores.map(({ key, value }) => (
+                    <div key={key} className="flex items-center gap-4">
+                      <div className="w-28 text-white/90" style={{ fontSize: '14px' }}>{key}</div>
+                      <div className="flex-1 h-4 bg-[#0b1026] rounded-full border border-blue-900/40 overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-purple-600 to-blue-600"
+                          style={{ width: `${value}%` }}
+                        />
+                      </div>
+                      <div className="w-10 text-right text-white/80" style={{ fontSize: '14px' }}>{value}%</div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
 
@@ -975,28 +981,34 @@ function MyPage() {
                       width: '100%'
                     }}
                   >
-                    {keywordCloud.map(({ text, size, color, x, y }, idx) => (
-                      <span
-                        key={`${text}-${idx}`}
-                        style={{
-                          position: 'absolute',
-                          left: `${x}%`,
-                          top: `${y}%`,
-                          transform: 'translate(-50%, -50%)',
-                          fontSize: `${size}px`,
-                          color,
-                          lineHeight: '1.2',
-                          fontWeight: 600,
-                          whiteSpace: 'nowrap',
-                          transition: 'transform 0.2s',
-                          cursor: 'default',
-                          zIndex: keywordCloud.length - idx
-                        }}
-                        className="hover:scale-110"
-                      >
-                        {text}
-                      </span>
-                    ))}
+                    {keywordCloud.length === 0 ? (
+                      <div className="text-white/60 text-center py-8" style={{ fontSize: '14px' }}>
+                        키워드 데이터가 없습니다. 취향 분석을 설정해주세요.
+                      </div>
+                    ) : (
+                      keywordCloud.map(({ text, size, color, x, y }, idx) => (
+                        <span
+                          key={`${text}-${idx}`}
+                          style={{
+                            position: 'absolute',
+                            left: `${x}%`,
+                            top: `${y}%`,
+                            transform: 'translate(-50%, -50%)',
+                            fontSize: `${size}px`,
+                            color,
+                            lineHeight: '1.2',
+                            fontWeight: 600,
+                            whiteSpace: 'nowrap',
+                            transition: 'transform 0.2s',
+                            cursor: 'default',
+                            zIndex: keywordCloud.length - idx
+                          }}
+                          className="hover:scale-110"
+                        >
+                          {text}
+                        </span>
+                      ))
+                    )}
                   </div>
                 </div>
               </div>
@@ -1014,45 +1026,53 @@ function MyPage() {
                     내가 좋아한 콘텐츠
                   </h3>
                   <div className="flex flex-col items-center gap-4">
-                    <div className="relative w-80 h-80 flex items-center justify-center">
-                      <Pie data={pieChartData} options={pieChartOptions} />
-                    </div>
-                    <div className="w-full">
-                      <div className="flex flex-wrap justify-center items-center gap-x-3 gap-y-2.5 px-2">
-                        {contentPreferenceData.map((item) => (
-                          <div 
-                            key={item.label} 
-                            className="flex items-center gap-2 flex-shrink-0"
-                            style={{
-                              minWidth: 'fit-content'
-                            }}
-                          >
-                            <span
-                              className="w-3.5 h-3.5 rounded-full flex-shrink-0"
-                              style={{ backgroundColor: item.color }}
-                            />
-                            <span 
-                              className="text-white font-medium whitespace-nowrap"
-                              style={{ 
-                                fontSize: 'clamp(12px, 2vw, 16px)',
-                                lineHeight: '24px'
-                              }}
-                            >
-                              {item.label}
-                            </span>
-                            <span 
-                              className="text-white/70 whitespace-nowrap"
-                              style={{ 
-                                fontSize: 'clamp(12px, 2vw, 16px)',
-                                lineHeight: '24px'
-                              }}
-                            >
-                              {item.value}%
-                            </span>
-                          </div>
-                        ))}
+                    {contentPreferenceData.length === 0 ? (
+                      <div className="text-white/60 text-center py-8" style={{ fontSize: '14px' }}>
+                        콘텐츠 선호도 데이터가 없습니다.
                       </div>
-                    </div>
+                    ) : (
+                      <>
+                        <div className="relative w-80 h-80 flex items-center justify-center">
+                          <Pie data={pieChartData} options={pieChartOptions} />
+                        </div>
+                        <div className="w-full">
+                          <div className="flex flex-wrap justify-center items-center gap-x-3 gap-y-2.5 px-2">
+                            {contentPreferenceData.map((item) => (
+                              <div 
+                                key={item.label} 
+                                className="flex items-center gap-2 flex-shrink-0"
+                                style={{
+                                  minWidth: 'fit-content'
+                                }}
+                              >
+                                <span
+                                  className="w-3.5 h-3.5 rounded-full flex-shrink-0"
+                                  style={{ backgroundColor: item.color }}
+                                />
+                                <span 
+                                  className="text-white font-medium whitespace-nowrap"
+                                  style={{ 
+                                    fontSize: 'clamp(12px, 2vw, 16px)',
+                                    lineHeight: '24px'
+                                  }}
+                                >
+                                  {item.label}
+                                </span>
+                                <span 
+                                  className="text-white/70 whitespace-nowrap"
+                                  style={{ 
+                                    fontSize: 'clamp(12px, 2vw, 16px)',
+                                    lineHeight: '24px'
+                                  }}
+                                >
+                                  {item.value}%
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
