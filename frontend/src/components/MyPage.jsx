@@ -1176,11 +1176,11 @@ function MyPage() {
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <h3 className="text-white font-bold" style={{ fontSize: '20px', lineHeight: '28px' }}>
-                추천 영상
+                시청 기록
               </h3>
             </div>
             <p className="text-white/60 text-sm">
-              맞춤 추천 영상을 확인해보세요
+              최근 시청한 영상을 확인해보세요
             </p>
             <div className="space-y-4">
               {isLoadingHistory && (
@@ -1202,7 +1202,7 @@ function MyPage() {
               )}
               {!isLoadingHistory && !historyError && watchHistory.length === 0 && (
                 <div className="bg-[#0f1629]/60 backdrop-blur-lg rounded-2xl p-6 text-center text-white/60" style={{ border: '2px solid #39489A' }}>
-                  추천 영상을 불러오는 중입니다. 잠시만 기다려주세요.
+                  아직 시청 기록이 없습니다.
                 </div>
               )}
               {!isLoadingHistory && !historyError && watchHistory.map((video, index) => (
