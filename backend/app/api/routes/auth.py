@@ -49,6 +49,9 @@ def debug_email_config():
     """
     이메일 설정 진단 엔드포인트
     런타임에 환경 변수가 제대로 로드되었는지 확인
+    
+    사용법:
+    GET /api/auth/debug/email-config
     """
     import os
     from pathlib import Path
@@ -81,7 +84,24 @@ def debug_email_config():
             env_file_found = str(path.absolute())
             break
     
-    return {
+    # 문제점 확인
+    issues = []
+    if not SMTP_HOST:
+        issues.append("SMTP_HOST is not set")
+    if not SMTP_PORT:
+        issues.append("SMTP_PORT is not set")
+    if not SMTP_USERNAME:
+        issues.append("SMTP_USERNAME is not set")
+    if not SMTP_PASSWORD:
+        issues.append("SMTP_PASSWORD is not set")
+    if env_file_found is None:
+        issues.append(".env file not found")
+    if env_smtp_username != SMTP_USERNAME:
+        issues.append("Environment variable SMTP_USERNAME differs from loaded config")
+    if env_smtp_password != SMTP_PASSWORD:
+        issues.append("Environment variable SMTP_PASSWORD differs from loaded config")
+    
+    return ok({
         "env_file": {
             "found": env_file_found is not None,
             "path": env_file_found,
@@ -106,9 +126,9 @@ def debug_email_config():
         },
         "status": {
             "all_set": bool(SMTP_HOST and SMTP_PORT and SMTP_USERNAME and SMTP_PASSWORD),
-            "issues": []
+            "issues": issues
         }
-    }
+    }).model_dump()
 
 
 @router.post("/register")
