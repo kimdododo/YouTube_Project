@@ -1036,7 +1036,7 @@ function MyPage() {
         </div>
 
         {/* Tabs */}
-        <div className="bg-[#0f1629]/60 backdrop-blur-lg rounded-xl p-1.5 mb-6" style={{ border: '2px solid #39489A' }}>
+        <div className="bg-[#0f1629]/60 backdrop-blur-lg rounded-xl p-1.5 mb-6" style={{ border: '3px solid #39489A' }}>
           <div className="relative flex">
             {[
               { id: 'insight', label: '취향 분석', icon: User },
@@ -1082,7 +1082,7 @@ function MyPage() {
               나의 여행 취향 분석
             </h2>
 
-            <div className="bg-[#0f1629]/60 backdrop-blur-lg rounded-2xl p-6" style={{ border: '2px solid #39489A' }}>
+            <div className="bg-[#0f1629]/60 backdrop-blur-lg rounded-2xl p-6" style={{ border: '3px solid #39489A' }}>
               <h3 className="text-white font-bold mb-2" style={{ fontSize: '18px', lineHeight: '26px' }}>
                 여행 성향
               </h3>
