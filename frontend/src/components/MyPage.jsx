@@ -101,6 +101,51 @@ function MyPage() {
     []
   )
   const [contentPreferenceData, setContentPreferenceData] = useState([])
+  const [isLoadingUserInfo, setIsLoadingUserInfo] = useState(false)
+  const [isLoadingPreferences, setIsLoadingPreferences] = useState(false)
+  const [userInfoError, setUserInfoError] = useState('')
+  const [preferencesError, setPreferencesError] = useState('')
+
+  // 여행 취향 기반 콘텐츠 선호도 데이터 계산
+  useEffect(() => {
+    if (selectedPreferences.length === 0) {
+      setContentPreferenceData([])
+      return
+    }
+
+    const colors = [
+      '#9333EA', '#3B82F6', '#10B981', '#F59E0B', '#EF4444',
+      '#8B5CF6', '#06B6D4', '#F97316', '#84CC16', '#EC4899', '#6366F1'
+    ]
+
+    const preferenceData = selectedPreferences.map((prefId, idx) => {
+      const label = TRAVEL_PREFERENCE_LABELS[prefId] || `취향 ${prefId}`
+      const baseValue = 100 / selectedPreferences.length
+      const adjustedValue = Math.max(10, Math.min(50, baseValue + (idx * 2)))
+      
+      return {
+        label,
+        value: Math.round(adjustedValue),
+        color: colors[idx % colors.length]
+      }
+    })
+
+    // 총합이 100%가 되도록 정규화
+    const total = preferenceData.reduce((sum, item) => sum + item.value, 0)
+    if (total !== 100) {
+      const factor = 100 / total
+      preferenceData.forEach(item => {
+        item.value = Math.round(item.value * factor)
+      })
+      // 반올림 오차 보정
+      const finalTotal = preferenceData.reduce((sum, item) => sum + item.value, 0)
+      if (finalTotal !== 100) {
+        preferenceData[0].value += (100 - finalTotal)
+      }
+    }
+
+    setContentPreferenceData(preferenceData)
+  }, [selectedPreferences])
 
   const pieChartData = useMemo(() => ({
     labels: contentPreferenceData.map(item => item.label),
@@ -304,9 +349,13 @@ function MyPage() {
       const token = getToken()
       if (!token) {
         // 토큰이 없으면 기본값 유지
+        setUserInfoError('로그인이 필요합니다.')
         return
       }
 
+      setIsLoadingUserInfo(true)
+      setUserInfoError('')
+      
       try {
         const userInfo = await getCurrentUser()
         if (userInfo) {
@@ -321,10 +370,15 @@ function MyPage() {
           if (userInfo.email) {
             localStorage.setItem('userEmail', userInfo.email)
           }
+          setUserInfoError('')
+        } else {
+          setUserInfoError('사용자 정보를 불러올 수 없습니다.')
         }
       } catch (error) {
         console.error('[MyPage] Failed to load user info:', error)
-        // 에러가 발생해도 기본값 유지
+        setUserInfoError(error?.message || '사용자 정보를 불러오지 못했습니다.')
+      } finally {
+        setIsLoadingUserInfo(false)
       }
     }
 
@@ -380,16 +434,35 @@ function MyPage() {
   useEffect(() => {
     const token = getToken()
     if (!token) {
+      setPreferencesError('로그인이 필요합니다.')
       return
     }
+    
     const loadPreferences = async () => {
+      setIsLoadingPreferences(true)
+      setPreferencesError('')
+      
       try {
         const result = await fetchTravelPreferences()
         const preferences = result.preference_ids || result.preferences || []
         const keywords = result.keywords || []
         applyPreferenceState(preferences, keywords)
+        setPreferencesError('')
       } catch (error) {
         console.error('[MyPage] Failed to load travel preferences:', error)
+        setPreferencesError(error?.message || '여행 취향을 불러오지 못했습니다.')
+        // 에러가 발생해도 localStorage에서 로드 시도
+        try {
+          const storedPrefs = JSON.parse(localStorage.getItem('travelPreferences') || '[]')
+          const storedKeywords = JSON.parse(localStorage.getItem('travelKeywords') || '[]')
+          if (storedPrefs.length > 0 || storedKeywords.length > 0) {
+            applyPreferenceState(storedPrefs, storedKeywords)
+          }
+        } catch (e) {
+          console.error('[MyPage] Failed to load from localStorage:', e)
+        }
+      } finally {
+        setIsLoadingPreferences(false)
       }
     }
     loadPreferences()
@@ -859,8 +932,8 @@ function MyPage() {
                       lineHeight: '36px'
                     }}
                   >
-                    {userName}
-                  </h2>
+                  {isLoadingUserInfo ? '로딩 중...' : userName || '사용자'}
+                </h2>
                   <button
                     onClick={handleEditClick}
                     className="flex items-center gap-1 text-gray-400 hover:text-gray-200 transition-colors"
@@ -869,6 +942,9 @@ function MyPage() {
                     <span className="text-sm">프로필 수정</span>
                   </button>
                 </div>
+                {userInfoError && (
+                  <p className="text-red-400 text-sm mb-2">{userInfoError}</p>
+                )}
                 <p
                   className="text-blue-200"
                   style={{
@@ -876,7 +952,7 @@ function MyPage() {
                     lineHeight: '24px'
                   }}
                 >
-                  {userEmail}
+                  {userEmail || '이메일 없음'}
                 </p>
               </div>
             </div>
@@ -934,14 +1010,22 @@ function MyPage() {
               <h3 className="text-white font-bold mb-2" style={{ fontSize: '18px', lineHeight: '26px' }}>
                 여행 성향
               </h3>
-              <p className="text-white/70 mb-6" style={{ fontSize: '14px', lineHeight: '20px' }}>
-                혼자 여행하며 맛집을 찾는 “고도한 미식가”
-              </p>
+              {isLoadingPreferences && (
+                <div className="text-white/60 text-sm mb-4">로딩 중...</div>
+              )}
+              {preferencesError && (
+                <div className="text-red-400 text-sm mb-4">{preferencesError}</div>
+              )}
+              {travelPreferenceSummary && (
+                <p className="text-white/70 mb-6" style={{ fontSize: '14px', lineHeight: '20px' }}>
+                  {travelPreferenceSummary.split(', ').slice(0, 3).join(', ')}을(를) 선호하는 여행자
+                </p>
+              )}
 
               <div className="space-y-4">
-                {preferenceScores.length === 0 ? (
+                {preferenceScores.length === 0 && !isLoadingPreferences ? (
                   <div className="text-white/60 text-center py-8" style={{ fontSize: '14px' }}>
-                    여행 성향 데이터가 없습니다. 취향 분석을 설정해주세요.
+                    여행 성향 데이터가 없습니다. 설정에서 취향을 선택해주세요.
                   </div>
                 ) : (
                   preferenceScores.map(({ key, value }) => (
@@ -981,9 +1065,13 @@ function MyPage() {
                       width: '100%'
                     }}
                   >
-                    {keywordCloud.length === 0 ? (
+                    {keywordCloud.length === 0 && !isLoadingPreferences ? (
                       <div className="text-white/60 text-center py-8" style={{ fontSize: '14px' }}>
-                        키워드 데이터가 없습니다. 취향 분석을 설정해주세요.
+                        키워드 데이터가 없습니다. 설정에서 키워드를 선택해주세요.
+                      </div>
+                    ) : keywordCloud.length === 0 && isLoadingPreferences ? (
+                      <div className="text-white/60 text-center py-8" style={{ fontSize: '14px' }}>
+                        로딩 중...
                       </div>
                     ) : (
                       keywordCloud.map(({ text, size, color, x, y }, idx) => (
@@ -1026,9 +1114,13 @@ function MyPage() {
                     내가 좋아한 콘텐츠
                   </h3>
                   <div className="flex flex-col items-center gap-4">
-                    {contentPreferenceData.length === 0 ? (
+                    {contentPreferenceData.length === 0 && !isLoadingPreferences ? (
                       <div className="text-white/60 text-center py-8" style={{ fontSize: '14px' }}>
-                        콘텐츠 선호도 데이터가 없습니다.
+                        콘텐츠 선호도 데이터가 없습니다. 여행 성향을 설정해주세요.
+                      </div>
+                    ) : contentPreferenceData.length === 0 && isLoadingPreferences ? (
+                      <div className="text-white/60 text-center py-8" style={{ fontSize: '14px' }}>
+                        로딩 중...
                       </div>
                     ) : (
                       <>
@@ -1084,9 +1176,12 @@ function MyPage() {
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <h3 className="text-white font-bold" style={{ fontSize: '20px', lineHeight: '28px' }}>
-                오늘
+                추천 영상
               </h3>
             </div>
+            <p className="text-white/60 text-sm">
+              맞춤 추천 영상을 확인해보세요
+            </p>
             <div className="space-y-4">
               {isLoadingHistory && (
                 <div className="bg-[#0f1629]/60 backdrop-blur-lg rounded-2xl p-6 animate-pulse" style={{ border: '2px solid #39489A' }}>
@@ -1107,7 +1202,7 @@ function MyPage() {
               )}
               {!isLoadingHistory && !historyError && watchHistory.length === 0 && (
                 <div className="bg-[#0f1629]/60 backdrop-blur-lg rounded-2xl p-6 text-center text-white/60" style={{ border: '2px solid #39489A' }}>
-                  아직 시청 기록이 없습니다.
+                  추천 영상을 불러오는 중입니다. 잠시만 기다려주세요.
                 </div>
               )}
               {!isLoadingHistory && !historyError && watchHistory.map((video, index) => (
