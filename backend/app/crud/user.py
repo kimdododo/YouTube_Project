@@ -10,6 +10,11 @@ def get_by_username_or_email(db: Session, username_or_email: str) -> User | None
     ).first()
 
 
+def get_by_email(db: Session, email: str) -> User | None:
+    """이메일로 사용자 조회"""
+    return db.query(User).filter(User.email == email).first()
+
+
 def get_by_id(db: Session, user_id: int) -> User | None:
     return db.query(User).filter(User.id == user_id).first()
 

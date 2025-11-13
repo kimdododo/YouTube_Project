@@ -17,7 +17,8 @@ from app.schemas.user_preference import TravelPreferenceCreate, TravelPreference
 from app.crud.user import (
     create_user, 
     authenticate, 
-    get_by_username_or_email, 
+    get_by_username_or_email,
+    get_by_email,
     get_by_id, 
     update_password,
     verify_user_email
@@ -146,7 +147,6 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
             raise HTTPException(status_code=500, detail=f"데이터베이스 연결 실패: {str(db_test_error)}")
         
         # 이메일 중복 체크만 수행 (username은 중복 허용)
-        from app.crud.user import get_by_email
         existing_user = get_by_email(db, payload.email)
         if existing_user:
             print(f"[DEBUG] Email already exists: {payload.email}")
