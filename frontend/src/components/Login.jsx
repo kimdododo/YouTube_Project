@@ -41,7 +41,20 @@ function Login() {
       navigate('/')
     } catch (error) {
       console.error('[Login] Login error:', error)
-      setError(error.message || '로그인에 실패했습니다. 이메일과 비밀번호를 확인해주세요.')
+      // 에러 메시지 개선
+      let errorMessage = '로그인에 실패했습니다.'
+      if (error.message) {
+        if (error.message.includes('비밀번호가 일치하지 않습니다')) {
+          errorMessage = '비밀번호가 일치하지 않습니다.'
+        } else if (error.message.includes('사용자를 찾을 수 없습니다')) {
+          errorMessage = '사용자를 찾을 수 없습니다. 이메일 또는 사용자 이름을 확인해주세요.'
+        } else if (error.message.includes('401') || error.message.includes('invalid credentials')) {
+          errorMessage = '이메일 또는 비밀번호가 올바르지 않습니다.'
+        } else {
+          errorMessage = error.message
+        }
+      }
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }

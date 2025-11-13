@@ -22,13 +22,23 @@ function SignupComplete() {
 
         setIsSaving(true)
         
-        // 1. 자동 로그인
-        const loginResult = await login(email, password)
+        // 1. 자동 로그인 (회원가입 직후이므로 약간의 지연 추가)
+        await new Promise(resolve => setTimeout(resolve, 500)) // 0.5초 대기
         
-        // 로그인 성공 시 상태 저장
-        sessionStorage.setItem('isLoggedIn', 'true')
-        if (loginResult.user?.username || loginResult.username) {
-          sessionStorage.setItem('userName', loginResult.user?.username || loginResult.username)
+        let loginResult
+        try {
+          loginResult = await login(email, password)
+          
+          // 로그인 성공 시 상태 저장
+          sessionStorage.setItem('isLoggedIn', 'true')
+          if (loginResult.user?.username || loginResult.username) {
+            sessionStorage.setItem('userName', loginResult.user?.username || loginResult.username)
+          }
+        } catch (loginError) {
+          console.error('[SignupComplete] Login failed:', loginError)
+          // 로그인 실패 시에도 취향 저장은 시도
+          // 사용자는 나중에 직접 로그인할 수 있음
+          throw new Error('자동 로그인에 실패했습니다. 직접 로그인해주세요.')
         }
 
         // 2. localStorage에서 선택한 취향과 키워드 가져오기

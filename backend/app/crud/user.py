@@ -46,12 +46,27 @@ def create_user(db: Session, username: str, email: str, password: str) -> User:
 
 
 def authenticate(db: Session, username_or_email: str, password: str) -> User | None:
-    user = get_by_username_or_email(db, username_or_email)
-    if not user:
+    try:
+        user = get_by_username_or_email(db, username_or_email)
+        if not user:
+            print(f"[DEBUG] User not found: {username_or_email}")
+            return None
+        
+        print(f"[DEBUG] User found: id={user.id}, username={user.username}, email={user.email}")
+        
+        # 비밀번호 검증
+        is_valid = verify_password(password, user.password_hash)
+        if not is_valid:
+            print(f"[DEBUG] Password verification failed for user: {username_or_email}")
+            return None
+        
+        print(f"[DEBUG] Authentication successful for user: {username_or_email}")
+        return user
+    except Exception as e:
+        print(f"[ERROR] Authentication error: {str(e)}")
+        import traceback
+        print(f"[ERROR] Traceback: {traceback.format_exc()}")
         return None
-    if not verify_password(password, user.password_hash):
-        return None
-    return user
 
 
 def update_password(db: Session, user_id: int, new_password: str) -> bool:

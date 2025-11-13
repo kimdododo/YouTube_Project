@@ -94,9 +94,25 @@ def issue_token(
     로그인 및 토큰 발급
     로그인 성공 시 DB에 로그인 이력을 저장합니다.
     """
-    user = authenticate(db, form.username, form.password)
-    if not user:
-        raise HTTPException(status_code=401, detail="invalid credentials")
+    print(f"[DEBUG] Login attempt: username={form.username}")
+    try:
+        user = authenticate(db, form.username, form.password)
+        if not user:
+            print(f"[WARN] Authentication failed for username: {form.username}")
+            # 사용자 존재 여부 확인
+            existing_user = get_by_username_or_email(db, form.username)
+            if existing_user:
+                print(f"[WARN] User exists but password mismatch")
+                raise HTTPException(status_code=401, detail="비밀번호가 일치하지 않습니다.")
+            else:
+                print(f"[WARN] User not found")
+                raise HTTPException(status_code=401, detail="사용자를 찾을 수 없습니다. 이메일 또는 사용자 이름을 확인해주세요.")
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[ERROR] Authentication error: {str(e)}")
+        print(f"[ERROR] Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=401, detail="로그인 처리 중 오류가 발생했습니다.")
     
     # 로그인 이력 저장
     try:
