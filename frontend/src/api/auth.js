@@ -178,7 +178,53 @@ export const saveTravelPreferences = async (preferenceIds = [], keywords = []) =
   return result.data || result
 }
 
+/**
+ * 현재 로그인한 사용자 정보 가져오기
+ * @returns {Promise<Object>} 사용자 정보 (username, email, id)
+ */
+export const getCurrentUser = async () => {
+  const token = getToken()
+  if (!token) {
+    return null
+  }
+
+  try {
+    const headers = {
+      ...authHeaders()
+    }
+
+    const response = await fetch(`${API_BASE_URL}/auth/me`, {
+      method: 'GET',
+      headers
+    })
+
+    if (!response.ok) {
+      // 401 Unauthorized인 경우 토큰이 만료되었을 수 있음
+      if (response.status === 401) {
+        console.warn('[auth.js] Unauthorized - token may be expired')
+        localStorage.removeItem('access_token')
+        localStorage.removeItem('token_type')
+        return null
+      }
+      const errorData = await response.json().catch(() => ({ detail: response.statusText }))
+      throw new Error(errorData.detail || '사용자 정보를 불러오지 못했습니다.')
+    }
+
+    const result = await response.json()
+    return result.data || result
+  } catch (error) {
+    console.error('[auth.js] Error getting current user:', error?.message || error)
+    return null
+  }
+}
+
 export const fetchTravelPreferences = async () => {
+  const token = getToken()
+  if (!token) {
+    // 토큰이 없으면 빈 객체 반환 (에러를 던지지 않음)
+    return { preference_ids: [], keywords: [] }
+  }
+
   const headers = {
     ...authHeaders()
   }
@@ -189,6 +235,13 @@ export const fetchTravelPreferences = async () => {
   })
 
   if (!response.ok) {
+    // 401 Unauthorized인 경우 토큰이 만료되었을 수 있으므로 빈 객체 반환
+    if (response.status === 401) {
+      console.warn('[auth.js] Unauthorized - token may be expired')
+      localStorage.removeItem('access_token')
+      localStorage.removeItem('token_type')
+      return { preference_ids: [], keywords: [] }
+    }
     const errorData = await response.json().catch(() => ({ detail: response.statusText }))
     throw new Error(errorData.detail || '여행 취향을 불러오지 못했습니다.')
   }

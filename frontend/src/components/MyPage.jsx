@@ -1,9 +1,18 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { User, Settings, Camera, Edit3, X, LogOut, Bookmark, Bell, Lock, Eye, EyeOff } from 'lucide-react'
+import { User, Settings, Camera, Edit3, X, LogOut, Bookmark, Bell, Lock, Eye, EyeOff, Clock } from 'lucide-react'
 import Logo from './Logo'
 import { getRecommendedVideos } from '../api/videos'
-import { changePassword, saveTravelPreferences, fetchTravelPreferences, getToken, logout as clearAuth } from '../api/auth'
+import { changePassword, saveTravelPreferences, fetchTravelPreferences, getToken, logout as clearAuth, getCurrentUser } from '../api/auth'
+import {
+  Chart as ChartJS,
+  ArcElement,
+  Tooltip,
+  Legend
+} from 'chart.js'
+import { Pie } from 'react-chartjs-2'
+
+ChartJS.register(ArcElement, Tooltip, Legend)
 
 const DEFAULT_PREFERENCE_SUMMARY = '도시탐험형, 맛집탐방형, 자연힐링형'
 const DEFAULT_KEYWORD_SUMMARY = '#카페투어, #혼자여행, #호캉스, #자유여행'
@@ -81,29 +90,43 @@ function MyPage() {
   })
 
   const keywordCloud = useMemo(() => ([
-    { text: '카페투어', size: 44, color: '#F9FAFB' },
-    { text: '미슐랭', size: 24, color: '#A5B4FC' },
-    { text: '포토존', size: 22, color: '#E0E7FF' },
-    { text: '한식', size: 26, color: '#FBBF24' },
-    { text: '숨은식당', size: 20, color: '#38BDF8' },
-    { text: '신메뉴', size: 18, color: '#FCA5A5' },
-    { text: '디저트', size: 21, color: '#F9A8D4' },
-    { text: '브런치', size: 20, color: '#FCD34D' },
-    { text: '로컬맛집', size: 24, color: '#BFDBFE' },
-    { text: '전시', size: 18, color: '#C4B5FD' },
-    { text: '캠핑', size: 16, color: '#38BDF8' },
-    { text: '거리', size: 18, color: '#FCA5A5' },
-    { text: '이국적', size: 20, color: '#FDBA74' },
-    { text: '사진스팟', size: 20, color: '#F87171' },
-    { text: '한입', size: 17, color: '#FDE68A' },
-    { text: '로컬', size: 18, color: '#60A5FA' },
-    { text: '자연', size: 17, color: '#67E8F9' },
-    { text: '트렌디', size: 19, color: '#FB7185' },
-    { text: '감성', size: 16, color: '#F5D0FE' },
-    { text: '거닐기', size: 16, color: '#F9A8D4' },
-    { text: '브이로그', size: 18, color: '#FACC15' },
-    { text: '건축', size: 16, color: '#93C5FD' },
-    { text: '로컬', size: 15, color: '#FBBF24' }
+    // 큰 키워드 (가장 중요)
+    { text: '카페투어', size: 48, color: '#F9FAFB' },
+    { text: '미슐랭', size: 36, color: '#A5B4FC' },
+    { text: '디저트', size: 34, color: '#F9A8D4' },
+    { text: '한식', size: 38, color: '#FBBF24' },
+    { text: '포토존', size: 32, color: '#E0E7FF' },
+    { text: '트렌디', size: 30, color: '#FB7185' },
+    { text: '사진스팟', size: 32, color: '#F87171' },
+    // 중간 키워드
+    { text: '로컬맛집', size: 28, color: '#BFDBFE' },
+    { text: '브런치', size: 26, color: '#FCD34D' },
+    { text: '거리', size: 24, color: '#FCA5A5' },
+    { text: '숨은식당', size: 26, color: '#38BDF8' },
+    { text: '이국적', size: 25, color: '#FDBA74' },
+    { text: '숲속', size: 22, color: '#67E8F9' },
+    { text: '캠핑', size: 22, color: '#38BDF8' },
+    { text: '일몰', size: 23, color: '#FCD34D' },
+    { text: '바람', size: 21, color: '#93C5FD' },
+    { text: '서핑', size: 24, color: '#60A5FA' },
+    { text: '역동적', size: 23, color: '#F87171' },
+    { text: '트래킹', size: 22, color: '#4ADE80' },
+    { text: '야경', size: 24, color: '#A855F7' },
+    { text: '생동감', size: 23, color: '#FACC15' },
+    { text: '스쿠버다이빙', size: 20, color: '#38BDF8' },
+    { text: '감성', size: 22, color: '#F5D0FE' },
+    { text: '신메뉴', size: 24, color: '#FCA5A5' },
+    { text: '챌린지', size: 21, color: '#FB7185' },
+    { text: '자연', size: 23, color: '#67E8F9' },
+    { text: '로컬', size: 22, color: '#60A5FA' },
+    { text: '등산', size: 21, color: '#4ADE80' },
+    { text: '전시', size: 24, color: '#C4B5FD' },
+    { text: '한입', size: 23, color: '#FDE68A' },
+    { text: '건축', size: 22, color: '#93C5FD' },
+    { text: '여유', size: 21, color: '#F9A8D4' },
+    { text: '모험심', size: 20, color: '#FDBA74' },
+    { text: '카페거리', size: 19, color: '#E0E7FF' },
+    { text: '평온', size: 20, color: '#BFDBFE' }
   ]), [])
   const preferenceOptions = useMemo(
     () => Object.entries(TRAVEL_PREFERENCE_LABELS).map(([id, label]) => ({ id: Number(id), label })),
@@ -128,18 +151,47 @@ function MyPage() {
     { label: '문화 탐험', value: 12, color: '#4ADE80' },
     { label: '호캉스', value: 10, color: '#A855F7' }
   ]), [])
-  const pieSegments = useMemo(() => {
-    let offset = 25
-    return contentPreferenceData.map((item) => {
-      const segment = {
-        ...item,
-        dashArray: `${item.value} ${100 - item.value}`,
-        dashOffset: offset
+
+  const pieChartData = useMemo(() => ({
+    labels: contentPreferenceData.map(item => item.label),
+    datasets: [
+      {
+        label: '내가 좋아한 콘텐츠',
+        data: contentPreferenceData.map(item => item.value),
+        backgroundColor: contentPreferenceData.map(item => item.color),
+        borderColor: '#FFFFFF',
+        borderWidth: 2
       }
-      offset -= item.value
-      return segment
-    })
-  }, [contentPreferenceData])
+    ]
+  }), [contentPreferenceData])
+
+  const pieChartOptions = useMemo(() => ({
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        display: false
+      },
+      tooltip: {
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        titleColor: '#fff',
+        bodyColor: '#fff',
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderWidth: 1,
+        callbacks: {
+          label: function(context) {
+            return `${context.label}: ${context.parsed}%`
+          }
+        }
+      }
+    },
+    layout: {
+      padding: {
+        top: 10,
+        bottom: 10
+      }
+    }
+  }), [])
 
   const computePreferenceScores = (preferenceIds = []) => {
     const base = {
@@ -210,7 +262,7 @@ function MyPage() {
     localStorage.setItem('travelKeywords', JSON.stringify(normalizedKeywords))
   }
 
-  // 로그인 상태 체크
+  // 로그인 상태 체크 및 사용자 정보 로드
   useEffect(() => {
     const checkLoginStatus = () => {
       setIsLoggedIn(sessionStorage.getItem('isLoggedIn') === 'true' || localStorage.getItem('isLoggedIn') === 'true')
@@ -222,6 +274,39 @@ function MyPage() {
       window.removeEventListener('storage', checkLoginStatus)
       clearInterval(interval)
     }
+  }, [])
+
+  // 사용자 정보 로드
+  useEffect(() => {
+    const loadUserInfo = async () => {
+      const token = getToken()
+      if (!token) {
+        // 토큰이 없으면 기본값 유지
+        return
+      }
+
+      try {
+        const userInfo = await getCurrentUser()
+        if (userInfo) {
+          setUserName(userInfo.username || userName)
+          setUserEmail(userInfo.email || userEmail)
+          setEditName(userInfo.username || userName)
+          setEditEmail(userInfo.email || userEmail)
+          // localStorage에도 저장 (다른 페이지에서 사용할 수 있도록)
+          if (userInfo.username) {
+            localStorage.setItem('userName', userInfo.username)
+          }
+          if (userInfo.email) {
+            localStorage.setItem('userEmail', userInfo.email)
+          }
+        }
+      } catch (error) {
+        console.error('[MyPage] Failed to load user info:', error)
+        // 에러가 발생해도 기본값 유지
+      }
+    }
+
+    loadUserInfo()
   }, [])
 
   useEffect(() => {
@@ -717,12 +802,13 @@ function MyPage() {
         <div
           className="relative rounded-3xl mb-6"
           style={{
-            background: 'linear-gradient(135deg, #1F2D7A, #111845)',
-            padding: '3px'
+            background: '#39489A',
+            padding: '2px',
+            border: '3px solid #39489A'
           }}
         >
           <div
-            className="rounded-3xl bg-[#050b24] flex items-center justify-between px-8 py-6"
+            className="rounded-3xl bg-[#060d2c] flex items-center justify-between px-8 py-6"
             style={{
               minHeight: '140px'
             }}
@@ -738,7 +824,7 @@ function MyPage() {
                 >
                   {userName.charAt(0)}
                 </div>
-                <div className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-yellow-400 flex items-center justify-center border-2 border-[#050b24] cursor-pointer shadow-lg">
+                <div className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-yellow-400 flex items-center justify-center border-2 border-[#060d2c] cursor-pointer shadow-lg">
                   <Camera className="w-4 h-4 text-white" />
                 </div>
               </div>
@@ -776,11 +862,11 @@ function MyPage() {
         </div>
 
         {/* Tabs */}
-        <div className="bg-[#0f1629]/60 backdrop-blur-lg border border-blue-900/40 rounded-xl p-1.5 mb-6">
+        <div className="bg-[#0f1629]/60 backdrop-blur-lg rounded-xl p-1.5 mb-6" style={{ border: '2px solid #39489A' }}>
           <div className="relative flex">
             {[
               { id: 'insight', label: '취향 분석', icon: User },
-              { id: 'history', label: '시청 기록', icon: Pin },
+              { id: 'history', label: '시청 기록', icon: Clock },
               { id: 'bookmarks', label: '북마크', icon: Bookmark },
               { id: 'settings', label: '설정', icon: Settings }
             ].map((tab, idx) => (
@@ -822,7 +908,7 @@ function MyPage() {
               나의 여행 취향 분석
             </h2>
 
-            <div className="bg-[#0f1629]/60 backdrop-blur-lg border border-blue-900/40 rounded-2xl p-6">
+            <div className="bg-[#0f1629]/60 backdrop-blur-lg rounded-2xl p-6" style={{ border: '2px solid #39489A' }}>
               <h3 className="text-white font-bold mb-2" style={{ fontSize: '18px', lineHeight: '26px' }}>
                 여행 성향
               </h3>
@@ -850,24 +936,36 @@ function MyPage() {
               <div
                 className="relative rounded-3xl"
                 style={{
-                  background: 'linear-gradient(135deg, rgba(59,130,246,0.6), rgba(147,51,234,0.6))',
-                  padding: '2px'
+                  background: '#39489A',
+                  padding: '2px',
+                  border: '2px solid #39489A'
                 }}
               >
                 <div className="rounded-3xl bg-[#060d2c] px-6 py-6">
                   <h3 className="text-white font-bold mb-6" style={{ fontSize: '18px', lineHeight: '26px' }}>
                     나의 키워드
                   </h3>
-                  <div className="flex flex-wrap gap-x-6 gap-y-4 justify-center">
+                  <div 
+                    className="flex flex-wrap gap-x-4 gap-y-3 justify-center items-center"
+                    style={{ 
+                      minHeight: '200px',
+                      padding: '20px 0'
+                    }}
+                  >
                     {keywordCloud.map(({ text, size, color }, idx) => (
                       <span
                         key={`${text}-${idx}`}
                         style={{
                           fontSize: `${size}px`,
                           color,
-                          lineHeight: '1.1'
+                          lineHeight: '1.2',
+                          fontWeight: 600,
+                          display: 'inline-block',
+                          margin: '2px 4px',
+                          transition: 'transform 0.2s',
+                          cursor: 'default'
                         }}
-                        className="font-semibold"
+                        className="hover:scale-105"
                       >
                         {text}
                       </span>
@@ -879,62 +977,54 @@ function MyPage() {
               <div
                 className="relative rounded-3xl"
                 style={{
-                  background: 'linear-gradient(135deg, rgba(59,130,246,0.6), rgba(147,51,234,0.6))',
-                  padding: '2px'
+                  background: '#39489A',
+                  padding: '2px',
+                  border: '2px solid #39489A'
                 }}
               >
                 <div className="rounded-3xl bg-[#060d2c] px-6 py-6">
                   <h3 className="text-white font-bold mb-6" style={{ fontSize: '18px', lineHeight: '26px' }}>
                     내가 좋아한 콘텐츠
                   </h3>
-                  <div className="flex flex-col lg:flex-row items-center gap-8">
-                    <div className="relative w-56 h-56 flex items-center justify-center">
-                      <svg viewBox="0 0 36 36" className="w-full h-full">
-                        <circle
-                          cx="18"
-                          cy="18"
-                          r="16"
-                          fill="#0b1130"
-                          stroke="#1e2550"
-                          strokeWidth="1.5"
-                        />
-                        {pieSegments.map((segment, idx) => (
-                          <circle
-                            key={`${segment.label}-${idx}`}
-                            cx="18"
-                            cy="18"
-                            r="15.915"
-                            fill="none"
-                            stroke={segment.color}
-                            strokeWidth="3.5"
-                            strokeDasharray={segment.dashArray}
-                            strokeDashoffset={segment.dashOffset}
-                            strokeLinecap="round"
-                            transform="rotate(-90 18 18)"
-                          />
-                        ))}
-                      </svg>
-                      <div className="absolute text-center">
-                        <p className="text-sm text-blue-200">선호 콘텐츠</p>
-                      </div>
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="relative w-80 h-80 flex items-center justify-center">
+                      <Pie data={pieChartData} options={pieChartOptions} />
                     </div>
                     <div className="w-full">
-                      <ul className="space-y-3">
+                      <div className="flex flex-wrap justify-center items-center gap-x-3 gap-y-2.5 px-2">
                         {contentPreferenceData.map((item) => (
-                          <li key={item.label} className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <span
-                                className="w-3.5 h-3.5 rounded-full"
-                                style={{ backgroundColor: item.color }}
-                              />
-                              <span className="text-white" style={{ fontSize: '16px' }}>{item.label}</span>
-                            </div>
-                            <span className="text-white/70" style={{ fontSize: '16px' }}>
+                          <div 
+                            key={item.label} 
+                            className="flex items-center gap-2 flex-shrink-0"
+                            style={{
+                              minWidth: 'fit-content'
+                            }}
+                          >
+                            <span
+                              className="w-3.5 h-3.5 rounded-full flex-shrink-0"
+                              style={{ backgroundColor: item.color }}
+                            />
+                            <span 
+                              className="text-white font-medium whitespace-nowrap"
+                              style={{ 
+                                fontSize: 'clamp(12px, 2vw, 16px)',
+                                lineHeight: '24px'
+                              }}
+                            >
+                              {item.label}
+                            </span>
+                            <span 
+                              className="text-white/70 whitespace-nowrap"
+                              style={{ 
+                                fontSize: 'clamp(12px, 2vw, 16px)',
+                                lineHeight: '24px'
+                              }}
+                            >
                               {item.value}%
                             </span>
-                          </li>
+                          </div>
                         ))}
-                      </ul>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -952,7 +1042,7 @@ function MyPage() {
             </div>
             <div className="space-y-4">
               {isLoadingHistory && (
-                <div className="bg-[#0f1629]/60 backdrop-blur-lg border border-blue-900/40 rounded-2xl p-6 animate-pulse">
+                <div className="bg-[#0f1629]/60 backdrop-blur-lg rounded-2xl p-6 animate-pulse" style={{ border: '2px solid #39489A' }}>
                   <div className="flex gap-4">
                     <div className="w-40 h-28 rounded-xl bg-gray-700/60" />
                     <div className="flex-1 space-y-3">
@@ -964,12 +1054,12 @@ function MyPage() {
                 </div>
               )}
               {historyError && !isLoadingHistory && (
-                <div className="bg-[#1a1f3a]/80 border border-red-500/40 rounded-2xl p-6 text-red-300">
+                <div className="bg-[#1a1f3a]/80 rounded-2xl p-6 text-red-300" style={{ border: '2px solid #39489A' }}>
                   {historyError}
                 </div>
               )}
               {!isLoadingHistory && !historyError && watchHistory.length === 0 && (
-                <div className="bg-[#0f1629]/60 backdrop-blur-lg border border-blue-900/40 rounded-2xl p-6 text-center text-white/60">
+                <div className="bg-[#0f1629]/60 backdrop-blur-lg rounded-2xl p-6 text-center text-white/60" style={{ border: '2px solid #39489A' }}>
                   아직 시청 기록이 없습니다.
                 </div>
               )}
@@ -979,7 +1069,8 @@ function MyPage() {
                   href={video.youtube_url || `https://www.youtube.com/watch?v=${video.id}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="block bg-[#0f1629]/60 backdrop-blur-lg border border-blue-900/40 rounded-2xl p-5 hover:border-blue-500/50 transition-colors"
+                  className="block bg-[#0f1629]/60 backdrop-blur-lg rounded-2xl p-5 transition-colors"
+                  style={{ border: '2px solid #39489A' }}
                 >
                   <div className="flex flex-col md:flex-row gap-4">
                     <div className="relative w-full md:w-52 lg:w-60 h-32 md:h-32 lg:h-36 rounded-xl overflow-hidden bg-gradient-to-br from-blue-500/30 to-purple-500/30">
@@ -1031,7 +1122,7 @@ function MyPage() {
               </h3>
             </div>
             {bookmarks.length === 0 ? (
-              <div className="bg-[#0f1629]/60 backdrop-blur-lg border border-blue-900/40 rounded-2xl p-12 text-center">
+              <div className="bg-[#0f1629]/60 backdrop-blur-lg rounded-2xl p-12 text-center" style={{ border: '2px solid #39489A' }}>
                 <Bookmark className="w-16 h-16 text-gray-500 mx-auto mb-4" />
                 <h3 className="text-white font-semibold mb-2" style={{ fontSize: '18px' }}>
                   저장된 북마크가 없습니다
@@ -1051,7 +1142,8 @@ function MyPage() {
                       href={youtubeUrl || '#'}
                       target={youtubeUrl ? '_blank' : undefined}
                       rel={youtubeUrl ? 'noopener noreferrer' : undefined}
-                      className="block bg-[#0f1629]/60 backdrop-blur-lg border border-blue-900/40 rounded-2xl p-5 hover:border-blue-500/50 transition-colors"
+                      className="block bg-[#0f1629]/60 backdrop-blur-lg rounded-2xl p-5 transition-colors"
+                  style={{ border: '2px solid #39489A' }}
                     >
                       <div className="flex flex-col md:flex-row gap-4">
                         <div className="relative w-full md:w-52 lg:w-60 h-32 md:h-32 lg:h-36 rounded-xl overflow-hidden bg-gradient-to-br from-blue-500/30 to-purple-500/30 group">
@@ -1113,7 +1205,7 @@ function MyPage() {
         {activeTab === 'activity' && (
           <div className="space-y-4">
             {/* Activity Item 1 */}
-            <div className="bg-[#0f1629]/60 backdrop-blur-lg border border-blue-900/40 rounded-xl p-5 flex items-start gap-4">
+            <div className="bg-[#0f1629]/60 backdrop-blur-lg rounded-xl p-5 flex items-start gap-4" style={{ border: '2px solid #39489A' }}>
               <div className="w-2 h-2 rounded-full bg-yellow-400 mt-2 flex-shrink-0"></div>
               <div className="flex-1">
                 <p className="text-white mb-1" style={{
@@ -1134,7 +1226,7 @@ function MyPage() {
             </div>
 
             {/* Activity Item 2 */}
-            <div className="bg-[#0f1629]/60 backdrop-blur-lg border border-blue-900/40 rounded-xl p-5 flex items-start gap-4">
+            <div className="bg-[#0f1629]/60 backdrop-blur-lg rounded-xl p-5 flex items-start gap-4" style={{ border: '2px solid #39489A' }}>
               <div className="w-2 h-2 rounded-full bg-yellow-400 mt-2 flex-shrink-0"></div>
               <div className="flex-1">
                 <p className="text-white mb-1" style={{
@@ -1155,7 +1247,7 @@ function MyPage() {
             </div>
 
             {/* Activity Item 3 */}
-            <div className="bg-[#0f1629]/60 backdrop-blur-lg border border-blue-900/40 rounded-xl p-5 flex items-start gap-4">
+            <div className="bg-[#0f1629]/60 backdrop-blur-lg rounded-xl p-5 flex items-start gap-4" style={{ border: '2px solid #39489A' }}>
               <div className="w-2 h-2 rounded-full bg-yellow-400 mt-2 flex-shrink-0"></div>
               <div className="flex-1">
                 <p className="text-white mb-1" style={{
@@ -1182,7 +1274,8 @@ function MyPage() {
             {settingsCards.map((card) => (
               <div
                 key={card.id}
-                className="bg-[#0f1629]/80 border border-blue-900/40 rounded-2xl p-6"
+                className="bg-[#0f1629]/80 rounded-2xl p-6"
+                style={{ border: '2px solid #39489A' }}
               >
                 <div className="flex items-center gap-3 mb-5">
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center">

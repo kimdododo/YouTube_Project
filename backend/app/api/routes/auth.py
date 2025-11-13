@@ -198,6 +198,27 @@ def save_preferences(
         raise HTTPException(status_code=500, detail=f"취향 저장 중 오류가 발생했습니다: {str(e)}")
 
 
+@router.get("/me", response_model=UserOut)
+def get_current_user(
+    current_user_id_str: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """
+    현재 로그인한 사용자 정보 조회
+    """
+    try:
+        current_user_id = int(current_user_id_str)
+        user = get_by_id(db, current_user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
+        return UserOut.model_validate(user).model_dump()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid user ID")
+    except Exception as e:
+        print(f"[ERROR] Error getting current user: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"사용자 정보 조회 중 오류가 발생했습니다: {str(e)}")
+
+
 @router.get("/preferences", response_model=TravelPreferenceResponse)
 def get_preferences(
     current_user_id_str: str = Depends(get_current_user_id),
