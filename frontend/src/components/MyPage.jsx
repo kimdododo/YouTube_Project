@@ -965,7 +965,6 @@ function MyPage() {
       <main className="relative z-10" style={{
         width: '990px',
         margin: '0 auto',
-        padding: '0 16px',
         paddingTop: '32px',
         paddingBottom: '64px'
       }}>
@@ -979,7 +978,7 @@ function MyPage() {
           }}
         >
           <div
-            className="rounded-3xl bg-[#060d2c] flex items-center justify-between px-8 py-6"
+            className="rounded-3xl bg-[#060d2c] flex items-center justify-between px-6 py-4"
             style={{
               minHeight: '140px'
             }}
@@ -1082,7 +1081,7 @@ function MyPage() {
               나의 여행 취향 분석
             </h2>
 
-            <div className="bg-[#0f1629]/60 backdrop-blur-lg rounded-2xl p-6" style={{ border: '2px solid #39489A' }}>
+            <div className="bg-[#0f1629]/60 backdrop-blur-lg rounded-2xl p-4" style={{ border: '2px solid #39489A' }}>
               <h3 className="text-white font-bold mb-2" style={{ fontSize: '18px', lineHeight: '26px' }}>
                 여행 성향
               </h3>
@@ -1129,15 +1128,14 @@ function MyPage() {
                   border: '2px solid #39489A'
                 }}
               >
-                <div className="rounded-3xl bg-[#060d2c] px-6 py-6">
-                  <h3 className="text-white font-bold mb-6" style={{ fontSize: '18px', lineHeight: '26px' }}>
+                <div className="rounded-3xl bg-[#060d2c] px-6 py-4">
+                  <h3 className="text-white font-bold mb-4" style={{ fontSize: '18px', lineHeight: '26px' }}>
                     나의 키워드
                   </h3>
                   <div 
                     className="relative"
                     style={{ 
                       minHeight: '400px',
-                      padding: '20px 0',
                       width: '100%',
                       background: 'transparent'
                     }}
@@ -1192,8 +1190,8 @@ function MyPage() {
                   border: '2px solid #39489A'
                 }}
               >
-                <div className="rounded-3xl bg-[#060d2c] px-6 py-6">
-                  <h3 className="text-white font-bold mb-6" style={{ fontSize: '18px', lineHeight: '26px' }}>
+                <div className="rounded-3xl bg-[#060d2c] px-6 py-4">
+                  <h3 className="text-white font-bold mb-4" style={{ fontSize: '18px', lineHeight: '26px' }}>
                     내가 좋아한 콘텐츠
                   </h3>
                   <div className="flex flex-col items-center gap-4">
@@ -1267,7 +1265,7 @@ function MyPage() {
             </p>
             <div className="space-y-4">
               {isLoadingHistory && (
-                <div className="bg-[#0f1629]/60 backdrop-blur-lg rounded-2xl p-6 animate-pulse" style={{ border: '2px solid #39489A' }}>
+                <div className="bg-[#0f1629]/60 backdrop-blur-lg rounded-2xl p-4 animate-pulse" style={{ border: '2px solid #39489A' }}>
                   <div className="flex gap-4">
                     <div className="w-40 h-28 rounded-xl bg-gray-700/60" />
                     <div className="flex-1 space-y-3">
@@ -1279,12 +1277,12 @@ function MyPage() {
                 </div>
               )}
               {historyError && !isLoadingHistory && (
-                <div className="bg-[#1a1f3a]/80 rounded-2xl p-6 text-red-300" style={{ border: '2px solid #39489A' }}>
+                <div className="bg-[#1a1f3a]/80 rounded-2xl p-4 text-red-300" style={{ border: '2px solid #39489A' }}>
                   {historyError}
                 </div>
               )}
               {!isLoadingHistory && !historyError && watchHistory.length === 0 && (
-                <div className="bg-[#0f1629]/60 backdrop-blur-lg rounded-2xl p-6 text-center text-white/60" style={{ border: '2px solid #39489A' }}>
+                <div className="bg-[#0f1629]/60 backdrop-blur-lg rounded-2xl p-4 text-center text-white/60" style={{ border: '2px solid #39489A' }}>
                   아직 시청 기록이 없습니다.
                 </div>
               )}
@@ -1301,7 +1299,7 @@ function MyPage() {
                   target={youtubeUrl ? '_blank' : undefined}
                   rel={youtubeUrl ? 'noopener noreferrer' : undefined}
                   onClick={!youtubeUrl ? (e) => { e.preventDefault(); console.warn('[MyPage] Invalid video ID:', videoId) } : undefined}
-                  className="block bg-[#0f1629]/60 backdrop-blur-lg rounded-2xl p-5 transition-colors"
+                  className="block bg-[#0f1629]/60 backdrop-blur-lg rounded-2xl p-4 transition-colors"
                   style={{ border: '2px solid #39489A' }}
                 >
                   <div className="flex flex-col md:flex-row gap-4">
@@ -1403,7 +1401,7 @@ function MyPage() {
               </h3>
             </div>
             {bookmarks.length === 0 ? (
-              <div className="bg-[#0f1629]/60 backdrop-blur-lg rounded-2xl p-12 text-center" style={{ border: '2px solid #39489A' }}>
+              <div className="bg-[#0f1629]/60 backdrop-blur-lg rounded-2xl p-4 text-center" style={{ border: '2px solid #39489A' }}>
                 <Bookmark className="w-16 h-16 text-gray-500 mx-auto mb-4" />
                 <h3 className="text-white font-semibold mb-2" style={{ fontSize: '18px' }}>
                   저장된 북마크가 없습니다
@@ -1425,7 +1423,7 @@ function MyPage() {
                       target={youtubeUrl ? '_blank' : undefined}
                       rel={youtubeUrl ? 'noopener noreferrer' : undefined}
                       onClick={!youtubeUrl ? (e) => { e.preventDefault(); console.warn('[MyPage] Invalid bookmark video ID:', videoId) } : undefined}
-                      className="block bg-[#0f1629]/60 backdrop-blur-lg rounded-2xl p-5 transition-colors"
+                      className="block bg-[#0f1629]/60 backdrop-blur-lg rounded-2xl p-4 transition-colors"
                   style={{ border: '2px solid #39489A' }}
                     >
                       <div className="flex flex-col md:flex-row gap-4">
@@ -1536,7 +1534,7 @@ function MyPage() {
         {activeTab === 'activity' && (
           <div className="space-y-4">
             {/* Activity Item 1 */}
-            <div className="bg-[#0f1629]/60 backdrop-blur-lg rounded-xl p-5 flex items-start gap-4" style={{ border: '2px solid #39489A' }}>
+            <div className="bg-[#0f1629]/60 backdrop-blur-lg rounded-xl p-4 flex items-start gap-4" style={{ border: '2px solid #39489A' }}>
               <div className="w-2 h-2 rounded-full bg-yellow-400 mt-2 flex-shrink-0"></div>
               <div className="flex-1">
                 <p className="text-white mb-1" style={{
@@ -1557,7 +1555,7 @@ function MyPage() {
             </div>
 
             {/* Activity Item 2 */}
-            <div className="bg-[#0f1629]/60 backdrop-blur-lg rounded-xl p-5 flex items-start gap-4" style={{ border: '2px solid #39489A' }}>
+            <div className="bg-[#0f1629]/60 backdrop-blur-lg rounded-xl p-4 flex items-start gap-4" style={{ border: '2px solid #39489A' }}>
               <div className="w-2 h-2 rounded-full bg-yellow-400 mt-2 flex-shrink-0"></div>
               <div className="flex-1">
                 <p className="text-white mb-1" style={{
@@ -1578,7 +1576,7 @@ function MyPage() {
             </div>
 
             {/* Activity Item 3 */}
-            <div className="bg-[#0f1629]/60 backdrop-blur-lg rounded-xl p-5 flex items-start gap-4" style={{ border: '2px solid #39489A' }}>
+            <div className="bg-[#0f1629]/60 backdrop-blur-lg rounded-xl p-4 flex items-start gap-4" style={{ border: '2px solid #39489A' }}>
               <div className="w-2 h-2 rounded-full bg-yellow-400 mt-2 flex-shrink-0"></div>
               <div className="flex-1">
                 <p className="text-white mb-1" style={{
@@ -1605,7 +1603,7 @@ function MyPage() {
             {settingsCards.map((card) => (
               <div
                 key={card.id}
-                className="bg-[#0f1629]/80 rounded-2xl p-6"
+                className="bg-[#0f1629]/80 rounded-2xl p-4"
                 style={{ border: '2px solid #39489A' }}
               >
                 <div className="flex items-center gap-3 mb-5">
