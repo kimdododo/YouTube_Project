@@ -29,6 +29,7 @@ def get_by_email(db: Session, email: str) -> Optional[User]:
     """
     이메일로 사용자 조회
     회원가입 시 이메일 중복 체크에 사용
+    이메일은 대소문자 구분 없이 검색 (소문자로 정규화)
     
     Args:
         db: 데이터베이스 세션
@@ -39,7 +40,9 @@ def get_by_email(db: Session, email: str) -> Optional[User]:
     """
     if not email:
         return None
-    return db.query(User).filter(User.email == email).first()
+    # 이메일은 소문자로 정규화하여 비교 (이메일은 대소문자 구분 없음)
+    normalized_email = email.strip().lower()
+    return db.query(User).filter(User.email == normalized_email).first()
 
 
 def get_by_username(db: Session, username: str) -> Optional[User]:
@@ -62,6 +65,7 @@ def get_by_username_or_email(db: Session, username_or_email: str) -> Optional[Us
     """
     사용자명 또는 이메일로 사용자 조회
     로그인 시 사용
+    이메일은 대소문자 구분 없이 검색 (소문자로 정규화)
     
     Args:
         db: 데이터베이스 세션
@@ -72,8 +76,15 @@ def get_by_username_or_email(db: Session, username_or_email: str) -> Optional[Us
     """
     if not username_or_email:
         return None
+    
+    # 이메일인 경우 소문자로 정규화 (이메일은 대소문자 구분 없음)
+    normalized_input = username_or_email.strip().lower()
+    
     return db.query(User).filter(
-        or_(User.username == username_or_email, User.email == username_or_email)
+        or_(
+            User.username == username_or_email,  # 사용자명은 대소문자 구분
+            User.email == normalized_input  # 이메일은 소문자로 비교
+        )
     ).first()
 
 
@@ -252,3 +263,40 @@ def check_email_exists(db: Session, email: str) -> bool:
         return False
     user = get_by_email(db, email.strip())
     return user is not None
+
+
+def delete_user_by_email(db: Session, email: str) -> bool:
+    """
+    이메일로 사용자 삭제
+    관련된 모든 데이터도 함께 삭제됨 (CASCADE)
+    
+    Args:
+        db: 데이터베이스 세션
+        email: 이메일 주소
+    
+    Returns:
+        삭제 성공 여부 (bool)
+    """
+    if not email:
+        return False
+    
+    try:
+        user = get_by_email(db, email.strip().lower())
+        if not user:
+            return False
+        
+        user_id = user.id
+        user_email = user.email
+        
+        # 사용자 삭제 (CASCADE로 관련 데이터도 자동 삭제)
+        db.delete(user)
+        db.commit()
+        
+        print(f"[DEBUG] User deleted: id={user_id}, email={user_email}")
+        return True
+        
+    except Exception as e:
+        db.rollback()
+        print(f"[ERROR] Failed to delete user by email {email}: {e}")
+        print(f"[ERROR] Traceback: {traceback.format_exc()}")
+        raise

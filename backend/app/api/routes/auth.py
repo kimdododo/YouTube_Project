@@ -23,7 +23,8 @@ try:
         get_by_email,
         get_by_id, 
         update_password,
-        verify_user_email
+        verify_user_email,
+        delete_user_by_email
     )
 except ImportError as e:
     # Import 실패 시 상세한 오류 정보 출력
@@ -91,6 +92,57 @@ def debug_user_status(email: str, db: Session = Depends(get_db)):
         import traceback
         return ok({
             "found": False,
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }).model_dump()
+
+
+@router.delete("/debug/delete-user")
+def debug_delete_user(email: str, db: Session = Depends(get_db)):
+    """
+    사용자 삭제 엔드포인트 (디버그용)
+    이메일로 사용자 및 관련 데이터 삭제
+    주의: 이 작업은 되돌릴 수 없습니다!
+    """
+    try:
+        # 소문자로 정규화
+        normalized_email = email.strip().lower()
+        
+        # 사용자 확인
+        user = get_by_email(db=db, email=normalized_email)
+        if not user:
+            return ok({
+                "deleted": False,
+                "message": f"이메일 '{email}'로 가입된 사용자를 찾을 수 없습니다."
+            }).model_dump()
+        
+        user_id = user.id
+        username = user.username
+        
+        # 사용자 삭제 (CASCADE로 관련 데이터도 자동 삭제)
+        deleted = delete_user_by_email(db=db, email=normalized_email)
+        
+        if deleted:
+            return ok({
+                "deleted": True,
+                "message": f"사용자가 성공적으로 삭제되었습니다.",
+                "deleted_user": {
+                    "id": user_id,
+                    "username": username,
+                    "email": normalized_email
+                }
+            }).model_dump()
+        else:
+            return ok({
+                "deleted": False,
+                "message": "사용자 삭제에 실패했습니다."
+            }).model_dump()
+            
+    except Exception as e:
+        import traceback
+        db.rollback()
+        return ok({
+            "deleted": False,
             "error": str(e),
             "traceback": traceback.format_exc()
         }).model_dump()
