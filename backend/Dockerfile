@@ -16,6 +16,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 애플리케이션 코드 복사
 COPY . .
 
+# Python 캐시 제거 (배포된 이미지에서 이전 버전의 .pyc 파일이 문제를 일으킬 수 있음)
+RUN find . -type d -name __pycache__ -exec rm -r {} + 2>/dev/null || true
+RUN find . -type f -name "*.pyc" -delete 2>/dev/null || true
+RUN find . -type f -name "*.pyo" -delete 2>/dev/null || true
+
 # 환경 변수 확인을 위한 스크립트
 RUN echo "Dockerfile: Backend ready" > /tmp/backend_ready.txt
 

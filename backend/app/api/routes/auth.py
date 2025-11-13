@@ -45,6 +45,101 @@ import asyncio
 router = APIRouter(tags=["auth"])
 
 
+@router.get("/debug/crud-check")
+def debug_crud_check():
+    """
+    CRUD 함수 존재 여부 확인 엔드포인트
+    배포된 서비스에서 실제로 함수가 import 가능한지 확인
+    """
+    import inspect
+    import os
+    from app.crud import user as crud_user
+    
+    functions_to_check = [
+        'get_by_id',
+        'get_by_email',
+        'get_by_username',
+        'get_by_username_or_email',
+        'create_user',
+        'authenticate',
+        'verify_user_email',
+        'update_password',
+        'check_email_exists'
+    ]
+    
+    results = {}
+    for func_name in functions_to_check:
+        if hasattr(crud_user, func_name):
+            func = getattr(crud_user, func_name)
+            results[func_name] = {
+                "exists": True,
+                "is_function": callable(func),
+                "signature": str(inspect.signature(func)) if callable(func) else None,
+                "file": inspect.getfile(func) if callable(func) else None
+            }
+        else:
+            results[func_name] = {
+                "exists": False,
+                "is_function": False,
+                "signature": None,
+                "file": None
+            }
+    
+    # user.py 파일 내용 일부 확인
+    user_py_path = None
+    file_content_preview = None
+    try:
+        if hasattr(crud_user, '__file__'):
+            user_py_path = os.path.join(os.path.dirname(crud_user.__file__), 'user.py')
+            if os.path.exists(user_py_path):
+                with open(user_py_path, 'r', encoding='utf-8') as f:
+                    lines = f.readlines()
+                    # get_by_email 함수 주변 라인 추출
+                    for i, line in enumerate(lines):
+                        if 'def get_by_email' in line:
+                            start = max(0, i - 2)
+                            end = min(len(lines), i + 15)
+                            file_content_preview = ''.join(lines[start:end])
+                            break
+    except Exception as e:
+        file_content_preview = f"Error reading file: {str(e)}"
+    
+    # user_py_path가 None일 경우 처리
+    if user_py_path is None:
+        try:
+            # 대체 경로 시도
+            import app.crud.user as user_module
+            if hasattr(user_module, '__file__'):
+                user_py_path = user_module.__file__
+        except:
+            pass
+    
+    # Import 테스트
+    import_test = {}
+    try:
+        from app.crud.user import get_by_email as test_get_by_email
+        import_test["get_by_email"] = {
+            "success": True,
+            "type": str(type(test_get_by_email)),
+            "callable": callable(test_get_by_email)
+        }
+    except Exception as e:
+        import_test["get_by_email"] = {
+            "success": False,
+            "error": str(e),
+            "error_type": type(e).__name__
+        }
+    
+    return ok({
+        "functions": results,
+        "file_path": user_py_path,
+        "file_exists": os.path.exists(user_py_path) if user_py_path else False,
+        "file_content_preview": file_content_preview,
+        "module_file": crud_user.__file__ if hasattr(crud_user, '__file__') else None,
+        "import_test": import_test
+    }).model_dump()
+
+
 @router.get("/debug/email-config")
 def debug_email_config():
     """
