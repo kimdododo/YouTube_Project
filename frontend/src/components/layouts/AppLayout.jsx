@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { User } from 'lucide-react'
+import { User, Search } from 'lucide-react'
 import Logo from '../Logo'
 
 /**
@@ -120,28 +120,20 @@ function AppLayout({ children }) {
               </span>
             </Link>
             <nav className="hidden md:flex items-center space-x-6" style={{ fontFamily: 'Arial, sans-serif' }}>
-              <Link 
-                to="/recommendedVideos" 
-                className={`font-bold leading-6 ${location.pathname === '/recommendedVideos' ? 'text-white' : 'text-blue-300'}`}
+              {/* 돋보기 아이콘 (검색) */}
+              <button
+                className="text-blue-300 hover:text-white transition-colors"
                 style={{ 
                   fontSize: '16px',
                   lineHeight: '24px',
                   fontFamily: 'Arial, sans-serif'
                 }}
+                aria-label="검색"
               >
-                개인 맞춤 영상 추천
-              </Link>
-              <Link 
-                to="/find-channel" 
-                className={`font-bold leading-6 ${location.pathname === '/find-channel' ? 'text-white' : 'text-blue-300'}`}
-                style={{ 
-                  fontSize: '16px',
-                  lineHeight: '24px',
-                  fontFamily: 'Arial, sans-serif'
-                }}
-              >
-                채널 찾기
-              </Link>
+                <Search className="w-5 h-5" />
+              </button>
+              
+              {/* 여행 트렌드 */}
               <Link 
                 to="/travel-trends" 
                 className={`font-bold leading-6 ${location.pathname === '/travel-trends' ? 'text-white' : 'text-blue-300'}`}
@@ -153,6 +145,21 @@ function AppLayout({ children }) {
               >
                 여행 트렌드
               </Link>
+              
+              {/* 개인 맞춤 영상 추천 */}
+              <Link 
+                to="/recommendedVideos" 
+                className={`font-bold leading-6 ${location.pathname === '/recommendedVideos' ? 'text-white' : 'text-blue-300'}`}
+                style={{ 
+                  fontSize: '16px',
+                  lineHeight: '24px',
+                  fontFamily: 'Arial, sans-serif'
+                }}
+              >
+                개인 맞춤 영상 추천
+              </Link>
+              
+              {/* 마이페이지 또는 로그인하기 */}
               {isLoggedIn ? (
                 <Link 
                   to="/mypage" 
