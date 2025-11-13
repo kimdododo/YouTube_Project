@@ -355,3 +355,210 @@ def send_verification_email(
         print(f"[Email] Traceback: {traceback.format_exc()}")
         return False
 
+
+def send_password_change_notification(
+    to_email: str,
+    username: Optional[str] = None
+) -> bool:
+    """
+    비밀번호 변경 완료 알림 이메일 발송
+    
+    Args:
+        to_email: 수신자 이메일 주소
+        username: 사용자 이름 (선택적)
+    
+    Returns:
+        bool: 발송 성공 여부
+    """
+    # 런타임에 환경 변수 다시 확인
+    print(f"[Email] ===== Password Change Notification Email =====")
+    runtime_config = _reload_smtp_config()
+    
+    smtp_host = runtime_config['host'] or SMTP_HOST
+    smtp_port = runtime_config['port'] or SMTP_PORT
+    smtp_username = runtime_config['username'] or SMTP_USERNAME
+    smtp_password = runtime_config['password'] or SMTP_PASSWORD
+    smtp_from_email = runtime_config['from_email'] or SMTP_FROM_EMAIL
+    smtp_from_name = runtime_config['from_name'] or SMTP_FROM_NAME
+    
+    if not smtp_username or not smtp_password or not smtp_host:
+        print(f"[Email] ✗ ERROR: SMTP credentials not configured!")
+        return False
+    
+    try:
+        # 이메일 내용 생성
+        subject = "비밀번호 변경 완료 알림"
+        
+        # HTML 이메일 본문
+        html_body = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                body {{
+                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                    line-height: 1.6;
+                    color: #333;
+                    max-width: 600px;
+                    margin: 0 auto;
+                    padding: 20px;
+                }}
+                .container {{
+                    background-color: #f9f9f9;
+                    border-radius: 10px;
+                    padding: 30px;
+                    margin: 20px 0;
+                }}
+                .header {{
+                    text-align: center;
+                    color: #39489A;
+                    margin-bottom: 30px;
+                }}
+                .success-box {{
+                    background-color: #d4edda;
+                    border: 2px solid #28a745;
+                    border-radius: 8px;
+                    padding: 20px;
+                    margin: 30px 0;
+                    text-align: center;
+                }}
+                .warning {{
+                    background-color: #fff3cd;
+                    border-left: 4px solid #ffc107;
+                    padding: 15px;
+                    margin: 20px 0;
+                    border-radius: 4px;
+                }}
+                .footer {{
+                    margin-top: 30px;
+                    padding-top: 20px;
+                    border-top: 1px solid #ddd;
+                    text-align: center;
+                    color: #666;
+                    font-size: 12px;
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>여유</h1>
+                </div>
+                
+                <h2>비밀번호 변경 완료</h2>
+                
+                <p>안녕하세요{f', {username}님' if username else ''},</p>
+                
+                <div class="success-box">
+                    <p style="margin: 0; font-size: 18px; font-weight: bold; color: #28a745;">
+                        ✓ 비밀번호가 성공적으로 변경되었습니다.
+                    </p>
+                </div>
+                
+                <div class="warning">
+                    <strong>보안 안내:</strong>
+                    <ul style="margin: 10px 0; padding-left: 20px;">
+                        <li>본인이 비밀번호를 변경하지 않았다면 즉시 고객지원에 문의하세요.</li>
+                        <li>비밀번호는 주기적으로 변경하는 것을 권장합니다.</li>
+                        <li>다른 사이트와 동일한 비밀번호를 사용하지 마세요.</li>
+                        <li>의심스러운 활동이 발견되면 즉시 비밀번호를 변경하세요.</li>
+                    </ul>
+                </div>
+                
+                <p>비밀번호 변경 후에는 새로운 비밀번호로 로그인하실 수 있습니다.</p>
+                
+                <div class="footer">
+                    <p>이 이메일은 자동으로 발송되었습니다. 회신하지 마세요.</p>
+                    <p>&copy; 2025 여유. All rights reserved.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        
+        # 텍스트 이메일 본문
+        text_body = f"""
+비밀번호 변경 완료
+
+안녕하세요{f', {username}님' if username else ''},
+
+비밀번호가 성공적으로 변경되었습니다.
+
+보안 안내:
+- 본인이 비밀번호를 변경하지 않았다면 즉시 고객지원에 문의하세요.
+- 비밀번호는 주기적으로 변경하는 것을 권장합니다.
+- 다른 사이트와 동일한 비밀번호를 사용하지 마세요.
+- 의심스러운 활동이 발견되면 즉시 비밀번호를 변경하세요.
+
+비밀번호 변경 후에는 새로운 비밀번호로 로그인하실 수 있습니다.
+
+---
+이 이메일은 자동으로 발송되었습니다. 회신하지 마세요.
+© 2025 여유. All rights reserved.
+        """
+        
+        # 이메일 메시지 생성
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From'] = f"{smtp_from_name} <{smtp_from_email}>"
+        msg['To'] = to_email
+        
+        # 텍스트 및 HTML 본문 추가
+        text_part = MIMEText(text_body, 'plain', 'utf-8')
+        html_part = MIMEText(html_body, 'html', 'utf-8')
+        msg.attach(text_part)
+        msg.attach(html_part)
+        
+        # SMTP 서버 연결 및 이메일 발송
+        print(f"[Email] Sending password change notification to: {to_email}")
+        clean_password = smtp_password.replace(' ', '')
+        
+        server = None
+        try:
+            if smtp_port == 465:
+                server = smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=30)
+            else:
+                server = smtplib.SMTP(smtp_host, smtp_port, timeout=30)
+                server.starttls()
+            
+            server.login(smtp_username, clean_password)
+            server.send_message(msg)
+            print(f"[Email] ✓ Password change notification sent successfully to {to_email}")
+            return True
+            
+        except smtplib.SMTPRecipientsRefused as e:
+            print(f"[Email] ✗ ERROR: SMTPRecipientsRefused - Invalid recipient: {to_email}")
+            print(f"[Email] Error details: {e}")
+            return False
+        except smtplib.SMTPDataError as e:
+            print(f"[Email] ✗ ERROR: SMTPDataError - Server rejected message data")
+            print(f"[Email] Error details: {e}")
+            return False
+        except smtplib.SMTPAuthenticationError as e:
+            print(f"[Email] ✗ ERROR: SMTPAuthenticationError - Authentication failed")
+            print(f"[Email] Error details: {e}")
+            return False
+        except smtplib.SMTPException as e:
+            print(f"[Email] ✗ ERROR: SMTPException occurred")
+            print(f"[Email] Error details: {e}")
+            return False
+        except Exception as e:
+            print(f"[Email] ✗ ERROR: Unexpected error occurred: {type(e).__name__}")
+            print(f"[Email] Error details: {e}")
+            import traceback
+            print(f"[Email] Traceback: {traceback.format_exc()}")
+            return False
+        finally:
+            if server:
+                try:
+                    server.quit()
+                except:
+                    pass
+                    
+    except Exception as e:
+        print(f"[Email] ✗ ERROR: Failed to send password change notification: {e}")
+        import traceback
+        print(f"[Email] Traceback: {traceback.format_exc()}")
+        return False
+

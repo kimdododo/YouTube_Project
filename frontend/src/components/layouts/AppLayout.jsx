@@ -102,7 +102,7 @@ function AppLayout({ children }) {
       `}</style>
 
       {/* Header - 모든 페이지에서 공통 */}
-      <header className="relative z-50 bg-[#0a0e27]/80 backdrop-blur-sm border-b border-blue-900/30">
+      <header className="relative z-[100] bg-[#0a0e27]/80 backdrop-blur-sm border-b border-blue-900/30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <Link to="/" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">

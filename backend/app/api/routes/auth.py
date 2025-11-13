@@ -16,16 +16,15 @@ from app.schemas.user import (
 from app.schemas.user_preference import TravelPreferenceCreate, TravelPreferenceResponse
 # CRUD 함수 import (lazy import로 변경하여 모듈 로딩 문제 방지)
 try:
-    from app.crud.user import (
-        create_user, 
-        authenticate, 
-        get_by_username_or_email,
+from app.crud.user import (
+    create_user, 
+    authenticate, 
+    get_by_username_or_email, 
         get_by_email,
-        get_by_id, 
-        update_password,
-        verify_user_email,
-        delete_user_by_email
-    )
+    get_by_id, 
+    update_password,
+    verify_user_email
+)
 except ImportError as e:
     # Import 실패 시 상세한 오류 정보 출력
     import traceback
@@ -33,7 +32,7 @@ except ImportError as e:
     print(f"[ERROR] Traceback: {traceback.format_exc()}")
     raise
 from app.crud import email_verification as crud_email_verification
-from app.utils.email_utils import send_verification_email
+from app.utils.email_utils import send_verification_email, send_password_change_notification
 from app.core.config import EMAIL_VERIFICATION_MAX_ATTEMPTS
 from app.crud.user_preference import (
     save_user_preferences,
@@ -92,57 +91,6 @@ def debug_user_status(email: str, db: Session = Depends(get_db)):
         import traceback
         return ok({
             "found": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
-        }).model_dump()
-
-
-@router.delete("/debug/delete-user")
-def debug_delete_user(email: str, db: Session = Depends(get_db)):
-    """
-    사용자 삭제 엔드포인트 (디버그용)
-    이메일로 사용자 및 관련 데이터 삭제
-    주의: 이 작업은 되돌릴 수 없습니다!
-    """
-    try:
-        # 소문자로 정규화
-        normalized_email = email.strip().lower()
-        
-        # 사용자 확인
-        user = get_by_email(db=db, email=normalized_email)
-        if not user:
-            return ok({
-                "deleted": False,
-                "message": f"이메일 '{email}'로 가입된 사용자를 찾을 수 없습니다."
-            }).model_dump()
-        
-        user_id = user.id
-        username = user.username
-        
-        # 사용자 삭제 (CASCADE로 관련 데이터도 자동 삭제)
-        deleted = delete_user_by_email(db=db, email=normalized_email)
-        
-        if deleted:
-            return ok({
-                "deleted": True,
-                "message": f"사용자가 성공적으로 삭제되었습니다.",
-                "deleted_user": {
-                    "id": user_id,
-                    "username": username,
-                    "email": normalized_email
-                }
-            }).model_dump()
-        else:
-            return ok({
-                "deleted": False,
-                "message": "사용자 삭제에 실패했습니다."
-            }).model_dump()
-            
-    except Exception as e:
-        import traceback
-        db.rollback()
-        return ok({
-            "deleted": False,
             "error": str(e),
             "traceback": traceback.format_exc()
         }).model_dump()
@@ -367,7 +315,7 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
         # create_user 함수 내부에서도 이메일 중복 체크를 수행함
         print(f"[DEBUG] Creating user: {payload.username}")
         try:
-            user = create_user(db, payload.username, payload.email, payload.password, is_verified=False)
+        user = create_user(db, payload.username, payload.email, payload.password, is_verified=False)
         except ValueError as ve:
             # 이메일 중복 등 검증 오류
             if "이미 사용 중인 이메일" in str(ve):
@@ -696,10 +644,28 @@ def change_password(
 
     try:
         update_password(db, current_user_id, payload.new_password)
+        
+        # 비밀번호 변경 완료 이메일 발송
+        print(f"[DEBUG] Sending password change notification email to {user.email}")
+        try:
+            email_sent = send_password_change_notification(
+                to_email=user.email,
+                username=user.username
+            )
+            if email_sent:
+                print(f"[DEBUG] ✓ Password change notification email sent successfully")
+            else:
+                print(f"[DEBUG] ⚠ Password change notification email failed, but password was changed")
+        except Exception as email_error:
+            print(f"[ERROR] Failed to send password change notification email: {email_error}")
+            # 이메일 발송 실패해도 비밀번호 변경은 성공했으므로 계속 진행
+        
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"비밀번호 변경 중 오류가 발생했습니다: {str(e)}")
 
-    return ok({"message": "비밀번호가 변경되었습니다. 다시 로그인해주세요."}).model_dump()
+    return ok({
+        "message": "비밀번호가 변경되었습니다. 변경 완료 알림 이메일을 발송했습니다. 다시 로그인해주세요."
+    }).model_dump()
 
 
 @router.post("/keywords/embeddings")

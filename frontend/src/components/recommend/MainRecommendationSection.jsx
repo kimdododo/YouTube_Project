@@ -3,7 +3,7 @@ import VideoCard from '../VideoCard'
 
 /**
  * 메인 추천 영상 섹션 컴포넌트
- * 반응형 그리드: PC 4열, 태블릿 2-3열, 모바일 1-2열
+ * 반응형 그리드: PC 3열, 태블릿 2열, 모바일 1열
  */
 function MainRecommendationSection({ videos, loading, error, onRetry }) {
   if (loading) {
@@ -56,16 +56,15 @@ function MainRecommendationSection({ videos, loading, error, onRetry }) {
 
   return (
     <div className="mb-16">
-      {/* 반응형 그리드: PC 4열, 태블릿 2-3열, 모바일 1-2열 */}
+      {/* 반응형 그리드: PC 3열, 태블릿 2열, 모바일 1열 */}
       {/* 
         Tailwind 그리드 클래스 설명:
         - grid-cols-1: 모바일 기본 1열
         - sm:grid-cols-2: 작은 화면(640px+) 2열
         - lg:grid-cols-3: 큰 화면(1024px+) 3열
-        - xl:grid-cols-4: 매우 큰 화면(1280px+) 4열
         - gap-4 sm:gap-5 lg:gap-6: 반응형 간격 (16px → 20px → 24px)
       */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5 lg:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 lg:gap-6">
         {videos.map((video) => (
           <VideoCard key={video.id || video.video_id} video={video} featured />
         ))}

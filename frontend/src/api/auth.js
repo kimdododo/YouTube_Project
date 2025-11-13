@@ -71,8 +71,21 @@ export const login = async (username, password) => {
     })
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ detail: response.statusText }))
-      throw new Error(errorData.detail || `HTTP ${response.status}: 로그인에 실패했습니다`)
+      let errorData
+      try {
+        errorData = await response.json()
+      } catch {
+        errorData = { detail: response.statusText }
+      }
+      
+      // 백엔드에서 반환한 상세 오류 메시지 사용
+      const errorMessage = errorData.detail || errorData.message || `HTTP ${response.status}: 로그인에 실패했습니다`
+      console.error('[auth.js] Login error response:', {
+        status: response.status,
+        statusText: response.statusText,
+        errorData
+      })
+      throw new Error(errorMessage)
     }
 
     const result = await response.json()

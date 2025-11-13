@@ -69,11 +69,14 @@ jobs:
           tags: |
             ${{ env.DOCKER_IMAGE }}:latest
             ${{ env.DOCKER_IMAGE }}:${{ github.sha }}
-          cache-from: type=registry,ref=${{ env.DOCKER_IMAGE }}:buildcache
-          cache-to: type=registry,ref=${{ env.DOCKER_IMAGE }}:buildcache,mode=max
+          # 캐시 비활성화하여 강제 재빌드 (문제 해결을 위해)
+          # cache-from: type=registry,ref=${{ env.DOCKER_IMAGE }}:buildcache
+          # cache-to: type=registry,ref=${{ env.DOCKER_IMAGE }}:buildcache,mode=max
           # 빌드 타임아웃 증가 (30분)
           build-args: |
             BUILDKIT_INLINE_CACHE=1
+          # 캐시 없이 강제 재빌드
+          no-cache: true
 
       - name: ✅ Verify Docker image pushed
         if: success()

@@ -372,7 +372,7 @@ function Dashboard() {
       {/* Dashboard 전용 별 배경 - AppLayout 배경 위에 오버레이 */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{
         background: 'linear-gradient(180deg, #090E29 0%, #0E1435 50%, #090E29 100%)',
-        zIndex: 0
+        zIndex: 1
       }}>
         {/* 동적 별 생성 */}
         <StarField />
