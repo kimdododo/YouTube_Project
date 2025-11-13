@@ -45,4 +45,6 @@ print(f"[DEBUG]   JWT_ALGO: {JWT_ALGO}")
 print(f"[DEBUG]   SMTP_HOST: {SMTP_HOST}")
 print(f"[DEBUG]   SMTP_PORT: {SMTP_PORT}")
 print(f"[DEBUG]   SMTP_USERNAME: {SMTP_USERNAME if SMTP_USERNAME else '(empty)'}")
+print(f"[DEBUG]   SMTP_PASSWORD: {'SET' if SMTP_PASSWORD else '(empty)'}")
+print(f"[DEBUG]   SMTP_FROM_EMAIL: {SMTP_FROM_EMAIL if SMTP_FROM_EMAIL else '(empty)'}")
 

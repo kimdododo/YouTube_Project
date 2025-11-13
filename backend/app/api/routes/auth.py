@@ -85,6 +85,7 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
             print(f"[DEBUG] Verification code created: code={verification.code}, expires_at={verification.expires_at}")
             
             # 이메일 발송
+            print(f"[DEBUG] Attempting to send verification email to {user.email}")
             email_sent = send_verification_email(
                 to_email=user.email,
                 verification_code=verification.code,
@@ -92,7 +93,8 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
             )
             
             if not email_sent:
-                print(f"[WARN] Failed to send verification email to {user.email}")
+                print(f"[ERROR] Failed to send verification email to {user.email}")
+                print(f"[ERROR] User created but email verification failed. User can resend code later.")
                 # 이메일 발송 실패해도 사용자는 생성되었으므로 계속 진행
                 # (나중에 재전송 가능)
             

@@ -33,6 +33,17 @@ def send_verification_email(
     Returns:
         bool: 발송 성공 여부
     """
+    # SMTP 설정 검증
+    if not SMTP_USERNAME or not SMTP_PASSWORD:
+        print(f"[Email] ERROR: SMTP credentials not configured!")
+        print(f"[Email]   SMTP_USERNAME: {'SET' if SMTP_USERNAME else 'NOT SET'}")
+        print(f"[Email]   SMTP_PASSWORD: {'SET' if SMTP_PASSWORD else 'NOT SET'}")
+        return False
+    
+    if not SMTP_HOST:
+        print(f"[Email] ERROR: SMTP_HOST not configured!")
+        return False
+    
     try:
         # 이메일 내용 생성
         subject = "이메일 인증 코드"
@@ -165,31 +176,56 @@ def send_verification_email(
         
         # SMTP 서버 연결 및 이메일 발송
         print(f"[Email] Connecting to SMTP server: {SMTP_HOST}:{SMTP_PORT}")
+        print(f"[Email] From: {SMTP_FROM_EMAIL} ({SMTP_FROM_NAME})")
+        print(f"[Email] To: {to_email}")
+        
+        # Gmail 앱 비밀번호의 공백 제거 (공백이 포함된 경우)
+        smtp_password = SMTP_PASSWORD.replace(' ', '')
         
         if SMTP_PORT == 465:
             # SSL 사용
-            server = smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT)
+            print(f"[Email] Using SSL connection (port 465)")
+            server = smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=10)
         else:
             # TLS 사용
-            server = smtplib.SMTP(SMTP_HOST, SMTP_PORT)
+            print(f"[Email] Using TLS connection (port {SMTP_PORT})")
+            server = smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10)
             server.starttls()
         
         # 로그인
-        server.login(SMTP_USERNAME, SMTP_PASSWORD)
-        print(f"[Email] Logged in to SMTP server as {SMTP_USERNAME}")
+        print(f"[Email] Attempting to login as {SMTP_USERNAME}")
+        server.login(SMTP_USERNAME, smtp_password)
+        print(f"[Email] Successfully logged in to SMTP server")
         
         # 이메일 발송
+        print(f"[Email] Sending email to {to_email}...")
         server.send_message(msg)
         server.quit()
         
-        print(f"[Email] Verification email sent successfully to {to_email}")
+        print(f"[Email] ✓ Verification email sent successfully to {to_email}")
         return True
         
+    except smtplib.SMTPAuthenticationError as e:
+        print(f"[Email] ✗ SMTP Authentication Error: {e}")
+        print(f"[Email]   Check your SMTP_USERNAME and SMTP_PASSWORD in .env file")
+        print(f"[Email]   For Gmail, make sure you're using an App Password, not your regular password")
+        import traceback
+        print(f"[Email] Traceback: {traceback.format_exc()}")
+        return False
+    except smtplib.SMTPConnectError as e:
+        print(f"[Email] ✗ SMTP Connection Error: {e}")
+        print(f"[Email]   Could not connect to {SMTP_HOST}:{SMTP_PORT}")
+        print(f"[Email]   Check your network connection and SMTP settings")
+        import traceback
+        print(f"[Email] Traceback: {traceback.format_exc()}")
+        return False
     except smtplib.SMTPException as e:
-        print(f"[Email] SMTP error while sending email to {to_email}: {e}")
+        print(f"[Email] ✗ SMTP error while sending email to {to_email}: {e}")
+        import traceback
+        print(f"[Email] Traceback: {traceback.format_exc()}")
         return False
     except Exception as e:
-        print(f"[Email] Unexpected error while sending email to {to_email}: {e}")
+        print(f"[Email] ✗ Unexpected error while sending email to {to_email}: {e}")
         import traceback
         print(f"[Email] Traceback: {traceback.format_exc()}")
         return False
