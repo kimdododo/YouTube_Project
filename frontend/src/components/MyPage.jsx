@@ -1736,7 +1736,7 @@ function MyPage() {
                   </div>
                 </div>
               ))}
-              <p className="text-white/40 text-xs">
+              <p className="text-white/40 text-xs whitespace-nowrap">
                 비밀번호는 영문, 숫자, 특수문자 중 2종류 조합으로 10자리 이상 입력해야 합니다.
               </p>
               {passwordForm.error && (
