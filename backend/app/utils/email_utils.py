@@ -33,15 +33,25 @@ def send_verification_email(
     Returns:
         bool: 발송 성공 여부
     """
-    # SMTP 설정 검증
+    # SMTP 설정 검증 (상세 로깅)
+    print(f"[Email] ===== Email Sending Debug Info =====")
+    print(f"[Email] SMTP_HOST: {SMTP_HOST}")
+    print(f"[Email] SMTP_PORT: {SMTP_PORT}")
+    print(f"[Email] SMTP_USERNAME: {SMTP_USERNAME if SMTP_USERNAME else '(empty)'}")
+    print(f"[Email] SMTP_PASSWORD: {'SET (' + str(len(SMTP_PASSWORD)) + ' chars)' if SMTP_PASSWORD else '(empty)'}")
+    print(f"[Email] SMTP_FROM_EMAIL: {SMTP_FROM_EMAIL if SMTP_FROM_EMAIL else '(empty)'}")
+    print(f"[Email] SMTP_FROM_NAME: {SMTP_FROM_NAME}")
+    print(f"[Email] =====================================")
+    
     if not SMTP_USERNAME or not SMTP_PASSWORD:
-        print(f"[Email] ERROR: SMTP credentials not configured!")
+        print(f"[Email] ✗ ERROR: SMTP credentials not configured!")
         print(f"[Email]   SMTP_USERNAME: {'SET' if SMTP_USERNAME else 'NOT SET'}")
         print(f"[Email]   SMTP_PASSWORD: {'SET' if SMTP_PASSWORD else 'NOT SET'}")
+        print(f"[Email]   Please check your .env file in the backend directory")
         return False
     
     if not SMTP_HOST:
-        print(f"[Email] ERROR: SMTP_HOST not configured!")
+        print(f"[Email] ✗ ERROR: SMTP_HOST not configured!")
         return False
     
     try:
@@ -179,30 +189,82 @@ def send_verification_email(
         print(f"[Email] From: {SMTP_FROM_EMAIL} ({SMTP_FROM_NAME})")
         print(f"[Email] To: {to_email}")
         
-        # Gmail 앱 비밀번호의 공백 제거 (공백이 포함된 경우)
+        # 비밀번호의 공백 제거 (일부 서비스의 앱 비밀번호에 공백이 포함될 수 있음)
         smtp_password = SMTP_PASSWORD.replace(' ', '')
         
-        if SMTP_PORT == 465:
-            # SSL 사용
-            print(f"[Email] Using SSL connection (port 465)")
-            server = smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=10)
-        else:
-            # TLS 사용
-            print(f"[Email] Using TLS connection (port {SMTP_PORT})")
-            server = smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10)
-            server.starttls()
+        server = None
+        try:
+            if SMTP_PORT == 465:
+                # SSL 사용
+                print(f"[Email] Using SSL connection (port 465)")
+                server = smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=30)
+                print(f"[Email] ✓ SSL connection established")
+            else:
+                # TLS 사용
+                print(f"[Email] Using TLS connection (port {SMTP_PORT})")
+                server = smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=30)
+                print(f"[Email] ✓ SMTP connection established")
+                server.starttls()
+                print(f"[Email] ✓ TLS handshake completed")
+        except smtplib.SMTPConnectError as conn_error:
+            print(f"[Email] ✗ SMTP Connection Error!")
+            print(f"[Email]   Could not connect to {SMTP_HOST}:{SMTP_PORT}")
+            print(f"[Email]   Error: {conn_error}")
+            print(f"[Email]   Possible causes:")
+            print(f"[Email]     1. Network connectivity issues")
+            print(f"[Email]     2. Incorrect SMTP_HOST or SMTP_PORT")
+            print(f"[Email]     3. Firewall blocking the port")
+            print(f"[Email]     4. SMTP server is down")
+            raise
+        except Exception as conn_error:
+            print(f"[Email] ✗ Connection Error: {conn_error}")
+            raise
         
         # 로그인
         print(f"[Email] Attempting to login as {SMTP_USERNAME}")
-        server.login(SMTP_USERNAME, smtp_password)
-        print(f"[Email] Successfully logged in to SMTP server")
+        print(f"[Email] Password length: {len(smtp_password)} characters")
+        try:
+            server.login(SMTP_USERNAME, smtp_password)
+            print(f"[Email] ✓ Successfully logged in to SMTP server")
+        except smtplib.SMTPAuthenticationError as auth_error:
+            print(f"[Email] ✗ Authentication failed!")
+            print(f"[Email]   Error: {auth_error}")
+            print(f"[Email]   Possible causes:")
+            print(f"[Email]     1. Incorrect SMTP_USERNAME or SMTP_PASSWORD")
+            print(f"[Email]     2. For Gmail: Must use App Password, not regular password")
+            print(f"[Email]     3. 2-Step Verification not enabled (Gmail)")
+            print(f"[Email]   Solutions:")
+            print(f"[Email]     - Gmail: Enable 2-Step Verification and create App Password")
+            print(f"[Email]     - Get App Password: https://myaccount.google.com/apppasswords")
+            print(f"[Email]     - Run 'python troubleshoot_email.py' for detailed diagnosis")
+            raise
         
         # 이메일 발송
         print(f"[Email] Sending email to {to_email}...")
-        server.send_message(msg)
-        server.quit()
+        try:
+            server.send_message(msg)
+            print(f"[Email] ✓ Email message sent successfully")
+        except smtplib.SMTPRecipientsRefused as e:
+            print(f"[Email] ✗ Recipient address refused: {e}")
+            print(f"[Email]   The email address '{to_email}' may be invalid or rejected")
+            raise
+        except smtplib.SMTPDataError as e:
+            print(f"[Email] ✗ SMTP Data Error: {e}")
+            print(f"[Email]   The email content may be rejected by the server")
+            raise
+        except Exception as send_error:
+            print(f"[Email] ✗ Failed to send email message: {send_error}")
+            print(f"[Email]   Error type: {type(send_error).__name__}")
+            raise
+        
+        try:
+            server.quit()
+            print(f"[Email] ✓ SMTP connection closed")
+        except Exception as quit_error:
+            print(f"[Email] ⚠ Warning: Error closing SMTP connection: {quit_error}")
         
         print(f"[Email] ✓ Verification email sent successfully to {to_email}")
+        print(f"[Email] ===== Email Sending Complete =====")
         return True
         
     except smtplib.SMTPAuthenticationError as e:
@@ -216,16 +278,21 @@ def send_verification_email(
         print(f"[Email] ✗ SMTP Connection Error: {e}")
         print(f"[Email]   Could not connect to {SMTP_HOST}:{SMTP_PORT}")
         print(f"[Email]   Check your network connection and SMTP settings")
+        print(f"[Email]   Run 'python troubleshoot_email.py' for detailed diagnosis")
         import traceback
         print(f"[Email] Traceback: {traceback.format_exc()}")
         return False
     except smtplib.SMTPException as e:
         print(f"[Email] ✗ SMTP error while sending email to {to_email}: {e}")
+        print(f"[Email]   Error type: {type(e).__name__}")
+        print(f"[Email]   Run 'python troubleshoot_email.py' for detailed diagnosis")
         import traceback
         print(f"[Email] Traceback: {traceback.format_exc()}")
         return False
     except Exception as e:
         print(f"[Email] ✗ Unexpected error while sending email to {to_email}: {e}")
+        print(f"[Email]   Error type: {type(e).__name__}")
+        print(f"[Email]   Run 'python troubleshoot_email.py' for detailed diagnosis")
         import traceback
         print(f"[Email] Traceback: {traceback.format_exc()}")
         return False

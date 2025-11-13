@@ -58,13 +58,9 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
             print(f"[ERROR] DB connection traceback: {traceback.format_exc()}")
             raise HTTPException(status_code=500, detail=f"데이터베이스 연결 실패: {str(db_test_error)}")
         
-        # 중복 체크
-        existing_user = get_by_username_or_email(db, payload.username)
-        if existing_user:
-            print(f"[DEBUG] Username already exists: {payload.username}")
-            raise HTTPException(status_code=400, detail="이미 사용 중인 사용자 이름입니다.")
-        
-        existing_user = get_by_username_or_email(db, payload.email)
+        # 이메일 중복 체크만 수행 (username은 중복 허용)
+        from app.crud.user import get_by_email
+        existing_user = get_by_email(db, payload.email)
         if existing_user:
             print(f"[DEBUG] Email already exists: {payload.email}")
             raise HTTPException(status_code=400, detail="이미 사용 중인 이메일입니다.")
@@ -85,7 +81,12 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
             print(f"[DEBUG] Verification code created: code={verification.code}, expires_at={verification.expires_at}")
             
             # 이메일 발송
-            print(f"[DEBUG] Attempting to send verification email to {user.email}")
+            print(f"[DEBUG] ===== Starting email sending process =====")
+            print(f"[DEBUG] User ID: {user.id}")
+            print(f"[DEBUG] User Email: {user.email}")
+            print(f"[DEBUG] Verification Code: {verification.code}")
+            print(f"[DEBUG] Expires At: {verification.expires_at}")
+            
             email_sent = send_verification_email(
                 to_email=user.email,
                 verification_code=verification.code,
@@ -93,20 +94,26 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
             )
             
             if not email_sent:
-                print(f"[ERROR] Failed to send verification email to {user.email}")
-                print(f"[ERROR] User created but email verification failed. User can resend code later.")
+                print(f"[ERROR] ✗✗✗ Failed to send verification email to {user.email} ✗✗✗")
+                print(f"[ERROR] User created (ID: {user.id}) but email verification failed.")
+                print(f"[ERROR] User can resend code later using /api/auth/resend-code endpoint")
+                print(f"[ERROR] Check the [Email] logs above for detailed error information")
                 # 이메일 발송 실패해도 사용자는 생성되었으므로 계속 진행
                 # (나중에 재전송 가능)
+            else:
+                print(f"[DEBUG] ✓✓✓ Email sent successfully! ✓✓✓")
             
         except Exception as email_error:
-            print(f"[ERROR] Error creating/sending verification code: {email_error}")
+            print(f"[ERROR] ✗✗✗ Exception during email sending process ✗✗✗")
+            print(f"[ERROR] Error: {email_error}")
             print(f"[ERROR] Traceback: {traceback.format_exc()}")
             # 이메일 발송 실패해도 사용자는 생성되었으므로 계속 진행
         
         return ok({
-            "message": "회원가입이 완료되었습니다. 이메일로 발송된 인증코드를 입력해주세요.",
+            "message": "이메일 인증이 필요합니다. 이메일로 발송된 인증코드를 입력해주세요.",
             "user": UserOut.model_validate(user).model_dump(),
-            "requires_verification": True
+            "requires_verification": True,
+            "email": user.email  # 프론트엔드에서 사용할 수 있도록 이메일도 반환
         }).model_dump()
     
     except HTTPException:

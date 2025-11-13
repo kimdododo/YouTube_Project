@@ -3,8 +3,18 @@
 """
 import os
 from dotenv import load_dotenv
+from pathlib import Path
 
-load_dotenv()
+# .env 파일 경로 명시적으로 지정
+env_path = Path(__file__).parent.parent / '.env'
+load_dotenv(dotenv_path=env_path)
+
+# .env 파일 로드 확인
+if env_path.exists():
+    print(f"[Config] .env file loaded from: {env_path}")
+else:
+    print(f"[Config] WARNING: .env file not found at: {env_path}")
+    print(f"[Config] Using environment variables or defaults")
 
 # 데이터베이스 설정
 DB_USER = os.getenv("DB_USER", "").strip()
