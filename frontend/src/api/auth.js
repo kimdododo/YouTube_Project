@@ -92,6 +92,68 @@ export const login = async (username, password) => {
 }
 
 /**
+ * 이메일 인증코드 검증
+ * @param {string} email - 이메일 주소
+ * @param {string} code - 인증코드 (6자리 숫자)
+ * @returns {Promise<Object>} 인증 결과
+ */
+export const verifyEmail = async (email, code) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/verify-email`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email: email,
+        code: code
+      })
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ detail: response.statusText }))
+      throw new Error(errorData.detail || errorData.error || `HTTP ${response.status}: 이메일 인증에 실패했습니다`)
+    }
+
+    const result = await response.json()
+    return result
+  } catch (error) {
+    console.error('[auth.js] Error verifying email:', error?.message || error)
+    throw error
+  }
+}
+
+/**
+ * 인증코드 재전송
+ * @param {string} email - 이메일 주소
+ * @returns {Promise<Object>} 재전송 결과
+ */
+export const resendVerificationCode = async (email) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/resend-code`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email: email
+      })
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ detail: response.statusText }))
+      throw new Error(errorData.detail || errorData.error || `HTTP ${response.status}: 인증코드 재전송에 실패했습니다`)
+    }
+
+    const result = await response.json()
+    return result
+  } catch (error) {
+    console.error('[auth.js] Error resending verification code:', error?.message || error)
+    throw error
+  }
+}
+
+/**
  * 로그아웃
  */
 export const logout = () => {

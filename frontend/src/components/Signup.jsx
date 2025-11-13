@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Mail, Lock, User } from 'lucide-react'
+import { Mail, Lock, User, CheckCircle, XCircle, RefreshCw } from 'lucide-react'
 import Logo from './Logo'
-import { register } from '../api/auth'
+import { register, verifyEmail, resendVerificationCode } from '../api/auth'
 
 function Signup() {
   const navigate = useNavigate()
@@ -14,6 +14,14 @@ function Signup() {
   })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  
+  // 이메일 인증 관련 상태
+  const [showVerification, setShowVerification] = useState(false)
+  const [verificationCode, setVerificationCode] = useState('')
+  const [verificationLoading, setVerificationLoading] = useState(false)
+  const [resendLoading, setResendLoading] = useState(false)
+  const [verificationSuccess, setVerificationSuccess] = useState(false)
+  const [countdown, setCountdown] = useState(0) // 재전송 제한 카운트다운
 
   const handleChange = (e) => {
     setFormData({
@@ -21,6 +29,14 @@ function Signup() {
       [e.target.name]: e.target.value
     })
   }
+
+  // 재전송 카운트다운 타이머
+  useEffect(() => {
+    if (countdown > 0) {
+      const timer = setTimeout(() => setCountdown(countdown - 1), 1000)
+      return () => clearTimeout(timer)
+    }
+  }, [countdown])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -49,20 +65,89 @@ function Signup() {
         password: formData.password
       })
       
-      // 회원가입 성공 시 상태 저장
-      localStorage.setItem('hasAccount', 'true')
-      localStorage.setItem('userName', formData.name)
-      // 자동 로그인을 위해 이메일과 비밀번호 임시 저장 (SignupComplete에서 사용)
-      localStorage.setItem('pendingLoginEmail', formData.email)
-      localStorage.setItem('pendingLoginPassword', formData.password)
-      
-      // 여행 취향 선택 페이지로 이동
-      navigate('/travel-preference')
+      // 회원가입 성공 시 이메일 인증 화면 표시
+      if (result.requires_verification) {
+        setShowVerification(true)
+        setCountdown(60) // 재전송 제한: 60초
+      } else {
+        // 인증이 필요 없는 경우 (예외 상황)
+        localStorage.setItem('hasAccount', 'true')
+        localStorage.setItem('userName', formData.name)
+        navigate('/travel-preference')
+      }
     } catch (error) {
       console.error('[Signup] Signup error:', error)
       setError(error.message || '회원가입에 실패했습니다. 다시 시도해주세요.')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleVerifyEmail = async (e) => {
+    e.preventDefault()
+    setError('')
+    
+    if (verificationCode.length !== 6) {
+      setError('인증코드는 6자리 숫자입니다.')
+      return
+    }
+    
+    setVerificationLoading(true)
+    
+    try {
+      const result = await verifyEmail(formData.email, verificationCode)
+      
+      if (result.success) {
+        setVerificationSuccess(true)
+        // 인증 성공 시 상태 저장
+        localStorage.setItem('hasAccount', 'true')
+        localStorage.setItem('userName', formData.name)
+        localStorage.setItem('pendingLoginEmail', formData.email)
+        localStorage.setItem('pendingLoginPassword', formData.password)
+        
+        // 1초 후 여행 취향 선택 페이지로 이동
+        setTimeout(() => {
+          navigate('/travel-preference')
+        }, 1000)
+      }
+    } catch (error) {
+      console.error('[Signup] Verification error:', error)
+      setError(error.message || '인증코드가 올바르지 않습니다. 다시 확인해주세요.')
+      setVerificationCode('') // 입력 초기화
+    } finally {
+      setVerificationLoading(false)
+    }
+  }
+
+  const handleResendCode = async () => {
+    if (countdown > 0) {
+      setError(`${countdown}초 후에 재전송할 수 있습니다.`)
+      return
+    }
+    
+    setResendLoading(true)
+    setError('')
+    
+    try {
+      const result = await resendVerificationCode(formData.email)
+      if (result.success) {
+        setError('')
+        setCountdown(60) // 재전송 제한: 60초
+        alert('인증코드가 재전송되었습니다. 이메일을 확인해주세요.')
+      }
+    } catch (error) {
+      console.error('[Signup] Resend code error:', error)
+      setError(error.message || '인증코드 재전송에 실패했습니다.')
+    } finally {
+      setResendLoading(false)
+    }
+  }
+
+  const handleVerificationCodeChange = (e) => {
+    const value = e.target.value.replace(/\D/g, '') // 숫자만 허용
+    if (value.length <= 6) {
+      setVerificationCode(value)
+      setError('') // 입력 시 에러 메시지 초기화
     }
   }
 
@@ -143,9 +228,115 @@ function Signup() {
             <p className="text-white/70 text-sm">당신의 완벽한 여행 컨텐츠</p>
           </div>
 
-          {/* 회원가입 폼 */}
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <h2 className="text-xl font-bold text-white text-center mb-6">회원가입</h2>
+          {/* 이메일 인증 화면 */}
+          {showVerification ? (
+            <div className="space-y-6">
+              <div className="text-center mb-6">
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-500/20 rounded-full mb-4">
+                  <Mail className="w-8 h-8 text-blue-400" />
+                </div>
+                <h2 className="text-xl font-bold text-white mb-2">이메일 인증</h2>
+                <p className="text-white/70 text-sm">
+                  <span className="font-medium text-blue-400">{formData.email}</span>로<br />
+                  인증코드를 발송했습니다.
+                </p>
+              </div>
+
+              {verificationSuccess ? (
+                <div className="text-center py-8">
+                  <div className="inline-flex items-center justify-center w-16 h-16 bg-green-500/20 rounded-full mb-4">
+                    <CheckCircle className="w-8 h-8 text-green-400" />
+                  </div>
+                  <p className="text-green-400 font-medium mb-2">인증이 완료되었습니다!</p>
+                  <p className="text-white/70 text-sm">잠시 후 이동합니다...</p>
+                </div>
+              ) : (
+                <form onSubmit={handleVerifyEmail} className="space-y-6">
+                  {/* 에러 메시지 */}
+                  {error && (
+                    <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-3 text-red-300 text-sm">
+                      {error}
+                    </div>
+                  )}
+
+                  {/* 인증코드 입력 */}
+                  <div>
+                    <label htmlFor="verificationCode" className="block text-white text-sm font-medium mb-2">
+                      인증코드 (6자리)
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        id="verificationCode"
+                        value={verificationCode}
+                        onChange={handleVerificationCodeChange}
+                        placeholder="000000"
+                        maxLength={6}
+                        className="w-full px-4 py-3 bg-gray-800/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-center text-2xl tracking-widest font-mono"
+                        required
+                        autoFocus
+                      />
+                    </div>
+                    <p className="text-white/50 text-xs mt-2 text-center">
+                      인증코드는 3분 후 만료됩니다.
+                    </p>
+                  </div>
+
+                  {/* 인증 버튼 */}
+                  <button
+                    type="submit"
+                    disabled={verificationLoading || verificationCode.length !== 6}
+                    className="w-full py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all duration-200 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {verificationLoading ? '인증 중...' : '인증하기'}
+                  </button>
+
+                  {/* 재전송 버튼 */}
+                  <div className="text-center">
+                    <button
+                      type="button"
+                      onClick={handleResendCode}
+                      disabled={resendLoading || countdown > 0}
+                      className="text-blue-400 hover:text-blue-300 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mx-auto"
+                    >
+                      {resendLoading ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          재전송 중...
+                        </>
+                      ) : countdown > 0 ? (
+                        `${countdown}초 후 재전송 가능`
+                      ) : (
+                        <>
+                          <RefreshCw className="w-4 h-4" />
+                          인증코드 재전송
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* 뒤로가기 */}
+                  <div className="text-center pt-4 border-t border-gray-700">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowVerification(false)
+                        setVerificationCode('')
+                        setError('')
+                        setCountdown(0)
+                      }}
+                      className="text-white/70 hover:text-white text-sm transition-colors"
+                    >
+                      ← 회원가입 정보 수정
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          ) : (
+            /* 회원가입 폼 */
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <h2 className="text-xl font-bold text-white text-center mb-6">회원가입</h2>
             
             {/* 에러 메시지 */}
             {error && (
@@ -258,6 +449,7 @@ function Signup() {
               </p>
             </div>
           </form>
+          )}
         </div>
 
         {/* Footer */}
