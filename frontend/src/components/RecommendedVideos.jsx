@@ -18,9 +18,7 @@ function RecommendedVideos() {
       setIsLoggedIn(sessionStorage.getItem('isLoggedIn') === 'true' || localStorage.getItem('isLoggedIn') === 'true')
     }
     checkLoginStatus()
-    // storage 이벤트 리스너 추가 (다른 탭에서 로그인/로그아웃 시)
     window.addEventListener('storage', checkLoginStatus)
-    // 주기적으로 체크 (같은 탭에서 상태 변경 감지)
     const interval = setInterval(checkLoginStatus, 500)
     return () => {
       window.removeEventListener('storage', checkLoginStatus)
@@ -31,12 +29,7 @@ function RecommendedVideos() {
   // API에서 실제 데이터 가져오기
   useEffect(() => {
     fetchVideos()
-    // 주기적 업데이트 제거 - 사용자가 수동으로 새로고침할 수 있도록
-    // const interval = setInterval(fetchVideos, 60000)
-    // return () => clearInterval(interval)
   }, [usePersonalized])
-
-  // 스크롤 무한 로드 제거 - 고정 6개만 표시
 
   const fetchVideos = async () => {
     try {
@@ -44,7 +37,6 @@ function RecommendedVideos() {
       setError(null)
       console.log('[RecommendedVideos] Starting to fetch videos...')
       
-      // 사용자 선호도가 있으면 개인 맞춤 추천 사용
       const travelPreferences = JSON.parse(localStorage.getItem('travelPreferences') || '[]')
       const hasPreferences = travelPreferences.length > 0
       
@@ -52,39 +44,31 @@ function RecommendedVideos() {
       
       if (usePersonalized && hasPreferences) {
         try {
-          // 개인 맞춤 추천 시도
           recommended = await getPersonalizedRecommendations({}, 20)
           console.log('[RecommendedVideos] Using personalized recommendations:', recommended?.length || 0)
         } catch (personalizedError) {
           console.warn('[RecommendedVideos] Personalized recommendation failed, falling back to general:', personalizedError)
-          // 개인 맞춤 추천 실패 시 일반 추천으로 폴백
-          // 1순위: 채널 다양화 엔드포인트
           try {
             recommended = await getDiversifiedVideos(200, 1)
             console.log('[RecommendedVideos] Fallback diversified endpoint:', recommended?.length || 0)
           } catch (diversifiedError) {
             console.warn('[RecommendedVideos] Diversified endpoint failed, trying general:', diversifiedError)
-            // 2순위: 기존 일반 추천
             recommended = await getRecommendedVideos(null, false, 100)
             console.log('[RecommendedVideos] Using general recommendation:', recommended?.length || 0)
           }
         }
       } else {
-        // 랜덤 모드: 전체 풀에서 무작위 선별
         try {
-          // 1순위: 채널 다양화 엔드포인트 (넉넉히 받아서 다양성 극대화)
           recommended = await getDiversifiedVideos(200, 1)
           console.log('[RecommendedVideos] Using diversified endpoint for RANDOM:', recommended?.length || 0)
         } catch (diversifiedError) {
           console.warn('[RecommendedVideos] Diversified endpoint failed, trying all videos:', diversifiedError)
-          // 2순위: 전체 풀에서 무작위
           try {
             const all = await getAllVideos(0, 300)
             recommended = all || []
             console.log('[RecommendedVideos] Using RANDOM from full pool (fallback):', recommended?.length || 0)
           } catch (allError) {
             console.warn('[RecommendedVideos] All videos failed, trying general recommendation:', allError)
-            // 3순위: 일반 추천
             recommended = await getRecommendedVideos(null, false, 100)
             console.log('[RecommendedVideos] Using general recommendation as last resort:', recommended?.length || 0)
           }
@@ -120,13 +104,10 @@ function RecommendedVideos() {
           }
           return out
         }
-        // 1) 채널당 1개
         let result = pick(maxPerChannel)
-        // 2) 모자라면 채널당 2개로 완화
         if (result.length < targetCount) {
           result = pick(maxPerChannel + 1)
         }
-        // 3) 그래도 모자라면 남은 아이템으로 채우기
         if (result.length < targetCount) {
           const ids = new Set(result.map(v => v.id))
           for (const it of items) {
@@ -140,7 +121,6 @@ function RecommendedVideos() {
         return result
       }
 
-      // 중복 제거 후 무작위 셔플
       const unique = dedupeById(recommended)
       console.log('[RecommendedVideos] After deduplication:', unique.length)
       
@@ -149,7 +129,7 @@ function RecommendedVideos() {
         ;[unique[i], unique[j]] = [unique[j], unique[i]]
       }
       
-      const diversified = diversifyWithFallback(unique, 48, 1) // 내부 데이터는 넉넉히 준비
+      const diversified = diversifyWithFallback(unique, 48, 1)
       console.log('[RecommendedVideos] Final diversified videos:', diversified.length)
       
       if (diversified.length === 0) {
@@ -168,11 +148,8 @@ function RecommendedVideos() {
       setRecommendedVideos([])
     } finally {
       setLoading(false)
-      // 상태 업데이트는 비동기이므로, 이 시점의 recommendedVideos는 이전 값일 수 있음
-      // 실제 값은 다음 렌더링에서 확인 가능
     }
   }
-
 
   return (
     <div className="min-h-screen bg-[#0a0e27] relative overflow-hidden">
@@ -292,19 +269,7 @@ function RecommendedVideos() {
               >
                 여행 트렌드
               </Link>
-              <Link 
-                // travel-plan link removed
-                className="font-bold leading-6" 
-                style={{ 
-                  fontSize: '16px',
-                  lineHeight: '24px',
-                  color: 'rgba(147, 197, 253, 1)',
-                  fontFamily: 'Arial, sans-serif'
-                }}
-              >
-                
-              </Link>
-{isLoggedIn ? (
+              {isLoggedIn ? (
                 <Link 
                   to="/mypage" 
                   className="font-bold leading-6 flex items-center" 
@@ -339,7 +304,7 @@ function RecommendedVideos() {
 
       {/* Main Content */}
       <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Title Section - 왼쪽 정렬 */}
+        {/* Title Section */}
         <div className="mb-12 text-left">
           <h1 
             className="font-bold text-white mb-4" 
@@ -365,7 +330,7 @@ function RecommendedVideos() {
           </p>
         </div>
 
-        {/* Video Grid - 2열 고정(2xN), 스크롤 시 자동 로드, 선명한 썸네일(Featured) */}
+        {/* Video Grid */}
         {loading ? (
           <div className="text-center py-12">
             <div className="text-blue-300 animate-pulse">데이터를 불러오는 중...</div>
@@ -393,13 +358,11 @@ function RecommendedVideos() {
             </button>
           </div>
         ) : (
-          <>
-            <div className="grid grid-cols-3 gap-6">
-              {recommendedVideos.slice(0, 6).map((video) => (
-                <VideoCard key={video.id} video={video} featured />
-              ))}
-            </div>
-          </>
+          <div className="grid grid-cols-3 gap-6">
+            {recommendedVideos.slice(0, 6).map((video) => (
+              <VideoCard key={video.id} video={video} featured />
+            ))}
+          </div>
         )}
       </main>
     </div>
@@ -407,4 +370,3 @@ function RecommendedVideos() {
 }
 
 export default RecommendedVideos
-
