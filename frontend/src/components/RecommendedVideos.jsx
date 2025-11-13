@@ -4,7 +4,6 @@ import { User } from 'lucide-react'
 import VideoCard from './VideoCard'
 import Logo from './Logo'
 import { getPersonalizedRecommendations, getRecommendedVideos, getTrendVideos, getMostLikedVideos, getAllVideos, getDiversifiedVideos } from '../api/videos'
-import { getMyKeywords, getCurrentUser } from '../api/auth'
 
 function RecommendedVideos() {
   const [loading, setLoading] = useState(true)
@@ -13,47 +12,16 @@ function RecommendedVideos() {
   const [usePersonalized, setUsePersonalized] = useState(true) // 개인 맞춤 추천 사용 여부
   const [visibleCount] = useState(6) // 3x2로 고정 6개만 표시
   const [error, setError] = useState(null) // 에러 상태 추가
-  const [userName, setUserName] = useState('')
-  const [themeVideos, setThemeVideos] = useState({
-    budget: [],
-    solo: [],
-    aesthetic: []
-  })
-  const [loadingThemes, setLoadingThemes] = useState(false)
 
-  // 테마별 키워드 매핑
-  const THEME_KEYWORDS = {
-    budget: '가성비여행',
-    solo: '혼자여행',
-    aesthetic: '감성여행'
-  }
-
-  const THEME_DESCRIPTIONS = {
-    budget: '실속 있게 즐기는 알짜배기 여행이에요.',
-    solo: '혼자만의 여유를 사랑하는 분들을 위한 추천이에요.',
-    aesthetic: '마음을 쉬게 하는 감성 가득한 여행이에요.'
-  }
-
-  // 로그인 상태 체크 및 사용자 정보 로드
+  // 로그인 상태 체크
   useEffect(() => {
-    const checkLoginStatus = async () => {
-      const loggedIn = sessionStorage.getItem('isLoggedIn') === 'true' || localStorage.getItem('isLoggedIn') === 'true'
-      setIsLoggedIn(loggedIn)
-      
-      if (loggedIn) {
-        try {
-          const userInfo = await getCurrentUser()
-          if (userInfo) {
-            setUserName(userInfo.username || localStorage.getItem('userName') || '')
-            localStorage.setItem('userName', userInfo.username || '')
-          }
-        } catch (error) {
-          console.error('[RecommendedVideos] Error loading user info:', error)
-        }
-      }
+    const checkLoginStatus = () => {
+      setIsLoggedIn(sessionStorage.getItem('isLoggedIn') === 'true' || localStorage.getItem('isLoggedIn') === 'true')
     }
     checkLoginStatus()
+    // storage 이벤트 리스너 추가 (다른 탭에서 로그인/로그아웃 시)
     window.addEventListener('storage', checkLoginStatus)
+    // 주기적으로 체크 (같은 탭에서 상태 변경 감지)
     const interval = setInterval(checkLoginStatus, 500)
     return () => {
       window.removeEventListener('storage', checkLoginStatus)
@@ -68,15 +36,6 @@ function RecommendedVideos() {
     // const interval = setInterval(fetchVideos, 60000)
     // return () => clearInterval(interval)
   }, [usePersonalized])
-
-  // 로그인 상태 변경 시 테마별 영상 로드
-  useEffect(() => {
-    if (isLoggedIn) {
-      fetchThemeVideos()
-    } else {
-      setThemeVideos({ budget: [], solo: [], aesthetic: [] })
-    }
-  }, [isLoggedIn])
 
   // 스크롤 무한 로드 제거 - 고정 6개만 표시
 
@@ -215,77 +174,6 @@ function RecommendedVideos() {
     }
   }
 
-  // 테마별 영상 가져오기
-  const fetchThemeVideos = async () => {
-    if (!isLoggedIn) return
-    
-    try {
-      setLoadingThemes(true)
-      const allVideos = await getAllVideos(0, 200) // 충분한 영상 가져오기
-      
-      // 테마별로 영상 필터링
-      const themes = {
-        budget: [],
-        solo: [],
-        aesthetic: []
-      }
-      
-      // 키워드 기반 필터링
-      allVideos.forEach(video => {
-        const keyword = video.keyword || ''
-        const description = (video.description || '').toLowerCase()
-        const title = (video.title || '').toLowerCase()
-        
-        // 가성비여행
-        if (keyword.includes('가성비') || keyword.includes('budget') || 
-            description.includes('가성비') || description.includes('budget') ||
-            title.includes('가성비') || title.includes('budget') ||
-            keyword.includes('가격') || description.includes('가격')) {
-          themes.budget.push(video)
-        }
-        
-        // 혼자여행
-        if (keyword.includes('혼자') || keyword.includes('solo') ||
-            description.includes('혼자') || description.includes('solo') ||
-            title.includes('혼자') || title.includes('solo') ||
-            keyword.includes('1인') || description.includes('1인')) {
-          themes.solo.push(video)
-        }
-        
-        // 감성여행
-        if (keyword.includes('감성') || keyword.includes('aesthetic') ||
-            description.includes('감성') || description.includes('aesthetic') ||
-            title.includes('감성') || title.includes('aesthetic') ||
-            keyword.includes('힐링') || description.includes('힐링') ||
-            keyword.includes('휴양') || description.includes('휴양')) {
-          themes.aesthetic.push(video)
-        }
-      })
-      
-      // 각 테마별로 최대 4개만 선택 (중복 제거)
-      const dedupeById = (items) => {
-        const seen = new Set()
-        const out = []
-        for (const it of items || []) {
-          const id = it.id || it.video_id
-          if (!id || seen.has(id)) continue
-          seen.add(id)
-          out.push(it)
-        }
-        return out
-      }
-      
-      setThemeVideos({
-        budget: dedupeById(themes.budget).slice(0, 4),
-        solo: dedupeById(themes.solo).slice(0, 4),
-        aesthetic: dedupeById(themes.aesthetic).slice(0, 4)
-      })
-    } catch (error) {
-      console.error('[RecommendedVideos] Failed to fetch theme videos:', error)
-    } finally {
-      setLoadingThemes(false)
-    }
-  }
 
   return (
     <div className="min-h-screen bg-[#0a0e27] relative overflow-hidden">
@@ -507,182 +395,12 @@ function RecommendedVideos() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-3 gap-6 mb-16">
+            <div className="grid grid-cols-3 gap-6">
               {recommendedVideos.slice(0, 6).map((video) => (
                 <VideoCard key={video.id} video={video} featured />
               ))}
             </div>
           </>
-        )}
-
-        {/* 테마별 영상 섹션 */}
-        {isLoggedIn && (
-          <div className="mt-16 space-y-12">
-            <div className="mb-8">
-              <h2 
-                className="font-bold text-white mb-2" 
-                style={{
-                  fontSize: '28px',
-                  lineHeight: '36px',
-                  fontFamily: 'Arial, sans-serif',
-                  color: '#FFFFFF'
-                }}
-              >
-                테마별로 보는 나의 여행 취향
-              </h2>
-              <p 
-                className="text-white/70"
-                style={{
-                  fontSize: '16px',
-                  lineHeight: '24px',
-                  fontFamily: 'Arial, sans-serif'
-                }}
-              >
-                {userName ? `${userName}님의 취향을 담은 여행 영상들을 모았어요` : '당신의 취향을 담은 여행 영상들을 모았어요'}
-              </p>
-            </div>
-
-            {/* 가성비여행 섹션 */}
-            {themeVideos.budget.length > 0 && (
-              <div className="mb-12">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h3 
-                      className="font-bold text-white mb-1"
-                      style={{
-                        fontSize: '20px',
-                        lineHeight: '28px',
-                        fontFamily: 'Arial, sans-serif',
-                        color: 'rgba(147, 197, 253, 1)'
-                      }}
-                    >
-                      #가성비여행
-                    </h3>
-                    <p 
-                      className="text-white/60"
-                      style={{
-                        fontSize: '14px',
-                        lineHeight: '20px',
-                        fontFamily: 'Arial, sans-serif'
-                      }}
-                    >
-                      {THEME_DESCRIPTIONS.budget}
-                    </p>
-                  </div>
-                  <Link 
-                    to="/theme/budget"
-                    className="text-blue-300 hover:text-blue-200 text-sm font-medium"
-                    style={{
-                      fontSize: '14px',
-                      lineHeight: '20px',
-                      fontFamily: 'Arial, sans-serif'
-                    }}
-                  >
-                    더보기 &gt;
-                  </Link>
-                </div>
-                <div className="grid grid-cols-4 gap-4">
-                  {themeVideos.budget.map((video) => (
-                    <VideoCard key={video.id} video={video} />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* 혼자여행 섹션 */}
-            {themeVideos.solo.length > 0 && (
-              <div className="mb-12">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h3 
-                      className="font-bold text-white mb-1"
-                      style={{
-                        fontSize: '20px',
-                        lineHeight: '28px',
-                        fontFamily: 'Arial, sans-serif',
-                        color: 'rgba(147, 197, 253, 1)'
-                      }}
-                    >
-                      #혼자여행
-                    </h3>
-                    <p 
-                      className="text-white/60"
-                      style={{
-                        fontSize: '14px',
-                        lineHeight: '20px',
-                        fontFamily: 'Arial, sans-serif'
-                      }}
-                    >
-                      {THEME_DESCRIPTIONS.solo}
-                    </p>
-                  </div>
-                  <Link 
-                    to="/theme/solo"
-                    className="text-blue-300 hover:text-blue-200 text-sm font-medium"
-                    style={{
-                      fontSize: '14px',
-                      lineHeight: '20px',
-                      fontFamily: 'Arial, sans-serif'
-                    }}
-                  >
-                    더보기 &gt;
-                  </Link>
-                </div>
-                <div className="grid grid-cols-4 gap-4">
-                  {themeVideos.solo.map((video) => (
-                    <VideoCard key={video.id} video={video} />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* 감성여행 섹션 */}
-            {themeVideos.aesthetic.length > 0 && (
-              <div className="mb-12">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h3 
-                      className="font-bold text-white mb-1"
-                      style={{
-                        fontSize: '20px',
-                        lineHeight: '28px',
-                        fontFamily: 'Arial, sans-serif',
-                        color: 'rgba(147, 197, 253, 1)'
-                      }}
-                    >
-                      #감성여행
-                    </h3>
-                    <p 
-                      className="text-white/60"
-                      style={{
-                        fontSize: '14px',
-                        lineHeight: '20px',
-                        fontFamily: 'Arial, sans-serif'
-                      }}
-                    >
-                      {THEME_DESCRIPTIONS.aesthetic}
-                    </p>
-                  </div>
-                  <Link 
-                    to="/theme/aesthetic"
-                    className="text-blue-300 hover:text-blue-200 text-sm font-medium"
-                    style={{
-                      fontSize: '14px',
-                      lineHeight: '20px',
-                      fontFamily: 'Arial, sans-serif'
-                    }}
-                  >
-                    더보기 &gt;
-                  </Link>
-                </div>
-                <div className="grid grid-cols-4 gap-4">
-                  {themeVideos.aesthetic.map((video) => (
-                    <VideoCard key={video.id} video={video} />
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
         )}
       </main>
     </div>
