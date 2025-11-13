@@ -44,6 +44,73 @@ import asyncio
 router = APIRouter(tags=["auth"])
 
 
+@router.get("/debug/email-config")
+def debug_email_config():
+    """
+    이메일 설정 진단 엔드포인트
+    런타임에 환경 변수가 제대로 로드되었는지 확인
+    """
+    import os
+    from pathlib import Path
+    from app.core.config import (
+        SMTP_HOST,
+        SMTP_PORT,
+        SMTP_USERNAME,
+        SMTP_PASSWORD,
+        SMTP_FROM_EMAIL,
+        SMTP_FROM_NAME
+    )
+    
+    # 환경 변수 직접 확인
+    env_smtp_host = os.getenv("SMTP_HOST", "").strip()
+    env_smtp_port = os.getenv("SMTP_PORT", "").strip()
+    env_smtp_username = os.getenv("SMTP_USERNAME", "").strip()
+    env_smtp_password = os.getenv("SMTP_PASSWORD", "").strip()
+    env_smtp_from_email = os.getenv("SMTP_FROM_EMAIL", "").strip()
+    
+    # .env 파일 경로 확인
+    possible_paths = [
+        Path(__file__).parent.parent.parent.parent / '.env',
+        Path.cwd() / '.env',
+        Path.cwd() / 'backend' / '.env',
+    ]
+    
+    env_file_found = None
+    for path in possible_paths:
+        if path.exists():
+            env_file_found = str(path.absolute())
+            break
+    
+    return {
+        "env_file": {
+            "found": env_file_found is not None,
+            "path": env_file_found,
+            "checked_paths": [str(p.absolute()) for p in possible_paths]
+        },
+        "environment_variables": {
+            "SMTP_HOST": env_smtp_host if env_smtp_host else "(empty)",
+            "SMTP_PORT": env_smtp_port if env_smtp_port else "(empty)",
+            "SMTP_USERNAME": env_smtp_username if env_smtp_username else "(empty)",
+            "SMTP_PASSWORD": "SET" if env_smtp_password else "(empty)",
+            "SMTP_PASSWORD_LENGTH": len(env_smtp_password) if env_smtp_password else 0,
+            "SMTP_FROM_EMAIL": env_smtp_from_email if env_smtp_from_email else "(empty)",
+        },
+        "loaded_config": {
+            "SMTP_HOST": SMTP_HOST if SMTP_HOST else "(empty)",
+            "SMTP_PORT": SMTP_PORT,
+            "SMTP_USERNAME": SMTP_USERNAME if SMTP_USERNAME else "(empty)",
+            "SMTP_PASSWORD": "SET" if SMTP_PASSWORD else "(empty)",
+            "SMTP_PASSWORD_LENGTH": len(SMTP_PASSWORD) if SMTP_PASSWORD else 0,
+            "SMTP_FROM_EMAIL": SMTP_FROM_EMAIL if SMTP_FROM_EMAIL else "(empty)",
+            "SMTP_FROM_NAME": SMTP_FROM_NAME,
+        },
+        "status": {
+            "all_set": bool(SMTP_HOST and SMTP_PORT and SMTP_USERNAME and SMTP_PASSWORD),
+            "issues": []
+        }
+    }
+
+
 @router.post("/register")
 def register(payload: UserCreate, db: Session = Depends(get_db)):
     print(f"[DEBUG] Register request received: username={payload.username}, email={payload.email}")

@@ -6,15 +6,29 @@ from dotenv import load_dotenv
 from pathlib import Path
 
 # .env 파일 경로 명시적으로 지정
-env_path = Path(__file__).parent.parent / '.env'
-load_dotenv(dotenv_path=env_path)
+# 여러 가능한 경로 확인 (작업 디렉토리가 다를 수 있음)
+possible_paths = [
+    Path(__file__).parent.parent / '.env',  # backend/.env
+    Path.cwd() / '.env',  # 현재 작업 디렉토리/.env
+    Path.cwd() / 'backend' / '.env',  # 프로젝트 루트에서 실행 시
+]
 
-# .env 파일 로드 확인
-if env_path.exists():
-    print(f"[Config] .env file loaded from: {env_path}")
+env_path = None
+for path in possible_paths:
+    if path.exists():
+        env_path = path
+        break
+
+if env_path:
+    load_dotenv(dotenv_path=env_path, override=True)
+    print(f"[Config] .env file loaded from: {env_path.absolute()}")
 else:
-    print(f"[Config] WARNING: .env file not found at: {env_path}")
-    print(f"[Config] Using environment variables or defaults")
+    # .env 파일이 없어도 환경 변수는 로드 시도 (시스템 환경 변수 사용)
+    load_dotenv(override=False)
+    print(f"[Config] WARNING: .env file not found in any of these locations:")
+    for path in possible_paths:
+        print(f"[Config]   - {path.absolute()}")
+    print(f"[Config] Using system environment variables or defaults")
 
 # 데이터베이스 설정
 DB_USER = os.getenv("DB_USER", "").strip()
@@ -33,7 +47,13 @@ REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0").strip()
 
 # SMTP 설정 (이메일 발송)
 SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com").strip()
-SMTP_PORT = int(os.getenv("SMTP_PORT", "587").strip())
+# SMTP_PORT 안전하게 변환 (빈 값이나 잘못된 값 처리)
+try:
+    smtp_port_str = os.getenv("SMTP_PORT", "587").strip()
+    SMTP_PORT = int(smtp_port_str) if smtp_port_str else 587
+except (ValueError, AttributeError):
+    print(f"[Config] WARNING: Invalid SMTP_PORT value, using default 587")
+    SMTP_PORT = 587
 SMTP_USERNAME = os.getenv("SMTP_USERNAME", "").strip()
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "").strip()
 SMTP_FROM_EMAIL = os.getenv("SMTP_FROM_EMAIL", SMTP_USERNAME).strip()

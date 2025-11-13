@@ -17,6 +17,44 @@ from app.core.config import (
 )
 
 
+def _reload_smtp_config():
+    """
+    런타임에 환경 변수를 다시 확인하여 로드
+    모듈 import 시점과 실제 사용 시점의 환경 변수가 다를 수 있음
+    """
+    from dotenv import load_dotenv
+    from pathlib import Path
+    
+    # .env 파일 다시 로드 시도
+    possible_paths = [
+        Path(__file__).parent.parent.parent / '.env',
+        Path.cwd() / '.env',
+        Path.cwd() / 'backend' / '.env',
+    ]
+    
+    for path in possible_paths:
+        if path.exists():
+            load_dotenv(dotenv_path=path, override=True)
+            print(f"[Email] Reloaded .env from: {path.absolute()}")
+            break
+    
+    # 환경 변수 직접 확인
+    port_str = os.getenv("SMTP_PORT", "").strip()
+    try:
+        port = int(port_str) if port_str else SMTP_PORT
+    except (ValueError, AttributeError):
+        port = SMTP_PORT
+    
+    return {
+        'host': os.getenv("SMTP_HOST", "").strip() or SMTP_HOST,
+        'port': port,
+        'username': os.getenv("SMTP_USERNAME", "").strip() or SMTP_USERNAME,
+        'password': os.getenv("SMTP_PASSWORD", "").strip() or SMTP_PASSWORD,
+        'from_email': os.getenv("SMTP_FROM_EMAIL", "").strip() or SMTP_FROM_EMAIL or SMTP_USERNAME,
+        'from_name': os.getenv("SMTP_FROM_NAME", "").strip() or SMTP_FROM_NAME,
+    }
+
+
 def send_verification_email(
     to_email: str,
     verification_code: str,
@@ -33,24 +71,44 @@ def send_verification_email(
     Returns:
         bool: 발송 성공 여부
     """
-    # SMTP 설정 검증 (상세 로깅)
+    # 런타임에 환경 변수 다시 확인 (모듈 로드 시점과 다를 수 있음)
     print(f"[Email] ===== Email Sending Debug Info =====")
-    print(f"[Email] SMTP_HOST: {SMTP_HOST}")
-    print(f"[Email] SMTP_PORT: {SMTP_PORT}")
-    print(f"[Email] SMTP_USERNAME: {SMTP_USERNAME if SMTP_USERNAME else '(empty)'}")
-    print(f"[Email] SMTP_PASSWORD: {'SET (' + str(len(SMTP_PASSWORD)) + ' chars)' if SMTP_PASSWORD else '(empty)'}")
-    print(f"[Email] SMTP_FROM_EMAIL: {SMTP_FROM_EMAIL if SMTP_FROM_EMAIL else '(empty)'}")
-    print(f"[Email] SMTP_FROM_NAME: {SMTP_FROM_NAME}")
+    print(f"[Email] Checking runtime environment variables...")
+    runtime_config = _reload_smtp_config()
+    
+    # 런타임 설정 우선 사용, 없으면 모듈 레벨 설정 사용
+    smtp_host = runtime_config['host'] or SMTP_HOST
+    smtp_port = runtime_config['port'] or SMTP_PORT
+    smtp_username = runtime_config['username'] or SMTP_USERNAME
+    smtp_password = runtime_config['password'] or SMTP_PASSWORD
+    smtp_from_email = runtime_config['from_email'] or SMTP_FROM_EMAIL
+    smtp_from_name = runtime_config['from_name'] or SMTP_FROM_NAME
+    
+    print(f"[Email] SMTP_HOST: {smtp_host}")
+    print(f"[Email] SMTP_PORT: {smtp_port}")
+    print(f"[Email] SMTP_USERNAME: {smtp_username if smtp_username else '(empty)'}")
+    print(f"[Email] SMTP_PASSWORD: {'SET (' + str(len(smtp_password)) + ' chars)' if smtp_password else '(empty)'}")
+    print(f"[Email] SMTP_FROM_EMAIL: {smtp_from_email if smtp_from_email else '(empty)'}")
+    print(f"[Email] SMTP_FROM_NAME: {smtp_from_name}")
+    
+    # 모듈 레벨 설정과 런타임 설정 비교
+    if smtp_username != SMTP_USERNAME or smtp_password != SMTP_PASSWORD:
+        print(f"[Email] ⚠ WARNING: Runtime config differs from module-level config!")
+        print(f"[Email]   Module SMTP_USERNAME: {SMTP_USERNAME if SMTP_USERNAME else '(empty)'}")
+        print(f"[Email]   Runtime SMTP_USERNAME: {smtp_username if smtp_username else '(empty)'}")
+        print(f"[Email]   Using runtime configuration")
+    
     print(f"[Email] =====================================")
     
-    if not SMTP_USERNAME or not SMTP_PASSWORD:
+    if not smtp_username or not smtp_password:
         print(f"[Email] ✗ ERROR: SMTP credentials not configured!")
-        print(f"[Email]   SMTP_USERNAME: {'SET' if SMTP_USERNAME else 'NOT SET'}")
-        print(f"[Email]   SMTP_PASSWORD: {'SET' if SMTP_PASSWORD else 'NOT SET'}")
+        print(f"[Email]   SMTP_USERNAME: {'SET' if smtp_username else 'NOT SET'}")
+        print(f"[Email]   SMTP_PASSWORD: {'SET' if smtp_password else 'NOT SET'}")
         print(f"[Email]   Please check your .env file in the backend directory")
+        print(f"[Email]   Run 'GET /api/auth/debug/email-config' to diagnose")
         return False
     
-    if not SMTP_HOST:
+    if not smtp_host:
         print(f"[Email] ✗ ERROR: SMTP_HOST not configured!")
         return False
     
@@ -175,7 +233,7 @@ def send_verification_email(
         # 이메일 메시지 생성
         msg = MIMEMultipart('alternative')
         msg['Subject'] = subject
-        msg['From'] = f"{SMTP_FROM_NAME} <{SMTP_FROM_EMAIL}>"
+        msg['From'] = f"{smtp_from_name} <{smtp_from_email}>"
         msg['To'] = to_email
         
         # 텍스트 및 HTML 본문 추가
@@ -185,30 +243,30 @@ def send_verification_email(
         msg.attach(html_part)
         
         # SMTP 서버 연결 및 이메일 발송
-        print(f"[Email] Connecting to SMTP server: {SMTP_HOST}:{SMTP_PORT}")
-        print(f"[Email] From: {SMTP_FROM_EMAIL} ({SMTP_FROM_NAME})")
+        print(f"[Email] Connecting to SMTP server: {smtp_host}:{smtp_port}")
+        print(f"[Email] From: {smtp_from_email} ({smtp_from_name})")
         print(f"[Email] To: {to_email}")
         
         # 비밀번호의 공백 제거 (일부 서비스의 앱 비밀번호에 공백이 포함될 수 있음)
-        smtp_password = SMTP_PASSWORD.replace(' ', '')
+        clean_password = smtp_password.replace(' ', '')
         
         server = None
         try:
-            if SMTP_PORT == 465:
+            if smtp_port == 465:
                 # SSL 사용
                 print(f"[Email] Using SSL connection (port 465)")
-                server = smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=30)
+                server = smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=30)
                 print(f"[Email] ✓ SSL connection established")
             else:
                 # TLS 사용
-                print(f"[Email] Using TLS connection (port {SMTP_PORT})")
-                server = smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=30)
+                print(f"[Email] Using TLS connection (port {smtp_port})")
+                server = smtplib.SMTP(smtp_host, smtp_port, timeout=30)
                 print(f"[Email] ✓ SMTP connection established")
                 server.starttls()
                 print(f"[Email] ✓ TLS handshake completed")
         except smtplib.SMTPConnectError as conn_error:
             print(f"[Email] ✗ SMTP Connection Error!")
-            print(f"[Email]   Could not connect to {SMTP_HOST}:{SMTP_PORT}")
+            print(f"[Email]   Could not connect to {smtp_host}:{smtp_port}")
             print(f"[Email]   Error: {conn_error}")
             print(f"[Email]   Possible causes:")
             print(f"[Email]     1. Network connectivity issues")
@@ -221,10 +279,10 @@ def send_verification_email(
             raise
         
         # 로그인
-        print(f"[Email] Attempting to login as {SMTP_USERNAME}")
-        print(f"[Email] Password length: {len(smtp_password)} characters")
+        print(f"[Email] Attempting to login as {smtp_username}")
+        print(f"[Email] Password length: {len(clean_password)} characters")
         try:
-            server.login(SMTP_USERNAME, smtp_password)
+            server.login(smtp_username, clean_password)
             print(f"[Email] ✓ Successfully logged in to SMTP server")
         except smtplib.SMTPAuthenticationError as auth_error:
             print(f"[Email] ✗ Authentication failed!")
