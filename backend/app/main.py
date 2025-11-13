@@ -20,16 +20,11 @@ app = FastAPI(
 async def startup_event():
     """
     서버 시작 시 실행되는 초기화 함수
-    임베딩 모델 및 키워드 풀 임베딩을 사전에 로드하여 캐싱
+    임베딩 모델은 첫 요청 시 lazy loading으로 처리하여 서버 시작 시간 단축
     """
-    try:
-        from app.services.embeddings import initialize_embeddings
-        print("[Startup] Initializing embedding service...")
-        initialize_embeddings()
-        print("[Startup] Embedding service initialized successfully")
-    except Exception as e:
-        print(f"[Startup] Warning: Failed to initialize embedding service: {e}")
-        print("[Startup] Server will continue, but keyword analysis may be slower on first request")
+    print("[Startup] FastAPI application starting...")
+    print("[Startup] Embedding service will be initialized on first request (lazy loading)")
+    print("[Startup] FastAPI application ready")
 
 # CORS 설정 (React 프론트엔드에서 호출 가능하도록)
 import os

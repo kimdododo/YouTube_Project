@@ -34,6 +34,7 @@ EXPOSE 8080
 RUN echo '#!/bin/bash\n\
 set -e\n\
 export PYTHONPATH=/app\n\
+echo "=== Backend Startup Script ==="\n\
 echo "Running database migrations..."\n\
 echo "[DEBUG] Environment variables before migration:"\n\
 echo "  DB_HOST=${DB_HOST:-not set}"\n\
@@ -41,9 +42,15 @@ echo "  DB_USER=${DB_USER:-not set}"\n\
 echo "  DB_NAME=${DB_NAME:-not set}"\n\
 echo "  DB_PORT=${DB_PORT:-not set}"\n\
 echo "  DB_PASSWORD=${DB_PASSWORD:+***set***}"\n\
-cd /app && alembic upgrade head || echo "Migration failed, continuing..."\n\
+echo "  PORT=${PORT:-8080}"\n\
+cd /app\n\
+if alembic upgrade head; then\n\
+  echo "✅ Database migrations completed successfully"\n\
+else\n\
+  echo "⚠️ Migration failed, but continuing with server start..."\n\
+fi\n\
 echo "Starting FastAPI server on port ${PORT:-8080}..."\n\
-exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080}\n\
+exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080} --timeout-keep-alive 30\n\
 ' > /app/start.sh && chmod +x /app/start.sh
 
 CMD ["/app/start.sh"]
