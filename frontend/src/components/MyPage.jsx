@@ -274,13 +274,27 @@ function MyPage() {
     setSelectedPreferences(normalizedPreferences)
     setSelectedKeywords(normalizedKeywords)
 
-    // 키워드 클라우드 생성 (실제 키워드 데이터 사용, 구름 모양으로 배치)
+    // 키워드 클라우드 생성 (실제 키워드 데이터 사용, 다양한 모양으로 배치)
     const colors = [
       '#F9FAFB', '#A5B4FC', '#F9A8D4', '#FBBF24', '#E0E7FF',
       '#FB7185', '#F87171', '#BFDBFE', '#FCD34D', '#FCA5A5',
       '#38BDF8', '#FDBA74', '#67E8F9', '#60A5FA', '#4ADE80',
       '#A855F7', '#FACC15', '#F5D0FE', '#C4B5FD', '#FDE68A',
       '#93C5FD', '#BFDBFE'
+    ]
+    
+    // 다양한 모양 정의 (CSS clip-path)
+    const shapes = [
+      { name: 'cloud', clipPath: 'polygon(20% 40%, 30% 20%, 50% 20%, 60% 0%, 80% 0%, 100% 30%, 100% 60%, 80% 80%, 60% 100%, 40% 100%, 20% 80%, 0% 60%, 0% 40%)' }, // 구름
+      { name: 'heart', clipPath: 'polygon(50% 0%, 65% 15%, 100% 15%, 100% 35%, 85% 55%, 50% 100%, 15% 55%, 0% 35%, 0% 15%, 35% 15%)' }, // 하트
+      { name: 'star', clipPath: 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)' }, // 별
+      { name: 'triangle', clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)' }, // 삼각형
+      { name: 'circle', clipPath: 'circle(50% at 50% 50%)' }, // 원
+      { name: 'diamond', clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)' }, // 다이아몬드
+      { name: 'hexagon', clipPath: 'polygon(30% 0%, 70% 0%, 100% 50%, 70% 100%, 30% 100%, 0% 50%)' }, // 육각형
+      { name: 'pentagon', clipPath: 'polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%)' }, // 오각형
+      { name: 'octagon', clipPath: 'polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%)' }, // 팔각형
+      { name: 'blob', clipPath: 'polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%)' } // 블롭
     ]
     
     // 키워드를 크기별로 정렬 (큰 것부터)
@@ -291,6 +305,7 @@ function MyPage() {
       const baseSize = 48 - (idx * 2)
       const size = Math.max(16, Math.min(48, baseSize))
       const color = colors[idx % colors.length]
+      const shape = shapes[idx % shapes.length]
       
       // 구름 모양 배치를 위한 위치 계산
       // 중앙에 큰 키워드, 주변에 작은 키워드를 원형으로 배치
@@ -319,7 +334,9 @@ function MyPage() {
         size,
         color,
         x,
-        y
+        y,
+        shape: shape.name,
+        clipPath: shape.clipPath
       }
     })
     
@@ -1074,8 +1091,8 @@ function MyPage() {
                         로딩 중...
                       </div>
                     ) : (
-                      keywordCloud.map(({ text, size, color, x, y }, idx) => (
-                        <span
+                      keywordCloud.map(({ text, size, color, x, y, clipPath }, idx) => (
+                        <div
                           key={`${text}-${idx}`}
                           style={{
                             position: 'absolute',
@@ -1083,18 +1100,28 @@ function MyPage() {
                             top: `${y}%`,
                             transform: 'translate(-50%, -50%)',
                             fontSize: `${size}px`,
-                            color,
+                            color: '#FFFFFF',
                             lineHeight: '1.2',
-                            fontWeight: 600,
+                            fontWeight: 700,
                             whiteSpace: 'nowrap',
-                            transition: 'transform 0.2s',
+                            transition: 'all 0.3s ease',
                             cursor: 'default',
-                            zIndex: keywordCloud.length - idx
+                            zIndex: keywordCloud.length - idx,
+                            padding: '8px 16px',
+                            background: `linear-gradient(135deg, ${color} 0%, ${color}dd 100%)`,
+                            clipPath: clipPath,
+                            WebkitClipPath: clipPath,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            textShadow: '0 2px 4px rgba(0, 0, 0, 0.3)',
+                            boxShadow: `0 4px 12px ${color}40, inset 0 1px 0 rgba(255, 255, 255, 0.2)`,
+                            border: `1px solid ${color}80`
                           }}
-                          className="hover:scale-110"
+                          className="hover:scale-110 hover:brightness-110"
                         >
                           {text}
-                        </span>
+                        </div>
                       ))
                     )}
                   </div>
@@ -1205,12 +1232,19 @@ function MyPage() {
                   아직 시청 기록이 없습니다.
                 </div>
               )}
-              {!isLoadingHistory && !historyError && watchHistory.map((video, index) => (
+              {!isLoadingHistory && !historyError && watchHistory.map((video, index) => {
+                // YouTube URL 생성 (유효성 검사 포함)
+                const videoId = video.id || video.video_id
+                const isValidVideoId = videoId && typeof videoId === 'string' && videoId.length >= 10 && videoId.length <= 12
+                const youtubeUrl = video.youtube_url || (isValidVideoId ? `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}` : null)
+                
+                return (
                 <a
                   key={video.id || index}
-                  href={video.youtube_url || `https://www.youtube.com/watch?v=${video.id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  href={youtubeUrl || '#'}
+                  target={youtubeUrl ? '_blank' : undefined}
+                  rel={youtubeUrl ? 'noopener noreferrer' : undefined}
+                  onClick={!youtubeUrl ? (e) => { e.preventDefault(); console.warn('[MyPage] Invalid video ID:', videoId) } : undefined}
                   className="block bg-[#0f1629]/60 backdrop-blur-lg rounded-2xl p-5 transition-colors"
                   style={{ border: '2px solid #39489A' }}
                 >
@@ -1251,7 +1285,8 @@ function MyPage() {
                     </div>
                   </div>
                 </a>
-              ))}
+                )
+              })}
             </div>
           </div>
         )}
@@ -1277,13 +1312,15 @@ function MyPage() {
               <div className="space-y-4">
                 {bookmarks.map((bookmark, index) => {
                   const videoId = bookmark.id || bookmark.video_id
-                  const youtubeUrl = bookmark.youtube_url || (videoId ? `https://www.youtube.com/watch?v=${videoId}` : null)
+                  const isValidVideoId = videoId && typeof videoId === 'string' && videoId.length >= 10 && videoId.length <= 12
+                  const youtubeUrl = bookmark.youtube_url || (isValidVideoId ? `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}` : null)
                   return (
                     <a
                       key={videoId || index}
                       href={youtubeUrl || '#'}
                       target={youtubeUrl ? '_blank' : undefined}
                       rel={youtubeUrl ? 'noopener noreferrer' : undefined}
+                      onClick={!youtubeUrl ? (e) => { e.preventDefault(); console.warn('[MyPage] Invalid bookmark video ID:', videoId) } : undefined}
                       className="block bg-[#0f1629]/60 backdrop-blur-lg rounded-2xl p-5 transition-colors"
                   style={{ border: '2px solid #39489A' }}
                     >

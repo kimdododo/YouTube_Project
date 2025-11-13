@@ -8,6 +8,22 @@ import { optimizeThumbnailUrl } from '../utils/imageUtils'
 const API_BASE_URL = import.meta.env?.VITE_API_URL || '/api'
 
 /**
+ * YouTube 비디오 ID 유효성 검사 및 URL 생성
+ * @param {string} videoId - YouTube 비디오 ID
+ * @returns {string|null} 유효한 YouTube URL 또는 null
+ */
+const createYouTubeUrl = (videoId) => {
+  if (!videoId) return null
+  // YouTube 비디오 ID는 일반적으로 11자리 문자열 (10-12자리 허용)
+  const isValidVideoId = typeof videoId === 'string' && videoId.length >= 10 && videoId.length <= 12
+  if (!isValidVideoId) {
+    console.warn('[videos.js] Invalid YouTube video ID:', videoId)
+    return null
+  }
+  return `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`
+}
+
+/**
  * 가장 많은 좋아요를 받은 영상 목록 조회
  * @returns {Promise<Array>} 좋아요가 많은 영상 목록
  */
@@ -62,7 +78,7 @@ export const getMostLikedVideos = async (limit = 10) => {
         rating: video.rating || 5,
         showRating: true,
         type: 'featured', // 좋아요가 많은 영상은 featured로 표시
-        youtube_url: videoId ? `https://www.youtube.com/watch?v=${videoId}` : null,
+        youtube_url: createYouTubeUrl(videoId),
         is_shorts: isShorts
       }
     })
@@ -139,7 +155,7 @@ export const getPersonalizedRecommendations = async (preferences = {}, limit = 2
         rating: video.rating || 5,
         showRating: true,
         type: determineVideoType(video),
-        youtube_url: videoId ? `https://www.youtube.com/watch?v=${videoId}` : null,
+        youtube_url: createYouTubeUrl(videoId),
         is_shorts: isShorts
       }
     })
@@ -179,7 +195,7 @@ export const getSimilarVideos = async (videoId, limit = 10) => {
         views: formatViews(video.view_count || video.views),
         rating: video.rating || 5,
         showRating: true,
-        youtube_url: vidId ? `https://www.youtube.com/watch?v=${vidId}` : null,
+        youtube_url: createYouTubeUrl(vidId),
         is_shorts: isShorts
       }
     })
@@ -255,6 +271,8 @@ export const getRecommendedVideos = async (query = null, useRerank = false, limi
     return videos.map(video => {
       const videoId = video.id || video.video_id
       const isShorts = video.is_shorts || false
+      // YouTube 비디오 ID 유효성 검사 (일반적으로 11자리 문자열)
+      const isValidVideoId = videoId && typeof videoId === 'string' && videoId.length >= 10 && videoId.length <= 12
       return {
         id: videoId,
         thumbnail_url: optimizeThumbnailUrl(video.thumbnail_url, videoId, isShorts), // 고화질 썸네일로 최적화
@@ -265,7 +283,7 @@ export const getRecommendedVideos = async (query = null, useRerank = false, limi
         rating: video.rating || 5, // 기본값
         showRating: true,
         type: determineVideoType(video), // 'simple' or 'featured'
-        youtube_url: videoId ? `https://www.youtube.com/watch?v=${videoId}` : null, // YouTube URL 생성
+        youtube_url: createYouTubeUrl(videoId), // YouTube URL 생성 (유효성 검사 포함)
         is_shorts: isShorts // Shorts 여부 전달
       }
     })
@@ -318,7 +336,7 @@ export const getTrendVideos = async () => {
         title: video.title,
         rating: video.rating || 5, // 기본값
         showRating: true,
-        youtube_url: videoId ? `https://www.youtube.com/watch?v=${videoId}` : null, // YouTube URL 생성
+        youtube_url: createYouTubeUrl(videoId), // YouTube URL 생성
         is_shorts: isShorts // Shorts 여부 전달
       }
     })
@@ -364,7 +382,7 @@ export const getDiversifiedVideos = async (total = 20, maxPerChannel = 1) => {
         views: formatViews(video.view_count || video.views),
         rating: video.rating || 5,
         showRating: true,
-        youtube_url: videoId ? `https://www.youtube.com/watch?v=${videoId}` : null,
+        youtube_url: createYouTubeUrl(videoId),
         is_shorts: isShorts
       }
     })
@@ -434,7 +452,7 @@ export const getAllVideos = async (skip = 0, limit = 100) => {
         views: formatViews(video.view_count || video.views),
         rating: 5, // 기본값 (실제 평점 데이터가 있다면 사용)
         showRating: true,
-        youtube_url: videoId ? `https://www.youtube.com/watch?v=${videoId}` : null, // YouTube URL 생성
+        youtube_url: createYouTubeUrl(videoId), // YouTube URL 생성
         is_shorts: isShorts // Shorts 여부 전달
       }
     })
