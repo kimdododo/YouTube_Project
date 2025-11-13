@@ -18,8 +18,11 @@ function Login() {
     // 계정이 없으면 회원가입 페이지로 이동 (단, 회원가입 페이지에서 직접 로그인 링크를 클릭한 경우는 제외)
     const hasAccount = localStorage.getItem('hasAccount') === 'true'
     const fromSignup = location.state?.fromSignup || document.referrer.includes('/signup')
+    // 첫 방문 시에만 replace 사용 (히스토리 스택이 비어있을 때), 그 외에는 일반 네비게이션
     if (!hasAccount && !fromSignup) {
-      navigate('/signup', { replace: true })
+      // 히스토리 스택이 비어있거나 첫 방문인 경우에만 replace 사용
+      const isFirstVisit = window.history.length <= 1
+      navigate('/signup', { replace: isFirstVisit })
     }
   }, [navigate, location.state])
 

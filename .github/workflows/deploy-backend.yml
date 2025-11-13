@@ -49,6 +49,8 @@ jobs:
             exit 1
           fi
           echo "✅ All secrets are set"
+          echo "📋 PROJECT_ID from secret: ${{ secrets.GCP_PROJECT_ID }}"
+          echo "📋 PROJECT_ID from env: ${{ env.PROJECT_ID }}"
 
       - name: 🐳 Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -101,6 +103,45 @@ jobs:
         uses: google-github-actions/setup-gcloud@v2
         with:
           project_id: ${{ env.PROJECT_ID }}
+      
+      - name: 🔍 Verify GCP Project and Resources
+        run: |
+          echo "Verifying GCP project and resources..."
+          echo "Project ID: ${{ env.PROJECT_ID }}"
+          
+          # 프로젝트 확인
+          echo "Checking project..."
+          gcloud projects describe ${{ env.PROJECT_ID }} || {
+            echo "❌ Project ${{ env.PROJECT_ID }} not found or no access"
+            exit 1
+          }
+          
+          # Cloud SQL 인스턴스 확인
+          echo "Checking Cloud SQL instances..."
+          SQL_INSTANCES=$(gcloud sql instances list --project=${{ env.PROJECT_ID }} --format="value(name)" 2>/dev/null || echo "")
+          if [ -z "$SQL_INSTANCES" ]; then
+            echo "⚠️ No Cloud SQL instances found in project ${{ env.PROJECT_ID }}"
+            echo "Available instances:"
+            gcloud sql instances list --project=${{ env.PROJECT_ID }} || true
+          else
+            echo "✅ Found Cloud SQL instances:"
+            echo "$SQL_INSTANCES"
+          fi
+          
+          # 서비스 계정 확인
+          echo "Checking service accounts..."
+          SA_EMAIL="github-actions@${{ env.PROJECT_ID }}.iam.gserviceaccount.com"
+          gcloud iam service-accounts describe $SA_EMAIL --project=${{ env.PROJECT_ID }} 2>/dev/null && {
+            echo "✅ Service account exists: $SA_EMAIL"
+          } || {
+            echo "⚠️ Service account not found: $SA_EMAIL"
+            echo "Available service accounts:"
+            gcloud iam service-accounts list --project=${{ env.PROJECT_ID }} || true
+          }
+          
+          # Cloud Run 서비스 확인
+          echo "Checking Cloud Run services..."
+          gcloud run services list --region=${{ env.REGION }} --project=${{ env.PROJECT_ID }} || true
 
       - name: 🚀 Deploy to Cloud Run
         if: success()
@@ -147,11 +188,13 @@ jobs:
               --timeout 300 \
               --max-instances 10 \
               --min-instances 1 \
-              --add-cloudsql-instances swift-hangar-477802-t3:asia-northeast3:youtube \
-              --service-account github-actions@swift-hangar-477802-t3.iam.gserviceaccount.com \
-              --set-env-vars="DB_NAME=yt,DB_USER=yt,DB_PORT=3306,DB_HOST=/cloudsql/swift-hangar-477802-t3:asia-northeast3:youtube,JWT_ALGO=HS256,JWT_ACCESS_MINUTES=60,SMTP_HOST=smtp.gmail.com,SMTP_PORT=587,SMTP_USERNAME=hyunggn68@gmail.com,SMTP_FROM_EMAIL=hyunggn68@gmail.com,SMTP_FROM_NAME=여유,EMAIL_VERIFICATION_CODE_EXPIRY_MINUTES=3,EMAIL_VERIFICATION_CODE_LENGTH=6,EMAIL_VERIFICATION_MAX_ATTEMPTS=5" \
+              --add-cloudsql-instances ${{ env.PROJECT_ID }}:asia-northeast3:youtube \
+              --service-account github-actions@${{ env.PROJECT_ID }}.iam.gserviceaccount.com \
+              --set-env-vars="DB_NAME=yt,DB_USER=yt,DB_PORT=3306,DB_HOST=/cloudsql/${{ env.PROJECT_ID }}:asia-northeast3:youtube,JWT_ALGO=HS256,JWT_ACCESS_MINUTES=60,SMTP_HOST=smtp.gmail.com,SMTP_PORT=587,SMTP_USERNAME=hyunggn68@gmail.com,SMTP_FROM_EMAIL=hyunggn68@gmail.com,SMTP_FROM_NAME=여유,EMAIL_VERIFICATION_CODE_EXPIRY_MINUTES=3,EMAIL_VERIFICATION_CODE_LENGTH=6,EMAIL_VERIFICATION_MAX_ATTEMPTS=5" \
               --set-secrets="DB_PASSWORD=db-password:latest,JWT_SECRET=jwt-secret:latest,SMTP_PASSWORD=smtp-password:latest" \
-              --cpu-boost
+              --cpu-boost \
+              --startup-cpu-boost \
+              --execution-environment gen2
           else
             echo "Updating existing Cloud Run service..."
             gcloud run deploy ${{ env.SERVICE_NAME }} \
@@ -166,11 +209,13 @@ jobs:
               --timeout 300 \
               --max-instances 10 \
               --min-instances 1 \
-              --add-cloudsql-instances swift-hangar-477802-t3:asia-northeast3:youtube \
-              --service-account github-actions@swift-hangar-477802-t3.iam.gserviceaccount.com \
-              --update-env-vars="DB_NAME=yt,DB_USER=yt,DB_PORT=3306,DB_HOST=/cloudsql/swift-hangar-477802-t3:asia-northeast3:youtube,JWT_ALGO=HS256,JWT_ACCESS_MINUTES=60,SMTP_HOST=smtp.gmail.com,SMTP_PORT=587,SMTP_USERNAME=hyunggn68@gmail.com,SMTP_FROM_EMAIL=hyunggn68@gmail.com,SMTP_FROM_NAME=여유,EMAIL_VERIFICATION_CODE_EXPIRY_MINUTES=3,EMAIL_VERIFICATION_CODE_LENGTH=6,EMAIL_VERIFICATION_MAX_ATTEMPTS=5" \
+              --add-cloudsql-instances ${{ env.PROJECT_ID }}:asia-northeast3:youtube \
+              --service-account github-actions@${{ env.PROJECT_ID }}.iam.gserviceaccount.com \
+              --update-env-vars="DB_NAME=yt,DB_USER=yt,DB_PORT=3306,DB_HOST=/cloudsql/${{ env.PROJECT_ID }}:asia-northeast3:youtube,JWT_ALGO=HS256,JWT_ACCESS_MINUTES=60,SMTP_HOST=smtp.gmail.com,SMTP_PORT=587,SMTP_USERNAME=hyunggn68@gmail.com,SMTP_FROM_EMAIL=hyunggn68@gmail.com,SMTP_FROM_NAME=여유,EMAIL_VERIFICATION_CODE_EXPIRY_MINUTES=3,EMAIL_VERIFICATION_CODE_LENGTH=6,EMAIL_VERIFICATION_MAX_ATTEMPTS=5" \
               --update-secrets="DB_PASSWORD=db-password:latest,JWT_SECRET=jwt-secret:latest,SMTP_PASSWORD=smtp-password:latest" \
-              --cpu-boost
+              --cpu-boost \
+              --startup-cpu-boost \
+              --execution-environment gen2
           fi
           
           echo "✅ Deployment completed successfully"

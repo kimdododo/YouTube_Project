@@ -159,6 +159,19 @@ function AppLayout({ children }) {
                 개인 맞춤 영상 추천
               </Link>
               
+              {/* 채널 찾기 */}
+              <Link 
+                to="/find-channel" 
+                className={`font-bold leading-6 whitespace-nowrap ${location.pathname === '/find-channel' ? 'text-white' : 'text-blue-300'}`}
+                style={{ 
+                  fontSize: '14px',
+                  lineHeight: '24px',
+                  fontFamily: 'Arial, sans-serif'
+                }}
+              >
+                채널 찾기
+              </Link>
+              
               {/* 마이페이지 또는 로그인하기 */}
               {isLoggedIn ? (
                 <Link 

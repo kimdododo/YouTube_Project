@@ -35,22 +35,33 @@ RUN echo '#!/bin/bash\n\
 set -e\n\
 export PYTHONPATH=/app\n\
 echo "=== Backend Startup Script ==="\n\
-echo "Running database migrations..."\n\
-echo "[DEBUG] Environment variables before migration:"\n\
+echo "Timestamp: $(date)"\n\
+echo "[DEBUG] Environment variables:"\n\
 echo "  DB_HOST=${DB_HOST:-not set}"\n\
 echo "  DB_USER=${DB_USER:-not set}"\n\
 echo "  DB_NAME=${DB_NAME:-not set}"\n\
 echo "  DB_PORT=${DB_PORT:-not set}"\n\
 echo "  DB_PASSWORD=${DB_PASSWORD:+***set***}"\n\
 echo "  PORT=${PORT:-8080}"\n\
+echo "  PYTHONPATH=${PYTHONPATH}"\n\
 cd /app\n\
-if alembic upgrade head; then\n\
-  echo "✅ Database migrations completed successfully"\n\
+echo "Current directory: $(pwd)"\n\
+echo "Python version: $(python --version)"\n\
+echo "Uvicorn location: $(which uvicorn || echo not found)"\n\
+echo "Running database migrations..."\n\
+MIGRATION_START=$(date +%s)\n\
+if timeout 120 alembic upgrade head 2>&1; then\n\
+  MIGRATION_END=$(date +%s)\n\
+  MIGRATION_DURATION=$((MIGRATION_END - MIGRATION_START))\n\
+  echo "✅ Database migrations completed successfully in ${MIGRATION_DURATION}s"\n\
 else\n\
-  echo "⚠️ Migration failed, but continuing with server start..."\n\
+  MIGRATION_END=$(date +%s)\n\
+  MIGRATION_DURATION=$((MIGRATION_END - MIGRATION_START))\n\
+  echo "⚠️ Migration failed or timed out after ${MIGRATION_DURATION}s, but continuing with server start..."\n\
 fi\n\
 echo "Starting FastAPI server on port ${PORT:-8080}..."\n\
-exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080} --timeout-keep-alive 30\n\
+echo "Server start time: $(date)"\n\
+exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080} --timeout-keep-alive 30 --log-level info\n\
 ' > /app/start.sh && chmod +x /app/start.sh
 
 CMD ["/app/start.sh"]
