@@ -9,9 +9,8 @@ function RecommendedVideos() {
   const [loading, setLoading] = useState(true)
   const [recommendedVideos, setRecommendedVideos] = useState([])
   const [isLoggedIn, setIsLoggedIn] = useState(false)
-  const [usePersonalized, setUsePersonalized] = useState(true) // 개인 맞춤 추천 사용 여부
-  const [visibleCount] = useState(6) // 3x2로 고정 6개만 표시
-  const [error, setError] = useState(null) // 에러 상태 추가
+  const [usePersonalized, setUsePersonalized] = useState(true)
+  const [error, setError] = useState(null)
 
   // 로그인 상태 체크
   useEffect(() => {
