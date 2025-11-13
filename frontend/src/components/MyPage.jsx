@@ -229,7 +229,7 @@ function MyPage() {
     setSelectedPreferences(normalizedPreferences)
     setSelectedKeywords(normalizedKeywords)
 
-    // 키워드 클라우드 생성 (실제 키워드 데이터 사용)
+    // 키워드 클라우드 생성 (실제 키워드 데이터 사용, 구름 모양으로 배치)
     const colors = [
       '#F9FAFB', '#A5B4FC', '#F9A8D4', '#FBBF24', '#E0E7FF',
       '#FB7185', '#F87171', '#BFDBFE', '#FCD34D', '#FCA5A5',
@@ -238,15 +238,43 @@ function MyPage() {
       '#93C5FD', '#BFDBFE'
     ]
     
-    const keywordCloudData = normalizedKeywords.map((keyword, idx) => {
+    // 키워드를 크기별로 정렬 (큰 것부터)
+    const sortedKeywords = [...normalizedKeywords].sort((a, b) => b.length - a.length)
+    
+    const keywordCloudData = sortedKeywords.map((keyword, idx) => {
       // 키워드 개수에 따라 크기 조정 (첫 번째가 가장 크고 점점 작아짐)
       const baseSize = 48 - (idx * 2)
       const size = Math.max(16, Math.min(48, baseSize))
       const color = colors[idx % colors.length]
+      
+      // 구름 모양 배치를 위한 위치 계산
+      // 중앙에 큰 키워드, 주변에 작은 키워드를 원형으로 배치
+      const totalKeywords = sortedKeywords.length
+      const centerX = 50 // 중앙 X 위치 (%)
+      const centerY = 50 // 중앙 Y 위치 (%)
+      
+      let x = centerX
+      let y = centerY
+      
+      if (idx === 0) {
+        // 첫 번째(가장 큰) 키워드는 중앙에
+        x = centerX
+        y = centerY
+      } else {
+        // 나머지 키워드는 원형으로 배치
+        const angle = (idx - 1) * (360 / Math.max(1, totalKeywords - 1)) * (Math.PI / 180)
+        // 거리는 키워드 크기에 비례하여 조정
+        const distance = 20 + (idx * 3) // 작은 키워드일수록 더 멀리
+        x = centerX + (distance * Math.cos(angle))
+        y = centerY + (distance * Math.sin(angle))
+      }
+      
       return {
         text: keyword,
         size,
-        color
+        color,
+        x,
+        y
       }
     })
     
@@ -940,26 +968,31 @@ function MyPage() {
                     나의 키워드
                   </h3>
                   <div 
-                    className="flex flex-wrap gap-x-4 gap-y-3 justify-center items-center"
+                    className="relative"
                     style={{ 
                       minHeight: '200px',
-                      padding: '20px 0'
+                      padding: '20px 0',
+                      width: '100%'
                     }}
                   >
-                    {keywordCloud.map(({ text, size, color }, idx) => (
+                    {keywordCloud.map(({ text, size, color, x, y }, idx) => (
                       <span
                         key={`${text}-${idx}`}
                         style={{
+                          position: 'absolute',
+                          left: `${x}%`,
+                          top: `${y}%`,
+                          transform: 'translate(-50%, -50%)',
                           fontSize: `${size}px`,
                           color,
                           lineHeight: '1.2',
                           fontWeight: 600,
-                          display: 'inline-block',
-                          margin: '2px 4px',
+                          whiteSpace: 'nowrap',
                           transition: 'transform 0.2s',
-                          cursor: 'default'
+                          cursor: 'default',
+                          zIndex: keywordCloud.length - idx
                         }}
-                        className="hover:scale-105"
+                        className="hover:scale-110"
                       >
                         {text}
                       </span>
