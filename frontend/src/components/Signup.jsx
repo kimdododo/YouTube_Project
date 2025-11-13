@@ -65,15 +65,16 @@ function Signup() {
         password: formData.password
       })
       
-      // 회원가입 성공 시 이메일 인증 화면 표시
+      // 회원가입 성공 시 반드시 이메일 인증 화면 표시
+      // 인증 완료 전에는 다른 페이지로 이동할 수 없음
       if (result.requires_verification) {
         setShowVerification(true)
         setCountdown(60) // 재전송 제한: 60초
+        // 인증 완료 전에는 상태를 저장하지 않음 (회원가입 미완료 상태)
       } else {
-        // 인증이 필요 없는 경우 (예외 상황)
-        localStorage.setItem('hasAccount', 'true')
-        localStorage.setItem('userName', formData.name)
-        navigate('/travel-preference')
+        // 인증이 필요 없는 경우는 발생하지 않아야 함 (예외 처리)
+        console.warn('[Signup] requires_verification is false, but email verification is mandatory')
+        setError('이메일 인증이 필요합니다. 다시 시도해주세요.')
       }
     } catch (error) {
       console.error('[Signup] Signup error:', error)
