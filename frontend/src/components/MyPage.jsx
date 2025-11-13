@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { User, Settings, Camera, Edit3, X, LogOut, Bookmark, Bell, Lock, Eye, EyeOff, Clock } from 'lucide-react'
-import Logo from './Logo'
+import { useNavigate } from 'react-router-dom'
+import { User, Settings, X, LogOut, Bookmark, Bell, Lock, Eye, EyeOff, Clock } from 'lucide-react'
+import MyPageLayout from './layouts/MyPageLayout'
 import { getRecommendedVideos, fetchVideoKeywords } from '../api/videos'
 import { changePassword, saveTravelPreferences, fetchTravelPreferences, getToken, logout as clearAuth, getCurrentUser, getMyKeywords } from '../api/auth'
 import VideoKeywordVisualization from './VideoKeywordCard'
@@ -48,13 +48,9 @@ const TRAVEL_KEYWORD_LABELS = {
 
 function MyPage() {
   const navigate = useNavigate()
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [activeTab, setActiveTab] = useState('insight')
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-  const [userName, setUserName] = useState(localStorage.getItem('userName') || '')
-  const [userEmail, setUserEmail] = useState(localStorage.getItem('userEmail') || '')
-  const [editName, setEditName] = useState(userName)
-  const [editEmail, setEditEmail] = useState(userEmail)
+  // 사용자 정보는 MyPageLayout에서 관리
   const [bookmarks, setBookmarks] = useState([])
   const [preferenceScores, setPreferenceScores] = useState([])
   const [watchHistory, setWatchHistory] = useState([])
@@ -411,61 +407,7 @@ function MyPage() {
     localStorage.setItem('travelKeywords', JSON.stringify(normalizedKeywords))
   }
 
-  // 로그인 상태 체크 및 사용자 정보 로드
-  useEffect(() => {
-    const checkLoginStatus = () => {
-      setIsLoggedIn(sessionStorage.getItem('isLoggedIn') === 'true' || localStorage.getItem('isLoggedIn') === 'true')
-    }
-    checkLoginStatus()
-    window.addEventListener('storage', checkLoginStatus)
-    const interval = setInterval(checkLoginStatus, 500)
-    return () => {
-      window.removeEventListener('storage', checkLoginStatus)
-      clearInterval(interval)
-    }
-  }, [])
-
-  // 사용자 정보 로드
-  useEffect(() => {
-    const loadUserInfo = async () => {
-      const token = getToken()
-      if (!token) {
-        // 토큰이 없으면 기본값 유지
-        setUserInfoError('로그인이 필요합니다.')
-        return
-      }
-
-      setIsLoadingUserInfo(true)
-      setUserInfoError('')
-      
-      try {
-        const userInfo = await getCurrentUser()
-        if (userInfo) {
-          setUserName(userInfo.username || userName)
-          setUserEmail(userInfo.email || userEmail)
-          setEditName(userInfo.username || userName)
-          setEditEmail(userInfo.email || userEmail)
-          // localStorage에도 저장 (다른 페이지에서 사용할 수 있도록)
-          if (userInfo.username) {
-            localStorage.setItem('userName', userInfo.username)
-          }
-          if (userInfo.email) {
-            localStorage.setItem('userEmail', userInfo.email)
-          }
-          setUserInfoError('')
-        } else {
-          setUserInfoError('사용자 정보를 불러올 수 없습니다.')
-        }
-      } catch (error) {
-        console.error('[MyPage] Failed to load user info:', error)
-        setUserInfoError(error?.message || '사용자 정보를 불러오지 못했습니다.')
-      } finally {
-        setIsLoadingUserInfo(false)
-      }
-    }
-
-    loadUserInfo()
-  }, [])
+  // 로그인 상태 및 사용자 정보는 MyPageLayout에서 관리
 
   useEffect(() => {
     const loadHistory = async () => {
@@ -889,232 +831,8 @@ function MyPage() {
   ]
 
   return (
-    <div className="min-h-screen relative overflow-hidden" style={{
-      background: 'linear-gradient(180deg, #090E29 0%, #0E1435 50%, #090E29 100%)',
-      fontFamily: 'Arial, sans-serif'
-    }}>
-      {/* 밤하늘 별 배경 */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute inset-0" style={{
-          backgroundImage: `
-            radial-gradient(1.14px 0.91px at 56.4% 50.4%, rgba(255,255,255,0.83), transparent),
-            radial-gradient(0.62px 0.61px at 84.0% 97.7%, rgba(255,255,255,0.74), transparent),
-            radial-gradient(1.53px 2.2px at 23.2% 8.0%, rgba(255,255,255,0.49), transparent),
-            radial-gradient(1.45px 1.42px at 50.1% 51.1%, rgba(255,255,255,0.41), transparent),
-            radial-gradient(0.73px 1.62px at 61.5% 37.0%, rgba(255,255,255,0.53), transparent)
-          `,
-          backgroundSize: '100% 100%'
-        }} />
-      </div>
-
-      {/* Header */}
-      <header className="relative z-10" style={{
-        padding: '12px 16px 1px',
-        height: '65px',
-        borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
-      }}>
-        <div style={{
-          width: '990px',
-          margin: '0 auto',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          height: '40px'
-        }}>
-          <Link to="/" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
-            <Logo size="w-10 h-10" />
-            <span 
-              className="text-white font-bold leading-6" 
-              style={{ 
-                fontSize: '16px',
-                lineHeight: '24px',
-                color: '#FFFFFF',
-                fontFamily: 'Arial, sans-serif'
-              }}
-            >
-              여유
-            </span>
-          </Link>
-          <nav className="flex items-center gap-6" style={{ height: '24px', fontFamily: 'Arial, sans-serif' }}>
-            <Link 
-              to="/recommendedVideos" 
-              className="font-bold leading-6" 
-              style={{ 
-                fontSize: '16px',
-                lineHeight: '24px',
-                color: 'rgba(147, 197, 253, 1)',
-                fontFamily: 'Arial, sans-serif'
-              }}
-            >
-              개인 맞춤 영상 추천
-            </Link>
-            <Link 
-              to="/find-channel" 
-              className="font-bold leading-6" 
-              style={{ 
-                fontSize: '16px',
-                lineHeight: '24px',
-                color: 'rgba(147, 197, 253, 1)',
-                fontFamily: 'Arial, sans-serif'
-              }}
-            >
-              채널 찾기
-            </Link>
-            <Link 
-              to="/travel-trends" 
-              className="font-bold leading-6" 
-              style={{ 
-                fontSize: '16px',
-                lineHeight: '24px',
-                color: 'rgba(147, 197, 253, 1)',
-                fontFamily: 'Arial, sans-serif'
-              }}
-            >
-              여행 트렌드
-            </Link>
-            <Link 
-              // travel-plan link removed
-              className="font-bold leading-6" 
-              style={{ 
-                fontSize: '16px',
-                lineHeight: '24px',
-                color: 'rgba(147, 197, 253, 1)',
-                fontFamily: 'Arial, sans-serif'
-              }}
-            >
-              
-            </Link>
-            <Link 
-              to="/mypage" 
-              className="font-bold leading-6 flex items-center" 
-              style={{ 
-                fontSize: '16px',
-                lineHeight: '24px',
-                color: '#FFFFFF',
-                fontFamily: 'Arial, sans-serif'
-              }}
-            >
-              <User className="w-4 h-4 mr-1" />
-              마이페이지
-            </Link>
-          </nav>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="relative z-10" style={{
-        width: '990px',
-        margin: '0 auto',
-        paddingTop: '32px',
-        paddingBottom: '64px'
-      }}>
-        {/* User Profile Card */}
-        <div
-          className="relative rounded-3xl mb-6"
-          style={{
-            background: '#39489A',
-            border: '2px solid #39489A'
-          }}
-        >
-          <div
-            className="rounded-3xl bg-[#060d2c] flex items-center justify-between px-6 py-4"
-            style={{
-              minHeight: '140px'
-            }}
-          >
-            <div className="flex items-center gap-6">
-              <div className="relative">
-                <div
-                  className="w-24 h-24 rounded-full flex items-center justify-center text-white font-bold"
-                  style={{
-                    background: 'linear-gradient(135deg, #9333EA 0%, #3B82F6 100%)',
-                    fontSize: '32px'
-                  }}
-                >
-                  {userName.charAt(0)}
-                </div>
-                <div className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-yellow-400 flex items-center justify-center border-2 border-[#060d2c] cursor-pointer shadow-lg">
-                  <Camera className="w-4 h-4 text-white" />
-                </div>
-              </div>
-              <div>
-                <div className="flex items-center gap-3 mb-2">
-                  <h2
-                    className="text-white font-bold"
-                    style={{
-                      fontSize: '28px',
-                      lineHeight: '36px'
-                    }}
-                  >
-                  {isLoadingUserInfo ? '로딩 중...' : userName || '사용자'}
-                </h2>
-                  <button
-                    onClick={handleEditClick}
-                    className="flex items-center gap-1 text-gray-400 hover:text-gray-200 transition-colors"
-                  >
-                    <Edit3 className="w-4 h-4" />
-                    <span className="text-sm">프로필 수정</span>
-                  </button>
-                </div>
-                {userInfoError && (
-                  <p className="text-red-400 text-sm mb-2">{userInfoError}</p>
-                )}
-                <p
-                  className="text-blue-200"
-                  style={{
-                    fontSize: '16px',
-                    lineHeight: '24px'
-                  }}
-                >
-                  {userEmail || '이메일 없음'}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Tabs */}
-        <div className="bg-[#0f1629]/60 backdrop-blur-lg rounded-xl p-1.5 mb-6" style={{ border: '2px solid #39489A' }}>
-          <div className="relative flex">
-            {[
-              { id: 'insight', label: '취향 분석', icon: User },
-              { id: 'history', label: '시청 기록', icon: Clock },
-              { id: 'bookmarks', label: '북마크', icon: Bookmark },
-              { id: 'settings', label: '설정', icon: Settings }
-            ].map((tab, idx) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex-1 py-3 rounded-lg font-semibold transition-all relative z-10 flex items-center justify-center gap-2 ${
-                  activeTab === tab.id
-                    ? 'text-white'
-                    : 'text-white'
-                }`}
-                style={{
-                  fontSize: '14px',
-                  lineHeight: '20px',
-                  fontFamily: 'Arial, sans-serif'
-                }}
-              >
-                <tab.icon className="w-4 h-4" />
-                {tab.label}
-              </button>
-            ))}
-            <div
-              className="absolute top-1.5 bottom-1.5 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg transition-all duration-300"
-              style={{
-                left: activeTab === 'insight' ? '0.5rem' : 
-                      activeTab === 'history' ? 'calc(25% + 0.25rem)' :
-                      activeTab === 'bookmarks' ? 'calc(50% + 0.25rem)' : 
-                      'calc(75% + 0.25rem)',
-                width: 'calc(25% - 0.5rem)'
-              }}
-            />
-          </div>
-        </div>
-
-        {/* Content */}
-        {activeTab === 'insight' && (
+    <MyPageLayout activeTab={activeTab} setActiveTab={setActiveTab}>
+      {activeTab === 'insight' && (
           <div className="space-y-6">
             <h2 className="text-white font-extrabold" style={{ fontSize: '28px', lineHeight: '36px' }}>
               나의 여행 취향 분석
@@ -2051,7 +1769,7 @@ function MyPage() {
           </div>
         </div>
       )}
-    </div>
+    </MyPageLayout>
   )
 }
 

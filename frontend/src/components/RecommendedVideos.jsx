@@ -1,38 +1,16 @@
-import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
-import { User } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
 import VideoCard from './VideoCard'
-import Logo from './Logo'
+import AppLayout from './layouts/AppLayout'
 import { getPersonalizedRecommendations, getRecommendedVideos, getTrendVideos, getMostLikedVideos, getAllVideos, getDiversifiedVideos } from '../api/videos'
 
 function RecommendedVideos() {
   const [loading, setLoading] = useState(true)
   const [recommendedVideos, setRecommendedVideos] = useState([])
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [usePersonalized, setUsePersonalized] = useState(true)
   const [error, setError] = useState(null)
 
-  // 로그인 상태 체크
-  useEffect(() => {
-    const checkLoginStatus = () => {
-      setIsLoggedIn(sessionStorage.getItem('isLoggedIn') === 'true' || localStorage.getItem('isLoggedIn') === 'true')
-    }
-    checkLoginStatus()
-    window.addEventListener('storage', checkLoginStatus)
-    const interval = setInterval(checkLoginStatus, 500)
-    return () => {
-      window.removeEventListener('storage', checkLoginStatus)
-      clearInterval(interval)
-    }
-  }, [])
-
-  // API에서 실제 데이터 가져오기
-  useEffect(() => {
-    fetchVideos()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [usePersonalized])
-
-  const fetchVideos = async () => {
+  // API에서 실제 데이터 가져오기 (useCallback으로 메모이제이션)
+  const fetchVideos = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
@@ -150,161 +128,15 @@ function RecommendedVideos() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [usePersonalized])
+
+  useEffect(() => {
+    fetchVideos()
+  }, [fetchVideos])
 
   return (
-    <div className="min-h-screen bg-[#0a0e27] relative overflow-hidden">
-      {/* 밤하늘 별 배경 */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        {/* 작은 별들 */}
-        <div className="absolute inset-0" style={{
-          backgroundImage: `
-            radial-gradient(1px 1px at 10% 20%, white, transparent),
-            radial-gradient(1px 1px at 20% 30%, white, transparent),
-            radial-gradient(1px 1px at 30% 40%, white, transparent),
-            radial-gradient(1px 1px at 40% 50%, white, transparent),
-            radial-gradient(1px 1px at 50% 60%, white, transparent),
-            radial-gradient(1px 1px at 60% 70%, white, transparent),
-            radial-gradient(1px 1px at 70% 80%, white, transparent),
-            radial-gradient(1px 1px at 80% 10%, white, transparent),
-            radial-gradient(1px 1px at 90% 20%, white, transparent),
-            radial-gradient(1px 1px at 15% 50%, white, transparent),
-            radial-gradient(1px 1px at 25% 60%, white, transparent),
-            radial-gradient(1px 1px at 35% 70%, white, transparent),
-            radial-gradient(1px 1px at 45% 80%, white, transparent),
-            radial-gradient(1px 1px at 55% 90%, white, transparent),
-            radial-gradient(1px 1px at 65% 15%, white, transparent),
-            radial-gradient(1px 1px at 75% 25%, white, transparent),
-            radial-gradient(1px 1px at 85% 35%, white, transparent),
-            radial-gradient(1px 1px at 95% 45%, white, transparent),
-            radial-gradient(2px 2px at 12% 25%, white, transparent),
-            radial-gradient(2px 2px at 22% 35%, white, transparent),
-            radial-gradient(2px 2px at 32% 45%, white, transparent),
-            radial-gradient(2px 2px at 42% 55%, white, transparent),
-            radial-gradient(2px 2px at 52% 65%, white, transparent),
-            radial-gradient(2px 2px at 62% 75%, white, transparent),
-            radial-gradient(2px 2px at 72% 85%, white, transparent),
-            radial-gradient(2px 2px at 82% 15%, white, transparent),
-            radial-gradient(2px 2px at 92% 25%, white, transparent)
-          `,
-          backgroundSize: '100% 100%',
-          opacity: 0.6,
-          animation: 'twinkle 3s ease-in-out infinite'
-        }}></div>
-        {/* 더 큰 별들 */}
-        <div className="absolute inset-0" style={{
-          backgroundImage: `
-            radial-gradient(2px 2px at 18% 28%, rgba(255,255,255,0.9), transparent),
-            radial-gradient(2px 2px at 38% 48%, rgba(255,255,255,0.9), transparent),
-            radial-gradient(2px 2px at 58% 68%, rgba(255,255,255,0.9), transparent),
-            radial-gradient(2px 2px at 78% 18%, rgba(255,255,255,0.9), transparent),
-            radial-gradient(2px 2px at 28% 58%, rgba(255,255,255,0.9), transparent),
-            radial-gradient(2px 2px at 68% 38%, rgba(255,255,255,0.9), transparent)
-          `,
-          backgroundSize: '100% 100%',
-          opacity: 0.8,
-          animation: 'twinkle 4s ease-in-out infinite'
-        }}></div>
-      </div>
-
-      {/* 별 깜빡임 애니메이션 */}
-      <style>{`
-        @keyframes twinkle {
-          0%, 100% { opacity: 0.6; }
-          50% { opacity: 1; }
-        }
-      `}</style>
-
-      {/* Header */}
-      <header className="relative z-10 bg-[#0a0e27]/80 backdrop-blur-sm border-b border-blue-900/30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <Link to="/" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
-              <Logo size="w-10 h-10" />
-              <span 
-                className="text-white font-bold leading-6" 
-                style={{ 
-                  fontSize: '16px',
-                  lineHeight: '24px',
-                  color: '#FFFFFF',
-                  fontFamily: 'Arial, sans-serif'
-                }}
-              >
-                여유
-              </span>
-            </Link>
-            <nav className="hidden md:flex items-center space-x-6" style={{ fontFamily: 'Arial, sans-serif' }}>
-              <Link 
-                to="/recommendedVideos" 
-                className="font-bold leading-6" 
-                style={{ 
-                  fontSize: '16px',
-                  lineHeight: '24px',
-                  color: '#FFFFFF',
-                  fontFamily: 'Arial, sans-serif'
-                }}
-              >
-                개인 맞춤 영상 추천
-              </Link>
-              <Link 
-                to="/find-channel" 
-                className="font-bold leading-6" 
-                style={{ 
-                  fontSize: '16px',
-                  lineHeight: '24px',
-                  color: 'rgba(147, 197, 253, 1)',
-                  fontFamily: 'Arial, sans-serif'
-                }}
-              >
-                채널 찾기
-              </Link>
-              <Link 
-                to="/travel-trends" 
-                className="font-bold leading-6" 
-                style={{ 
-                  fontSize: '16px',
-                  lineHeight: '24px',
-                  color: 'rgba(147, 197, 253, 1)',
-                  fontFamily: 'Arial, sans-serif'
-                }}
-              >
-                여행 트렌드
-              </Link>
-              {isLoggedIn ? (
-                <Link 
-                  to="/mypage" 
-                  className="font-bold leading-6 flex items-center" 
-                  style={{ 
-                    fontSize: '16px',
-                    lineHeight: '24px',
-                    color: 'rgba(147, 197, 253, 1)',
-                    fontFamily: 'Arial, sans-serif'
-                  }}
-                >
-                  <User className="w-4 h-4 mr-1" />
-                  마이페이지
-                </Link>
-              ) : (
-                <Link 
-                  to="/login" 
-                  className="font-bold leading-6 flex items-center" 
-                  style={{ 
-                    fontSize: '16px',
-                    lineHeight: '24px',
-                    color: 'rgba(147, 197, 253, 1)',
-                    fontFamily: 'Arial, sans-serif'
-                  }}
-                >
-                  로그인하기
-                </Link>
-              )}
-            </nav>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <AppLayout>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Title Section */}
         <div className="mb-12 text-left">
           <h1 
@@ -365,8 +197,8 @@ function RecommendedVideos() {
             ))}
           </div>
         )}
-      </main>
-    </div>
+      </div>
+    </AppLayout>
   )
 }
 

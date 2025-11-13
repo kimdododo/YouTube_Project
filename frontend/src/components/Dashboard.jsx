@@ -1,10 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
-import { Link } from 'react-router-dom'
-import { User } from 'lucide-react'
 import VideoCard from './VideoCard'
 import TrendCard from './TrendCard'
 import DetailedVideoCard from './DetailedVideoCard'
-import Logo from './Logo'
+import AppLayout from './layouts/AppLayout'
 import { getRecommendedVideos, getTrendVideos, getMostLikedVideos } from '../api/videos'
 import { getAllChannels } from '../api/channels'
 import { optimizeThumbnailUrl, getOptimizedImageStyles, handleImageLoadQuality } from '../utils/imageUtils'
@@ -143,7 +141,6 @@ function Dashboard() {
   const [recommendedVideos, setRecommendedVideos] = useState([])
   const [trendVideos, setTrendVideos] = useState([])
   const [channels, setChannels] = useState([])
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [error, setError] = useState(null)
   const [repThumbs, setRepThumbs] = useState({}) // { [channelId]: { url, id, isShorts } }
   const scrollContainerRef = useRef(null)
@@ -151,19 +148,7 @@ function Dashboard() {
   const trendScrollContainerRef = useRef(null)
   const trendAutoScrollRef = useRef(null)
 
-  // 로그인 상태 체크
-  useEffect(() => {
-    const checkLoginStatus = () => {
-      setIsLoggedIn(sessionStorage.getItem('isLoggedIn') === 'true' || localStorage.getItem('isLoggedIn') === 'true')
-    }
-    checkLoginStatus()
-    window.addEventListener('storage', checkLoginStatus)
-    const interval = setInterval(checkLoginStatus, 500)
-    return () => {
-      window.removeEventListener('storage', checkLoginStatus)
-      clearInterval(interval)
-    }
-  }, [])
+  // 로그인 상태 체크는 AppLayout에서 처리
 
   // API에서 실제 데이터 가져오기 (컴포넌트 마운트 시 한 번만 실행)
   useEffect(() => {
@@ -383,11 +368,8 @@ function Dashboard() {
   const displayTrends = (trendVideos || []).slice(0, 4)
 
   return (
-    <div className="min-h-screen relative overflow-hidden" style={{
-      background: 'linear-gradient(180deg, #090E29 0%, #0E1435 50%, #090E29 100%)',
-      fontFamily: 'Arial, sans-serif'
-    }}>
-      {/* 밤하늘 별 배경 - 반응형 */}
+    <AppLayout>
+      {/* Dashboard 전용 별 배경 - AppLayout 배경 위에 오버레이 */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{
         background: 'linear-gradient(180deg, #090E29 0%, #0E1435 50%, #090E29 100%)',
         zIndex: 0
@@ -410,106 +392,8 @@ function Dashboard() {
         }
       `}</style>
 
-      {/* Header */}
-      <header className="relative z-10" style={{
-        padding: '12px 16px 1px',
-        height: '65px',
-        borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
-      }}>
-        <div style={{
-          width: '990px',
-          margin: '0 auto',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          height: '40px'
-        }}>
-          <Link to="/" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
-            <Logo size="w-10 h-10" />
-            <span 
-              className="text-white font-bold leading-6" 
-              style={{ 
-                fontSize: '16px',
-                lineHeight: '24px',
-                color: '#FFFFFF',
-                fontFamily: 'Arial, sans-serif'
-              }}
-            >
-              여유
-            </span>
-          </Link>
-          <nav className="flex items-center gap-6" style={{ height: '24px', fontFamily: 'Arial, sans-serif' }}>
-            <Link 
-              to="/recommendedVideos" 
-              className="font-bold leading-6" 
-              style={{ 
-                fontSize: '16px',
-                lineHeight: '24px',
-                color: 'rgba(147, 197, 253, 1)',
-                fontFamily: 'Arial, sans-serif'
-              }}
-            >
-              개인 맞춤 영상 추천
-            </Link>
-            <Link 
-              to="/find-channel" 
-              className="font-bold leading-6" 
-              style={{ 
-                fontSize: '16px',
-                lineHeight: '24px',
-                color: 'rgba(147, 197, 253, 1)',
-                fontFamily: 'Arial, sans-serif'
-              }}
-            >
-              채널 찾기
-            </Link>
-            <Link 
-              to="/travel-trends" 
-              className="font-bold leading-6" 
-              style={{ 
-                fontSize: '16px',
-                lineHeight: '24px',
-                color: 'rgba(147, 197, 253, 1)',
-                fontFamily: 'Arial, sans-serif'
-              }}
-            >
-              여행 트렌드
-            </Link>
-            {/* 여행 계획 링크 제거 */}
-{isLoggedIn ? (
-              <Link 
-                to="/mypage" 
-                className="font-bold leading-6 flex items-center" 
-                style={{ 
-                  fontSize: '16px',
-                  lineHeight: '24px',
-                  color: 'rgba(147, 197, 253, 1)',
-                  fontFamily: 'Arial, sans-serif'
-                }}
-              >
-                <User className="w-4 h-4 mr-1" />
-                마이페이지
-              </Link>
-            ) : (
-              <Link 
-                to="/login" 
-                className="font-bold leading-6 flex items-center" 
-                style={{ 
-                  fontSize: '16px',
-                  lineHeight: '24px',
-                  color: 'rgba(147, 197, 253, 1)',
-                  fontFamily: 'Arial, sans-serif'
-                }}
-              >
-                로그인하기
-              </Link>
-            )}
-          </nav>
-        </div>
-      </header>
-
       {/* Main Content */}
-      <main className="relative z-10" style={{
+      <div className="relative z-10" style={{
         width: '1200px',
         margin: '0 auto',
         padding: '0 16px'
@@ -720,8 +604,8 @@ function Dashboard() {
         {/* Travel Plan Section fully removed */}
 
         {/* 메인 페이지에는 로그인/회원가입 섹션 제거 */}
-      </main>
-    </div>
+      </div>
+    </AppLayout>
   )
 }
 
