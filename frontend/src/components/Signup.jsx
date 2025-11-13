@@ -52,8 +52,10 @@ function Signup() {
       // 회원가입 성공 시 상태 저장
       localStorage.setItem('hasAccount', 'true')
       localStorage.setItem('userName', formData.name)
+      // 자동 로그인을 위해 이메일과 비밀번호 임시 저장 (SignupComplete에서 사용)
+      localStorage.setItem('pendingLoginEmail', formData.email)
+      localStorage.setItem('pendingLoginPassword', formData.password)
       
-      // 회원가입 후 자동 로그인 (선택사항)
       // 여행 취향 선택 페이지로 이동
       navigate('/travel-preference')
     } catch (error) {

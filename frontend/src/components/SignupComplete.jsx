@@ -1,11 +1,68 @@
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { login, saveTravelPreferences } from '../api/auth'
 
 function SignupComplete() {
   const navigate = useNavigate()
+  const [isSaving, setIsSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  // 컴포넌트 마운트 시 자동 로그인 및 취향 저장
+  useEffect(() => {
+    const autoLoginAndSavePreferences = async () => {
+      try {
+        // 임시 저장된 로그인 정보 가져오기
+        const email = localStorage.getItem('pendingLoginEmail')
+        const password = localStorage.getItem('pendingLoginPassword')
+        
+        if (!email || !password) {
+          console.warn('[SignupComplete] No pending login credentials found')
+          return
+        }
+
+        setIsSaving(true)
+        
+        // 1. 자동 로그인
+        const loginResult = await login(email, password)
+        
+        // 로그인 성공 시 상태 저장
+        sessionStorage.setItem('isLoggedIn', 'true')
+        if (loginResult.user?.username || loginResult.username) {
+          sessionStorage.setItem('userName', loginResult.user?.username || loginResult.username)
+        }
+
+        // 2. localStorage에서 선택한 취향과 키워드 가져오기
+        const savedPreferences = JSON.parse(localStorage.getItem('travelPreferences') || '[]')
+        const savedKeywords = JSON.parse(localStorage.getItem('travelKeywords') || '[]')
+
+        // 3. 서버에 취향과 키워드 저장
+        if (savedPreferences.length > 0 || savedKeywords.length > 0) {
+          try {
+            await saveTravelPreferences(savedPreferences, savedKeywords)
+            console.log('[SignupComplete] Preferences and keywords saved successfully')
+          } catch (prefError) {
+            console.error('[SignupComplete] Failed to save preferences:', prefError)
+            // 취향 저장 실패해도 계속 진행
+          }
+        }
+
+        // 4. 임시 저장된 로그인 정보 삭제
+        localStorage.removeItem('pendingLoginEmail')
+        localStorage.removeItem('pendingLoginPassword')
+        
+      } catch (error) {
+        console.error('[SignupComplete] Auto login failed:', error)
+        setError('자동 로그인에 실패했습니다. 직접 로그인해주세요.')
+        // 에러가 발생해도 사용자는 계속 진행할 수 있도록 함
+      } finally {
+        setIsSaving(false)
+      }
+    }
+
+    autoLoginAndSavePreferences()
+  }, [])
 
   const handleStart = () => {
-    // 로그인 상태 저장 (sessionStorage 사용 - 브라우저 닫으면 로그아웃)
-    sessionStorage.setItem('isLoggedIn', 'true')
     // 홈으로 이동
     navigate('/')
   }
@@ -127,12 +184,27 @@ function SignupComplete() {
 
           {/* 안내 메시지 */}
           <div className="text-center space-y-3 mb-10">
-            <p className="text-white text-lg">
-              여유와 함께 당신만의 특별한 여행을 준비하세요
-            </p>
-            <p className="text-white text-lg">
-              곧 맞춤형 컨텐츠를 추천해드리겠습니다
-            </p>
+            {isSaving ? (
+              <p className="text-white text-lg">
+                취향 정보를 저장하는 중...
+              </p>
+            ) : error ? (
+              <div className="space-y-2">
+                <p className="text-red-400 text-sm">{error}</p>
+                <p className="text-white text-lg">
+                  여유와 함께 당신만의 특별한 여행을 준비하세요
+                </p>
+              </div>
+            ) : (
+              <>
+                <p className="text-white text-lg">
+                  여유와 함께 당신만의 특별한 여행을 준비하세요
+                </p>
+                <p className="text-white text-lg">
+                  곧 맞춤형 컨텐츠를 추천해드리겠습니다
+                </p>
+              </>
+            )}
           </div>
 
           {/* 시작하기 버튼 */}
