@@ -10,6 +10,7 @@ import SignupComplete from './components/SignupComplete'
 import FindChannel from './components/FindChannel'
 import MyPage from './components/MyPage'
 import VideoList from './components/VideoList'
+import ThemeVideos from './components/ThemeVideos'
 import './App.css'
 
 function App() {
@@ -33,6 +34,7 @@ function App() {
         <Route path="/find-channel" element={<FindChannel />} />
         <Route path="/mypage" element={<MyPage />} />
         <Route path="/api-test" element={<VideoList />} />
+        <Route path="/theme/:theme" element={<ThemeVideos />} />
       </Routes>
     </Router>
   )
