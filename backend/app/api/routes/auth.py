@@ -315,7 +315,7 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
         # create_user 함수 내부에서도 이메일 중복 체크를 수행함
         print(f"[DEBUG] Creating user: {payload.username}")
         try:
-        user = create_user(db, payload.username, payload.email, payload.password, is_verified=False)
+            user = create_user(db, payload.username, payload.email, payload.password, is_verified=False)
         except ValueError as ve:
             # 이메일 중복 등 검증 오류
             if "이미 사용 중인 이메일" in str(ve):
