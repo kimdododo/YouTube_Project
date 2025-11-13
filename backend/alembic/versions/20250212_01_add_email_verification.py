@@ -18,25 +18,31 @@ depends_on = None
 
 def upgrade():
     # User 테이블에 is_verified 컬럼 추가 (이미 존재하는 경우 스킵)
-    from sqlalchemy import inspect
+    from sqlalchemy import inspect, text
     from sqlalchemy.engine import reflection
     from sqlalchemy.exc import OperationalError
     
     conn = op.get_bind()
     inspector = inspect(conn)
     
-    # is_verified 컬럼 추가 시도 (이미 존재하면 무시)
+    # is_verified 컬럼 추가 시도 (가장 안전한 방법: 직접 시도하고 에러 무시)
+    # 컬럼이 이미 존재하면 1060 에러가 발생하므로 이를 안전하게 처리
     try:
-        columns = [col['name'] for col in inspector.get_columns('users')]
-        if 'is_verified' not in columns:
-            op.add_column('users', sa.Column('is_verified', sa.Boolean(), nullable=False, server_default='0'))
-            print("[Migration] Added 'is_verified' column to 'users' table")
-        else:
-            print("[Migration] Column 'is_verified' already exists in 'users' table, skipping...")
+        op.add_column('users', sa.Column('is_verified', sa.Boolean(), nullable=False, server_default='0'))
+        print("[Migration] Added 'is_verified' column to 'users' table")
     except OperationalError as e:
-        # 컬럼이 이미 존재하는 경우 (1060 에러)
-        if 'Duplicate column name' in str(e) or '1060' in str(e):
-            print("[Migration] Column 'is_verified' already exists (caught exception), skipping...")
+        # 1060 에러는 컬럼이 이미 존재한다는 의미이므로 무시
+        error_str = str(e)
+        if 'Duplicate column name' in error_str or '1060' in error_str or "is_verified" in error_str:
+            print("[Migration] Column 'is_verified' already exists, skipping...")
+        else:
+            # 다른 에러는 다시 발생시킴
+            raise
+    except Exception as e:
+        # 다른 예외도 확인 (혹시 모를 경우)
+        error_str = str(e)
+        if 'Duplicate column name' in error_str or '1060' in error_str or "is_verified" in error_str:
+            print("[Migration] Column 'is_verified' already exists (caught generic exception), skipping...")
         else:
             raise
     
