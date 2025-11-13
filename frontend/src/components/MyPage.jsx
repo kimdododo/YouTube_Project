@@ -826,7 +826,7 @@ function MyPage() {
           style={{
             background: '#39489A',
             padding: '2px',
-            border: '3px solid #39489A'
+            border: '2px solid #39489A'
           }}
         >
           <div
