@@ -1,7 +1,10 @@
 import { Star, Play } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { handleImageError, optimizeThumbnailUrl, getOptimizedImageStyles, handleImageLoadQuality } from '../utils/imageUtils'
 
 function VideoCard({ video, simple = false, featured = false }) {
+  const navigate = useNavigate()
+  
   // 썸네일 URL 최적화 (videoId가 있으면 항상 고화질 URL 사용)
   const rawThumbnailUrl = video.thumbnail_url || video.thumbnail || null
   const thumbnailUrl = video.id 
@@ -12,9 +15,16 @@ function VideoCard({ video, simple = false, featured = false }) {
   const optimizedStyles = getOptimizedImageStyles()
 
   const handleClick = () => {
-    const youtubeUrl = video.youtube_url || (video.id ? `https://www.youtube.com/watch?v=${video.id}` : null)
-    if (youtubeUrl) {
-      window.open(youtubeUrl, '_blank', 'noopener,noreferrer')
+    const videoId = video.id || video.video_id
+    if (videoId) {
+      // 비디오 상세 페이지로 이동
+      navigate(`/video/${videoId}`)
+    } else {
+      // videoId가 없으면 YouTube로 이동
+      const youtubeUrl = video.youtube_url || null
+      if (youtubeUrl) {
+        window.open(youtubeUrl, '_blank', 'noopener,noreferrer')
+      }
     }
   }
 

@@ -11,6 +11,7 @@ import FindChannel from './components/FindChannel'
 import MyPage from './components/MyPage'
 import VideoList from './components/VideoList'
 import ThemeVideos from './components/ThemeVideos'
+import VideoDetail from './components/VideoDetail'
 import './App.css'
 
 function App() {
@@ -35,6 +36,7 @@ function App() {
         <Route path="/mypage" element={<MyPage />} />
         <Route path="/api-test" element={<VideoList />} />
         <Route path="/theme/:theme" element={<ThemeVideos />} />
+        <Route path="/video/:videoId" element={<VideoDetail />} />
       </Routes>
     </Router>
   )

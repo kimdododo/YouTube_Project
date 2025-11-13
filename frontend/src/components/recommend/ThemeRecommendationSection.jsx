@@ -95,7 +95,7 @@ function ThemeRecommendationSection({ themes, userName = '' }) {
               )}
             </div>
 
-            {/* 수평 스크롤 카드 리스트 */}
+            {/* 수평 스크롤 카드 리스트 - 각 테마별로 4개만 표시 */}
             {theme.videos && theme.videos.length > 0 ? (
               <div 
                 className="overflow-x-auto pb-4 -mx-4 px-4 theme-scroll-container"
@@ -120,7 +120,7 @@ function ThemeRecommendationSection({ themes, userName = '' }) {
                   }
                 `}</style>
                 <div className="flex gap-4 min-w-max">
-                  {theme.videos.map((video) => (
+                  {theme.videos.slice(0, 4).map((video) => (
                     <div key={video.id || video.video_id} className="flex-shrink-0 w-[280px] sm:w-[320px]">
                       <VideoCard video={video} featured />
                     </div>

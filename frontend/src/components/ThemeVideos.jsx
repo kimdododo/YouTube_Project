@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react'
-import { Link, useParams } from 'react-router-dom'
-import { User, Search } from 'lucide-react'
+import { useParams } from 'react-router-dom'
 import VideoCard from './VideoCard'
-import Logo from './Logo'
+import AppLayout from './layouts/AppLayout'
 import { getAllVideos } from '../api/videos'
 
 const THEME_CONFIG = {
@@ -27,24 +26,9 @@ function ThemeVideos() {
   const { theme } = useParams()
   const [loading, setLoading] = useState(true)
   const [videos, setVideos] = useState([])
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [error, setError] = useState(null)
 
   const themeConfig = THEME_CONFIG[theme] || THEME_CONFIG.budget
-
-  // 로그인 상태 체크
-  useEffect(() => {
-    const checkLoginStatus = () => {
-      setIsLoggedIn(sessionStorage.getItem('isLoggedIn') === 'true' || localStorage.getItem('isLoggedIn') === 'true')
-    }
-    checkLoginStatus()
-    window.addEventListener('storage', checkLoginStatus)
-    const interval = setInterval(checkLoginStatus, 500)
-    return () => {
-      window.removeEventListener('storage', checkLoginStatus)
-      clearInterval(interval)
-    }
-  }, [])
 
   // 테마별 영상 가져오기
   useEffect(() => {
@@ -109,85 +93,8 @@ function ThemeVideos() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0e27] relative overflow-hidden">
-      {/* Header */}
-      <header className="relative z-10 bg-[#0a0e27]/80 backdrop-blur-sm border-b border-blue-900/30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <Link to="/" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
-              <Logo size="w-10 h-10" />
-              <span 
-                className="text-white font-bold leading-6" 
-                style={{ 
-                  fontSize: '16px',
-                  lineHeight: '24px',
-                  color: '#FFFFFF',
-                  fontFamily: 'Arial, sans-serif'
-                }}
-              >
-                여유
-              </span>
-            </Link>
-            <nav className="hidden md:flex items-center space-x-6" style={{ fontFamily: 'Arial, sans-serif' }}>
-              <Link 
-                to="/recommendedVideos" 
-                className="font-bold leading-6" 
-                style={{ 
-                  fontSize: '16px',
-                  lineHeight: '24px',
-                  color: 'rgba(147, 197, 253, 1)',
-                  fontFamily: 'Arial, sans-serif'
-                }}
-              >
-                개인 맞춤 영상 추천
-              </Link>
-              <Link 
-                to="/travel-trends" 
-                className="font-bold leading-6" 
-                style={{ 
-                  fontSize: '16px',
-                  lineHeight: '24px',
-                  color: 'rgba(147, 197, 253, 1)',
-                  fontFamily: 'Arial, sans-serif'
-                }}
-              >
-                여행 트렌드
-              </Link>
-              {isLoggedIn ? (
-                <Link 
-                  to="/mypage" 
-                  className="font-bold leading-6 flex items-center" 
-                  style={{ 
-                    fontSize: '16px',
-                    lineHeight: '24px',
-                    color: 'rgba(147, 197, 253, 1)',
-                    fontFamily: 'Arial, sans-serif'
-                  }}
-                >
-                  <User className="w-4 h-4 mr-1" />
-                  마이페이지
-                </Link>
-              ) : (
-                <Link 
-                  to="/login" 
-                  className="font-bold leading-6 flex items-center" 
-                  style={{ 
-                    fontSize: '16px',
-                    lineHeight: '24px',
-                    color: 'rgba(147, 197, 253, 1)',
-                    fontFamily: 'Arial, sans-serif'
-                  }}
-                >
-                  로그인하기
-                </Link>
-              )}
-            </nav>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <AppLayout>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Title Section */}
         <div className="mb-12 text-left">
           <h1 
@@ -214,7 +121,7 @@ function ThemeVideos() {
           </p>
         </div>
 
-        {/* Video Grid - 3x2 */}
+        {/* Video Grid - 3열 2행으로 6개만 표시 */}
         {loading ? (
           <div className="text-center py-12">
             <div className="text-blue-300 animate-pulse">데이터를 불러오는 중...</div>
@@ -242,14 +149,14 @@ function ThemeVideos() {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 lg:gap-6">
             {videos.slice(0, 6).map((video) => (
-              <VideoCard key={video.id} video={video} featured />
+              <VideoCard key={video.id || video.video_id} video={video} featured />
             ))}
           </div>
         )}
-      </main>
-    </div>
+      </div>
+    </AppLayout>
   )
 }
 

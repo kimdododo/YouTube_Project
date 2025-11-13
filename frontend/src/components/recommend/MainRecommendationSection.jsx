@@ -54,6 +54,9 @@ function MainRecommendationSection({ videos, loading, error, onRetry }) {
     )
   }
 
+  // 3열 2행으로 6개만 표시
+  const displayVideos = videos.slice(0, 6)
+
   return (
     <div className="mb-16">
       {/* 반응형 그리드: PC 3열, 태블릿 2열, 모바일 1열 */}
@@ -61,11 +64,11 @@ function MainRecommendationSection({ videos, loading, error, onRetry }) {
         Tailwind 그리드 클래스 설명:
         - grid-cols-1: 모바일 기본 1열
         - sm:grid-cols-2: 작은 화면(640px+) 2열
-        - lg:grid-cols-3: 큰 화면(1024px+) 3열
+        - lg:grid-cols-3: 큰 화면(1024px+) 3열 (3열 2행 = 6개)
         - gap-4 sm:gap-5 lg:gap-6: 반응형 간격 (16px → 20px → 24px)
       */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 lg:gap-6">
-        {videos.map((video) => (
+        {displayVideos.map((video) => (
           <VideoCard key={video.id || video.video_id} video={video} featured />
         ))}
       </div>
