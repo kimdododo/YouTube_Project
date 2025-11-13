@@ -253,6 +253,48 @@ function MyPage() {
       .join(', ')
   }
 
+  // 더미 임베딩 벡터 생성 (word2vec 시뮬레이션)
+  const generateDummyEmbeddings = (keywords) => {
+    // 키워드 간 유사도를 시뮬레이션하기 위한 더미 데이터
+    const keywordGroups = {
+      // 여행 관련
+      'solo': [0.9, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.1],
+      'budget': [0.1, 0.9, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.2],
+      'vlog': [0.2, 0.2, 0.9, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.3],
+      'aesthetic': [0.3, 0.3, 0.3, 0.9, 0.4, 0.5, 0.6, 0.7, 0.8, 0.4],
+      // 국내/해외
+      'domestic': [0.4, 0.4, 0.4, 0.4, 0.9, 0.5, 0.6, 0.7, 0.8, 0.5],
+      'global': [0.5, 0.5, 0.5, 0.5, 0.5, 0.9, 0.6, 0.7, 0.8, 0.6],
+      // 활동 관련
+      'oneday': [0.6, 0.6, 0.6, 0.6, 0.6, 0.6, 0.9, 0.7, 0.8, 0.7],
+      'food': [0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.9, 0.8, 0.8],
+      'stay': [0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.9, 0.9],
+      'camping': [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.9],
+      'cafe': [0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.8]
+    }
+
+    // 768차원 벡터로 확장 (더미 데이터)
+    const expandTo768 = (baseVec) => {
+      const vec = new Array(768).fill(0)
+      for (let i = 0; i < baseVec.length && i < 768; i++) {
+        vec[i] = baseVec[i]
+        // 노이즈 추가로 자연스러운 벡터 생성
+        for (let j = 0; j < 10; j++) {
+          const idx = (i * 10 + j) % 768
+          vec[idx] += (Math.random() - 0.5) * 0.1 * baseVec[i]
+        }
+      }
+      // 정규화
+      const norm = Math.sqrt(vec.reduce((sum, v) => sum + v * v, 0))
+      return vec.map(v => norm > 0 ? v / norm : 0)
+    }
+
+    return keywords.map(keyword => ({
+      keyword,
+      embedding: expandTo768(keywordGroups[keyword] || new Array(10).fill(0.5).map(() => Math.random()))
+    }))
+  }
+
   // 코사인 유사도 계산
   const cosineSimilarity = (vec1, vec2) => {
     if (!vec1 || !vec2 || vec1.length !== vec2.length) return 0
@@ -266,6 +308,84 @@ function MyPage() {
     }
     const denominator = Math.sqrt(norm1) * Math.sqrt(norm2)
     return denominator === 0 ? 0 : dotProduct / denominator
+  }
+
+  // 하트 모양 배치 알고리즘
+  const heartShapeLayout = (keywords, embeddings, width = 100, height = 100) => {
+    if (!keywords || keywords.length === 0) return []
+
+    // 유사도 행렬 계산
+    let similarities = []
+    if (embeddings && embeddings.length > 0) {
+      similarities = embeddings.map((emb1, i) =>
+        embeddings.map((emb2, j) => 
+          i === j ? 1 : cosineSimilarity(emb1.embedding, emb2.embedding)
+        )
+      )
+    } else {
+      // 더미 유사도 (키워드 인덱스 기반)
+      similarities = keywords.map((_, i) =>
+        keywords.map((_, j) => i === j ? 1 : 0.3 + Math.random() * 0.4)
+      )
+    }
+
+    // 하트 모양 파라미터 방정식
+    // x = 16sin³(t)
+    // y = 13cos(t) - 5cos(2t) - 2cos(3t) - cos(4t)
+    const numPoints = keywords.length
+    
+    // 1단계: 하트 모양 경계 내에서 초기 위치 생성
+    const initialPositions = keywords.map((keyword, idx) => {
+      // 하트 모양 내부의 균등 분포
+      const t = (idx / numPoints) * Math.PI * 2
+      
+      // 하트 모양 좌표 (정규화)
+      let x = 16 * Math.pow(Math.sin(t), 3)
+      let y = -(13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t))
+      
+      // 하트 모양을 0-100 범위로 정규화
+      x = (x + 16) / 32 * 80 + 10  // x: 10-90
+      y = (y + 13) / 26 * 70 + 15  // y: 15-85
+      
+      return { x, y }
+    })
+
+    // 2단계: 유사도 기반으로 위치 조정 (여러 번 반복)
+    const positions = [...initialPositions]
+    for (let iter = 0; iter < 3; iter++) {
+      keywords.forEach((keyword, idx) => {
+        if (similarities[idx]) {
+          const similarIndices = []
+          for (let j = 0; j < similarities[idx].length; j++) {
+            if (j !== idx && similarities[idx][j] > 0.4) {
+              similarIndices.push(j)
+            }
+          }
+          
+          if (similarIndices.length > 0) {
+            // 유사한 키워드들의 평균 위치 계산
+            let avgX = 0
+            let avgY = 0
+            let count = 0
+            similarIndices.forEach(j => {
+              avgX += positions[j].x
+              avgY += positions[j].y
+              count++
+            })
+            
+            if (count > 0) {
+              avgX /= count
+              avgY /= count
+              // 유사한 키워드 근처에 배치 (하지만 하트 모양 내부 유지)
+              positions[idx].x = positions[idx].x * 0.7 + avgX * 0.3
+              positions[idx].y = positions[idx].y * 0.7 + avgY * 0.3
+            }
+          }
+        }
+      })
+    }
+
+    return positions
   }
 
   // Force-directed layout 알고리즘 (유사도 기반)
@@ -395,79 +515,44 @@ function MyPage() {
       { name: 'blob', clipPath: 'polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%)' } // 블롭
     ]
 
-    // 임베딩 기반 키워드 클라우드 생성
+    // word2vec 기반 하트 모양 키워드 클라우드 생성 (더미 데이터 사용)
     if (normalizedKeywords.length > 0) {
       setIsLoadingKeywordEmbeddings(true)
-      try {
-        // 백엔드에서 키워드 임베딩 가져오기
-        const embeddings = await getKeywordEmbeddings(normalizedKeywords)
-        
-        let positions = []
-        if (embeddings && embeddings.length > 0) {
-          // word2vec 기반 force-directed layout
-          positions = forceDirectedLayout(normalizedKeywords, embeddings, 100, 100, 150)
-        } else {
-          // 폴백: 스파이럴 배치
-          positions = normalizedKeywords.map((_, idx) => {
-            const angle = idx * 0.5
-            const radius = 15 + (idx * 2.5)
-            return {
-              x: 50 + (radius * Math.cos(angle)),
-              y: 50 + (radius * Math.sin(angle))
-            }
-          })
-        }
+      
+      // 더미 임베딩 데이터 생성
+      const dummyEmbeddings = generateDummyEmbeddings(normalizedKeywords)
+      
+      // 하트 모양 배치
+      const positions = heartShapeLayout(normalizedKeywords, dummyEmbeddings, 100, 100)
 
-        // 키워드를 크기별로 정렬 (큰 것부터)
-        const sortedKeywords = [...normalizedKeywords].sort((a, b) => b.length - a.length)
+      // 키워드를 크기별로 정렬 (큰 것부터)
+      const sortedKeywords = [...normalizedKeywords].sort((a, b) => b.length - a.length)
+      
+      // 하트 모양 clip-path (정확한 하트 모양)
+      const heartClipPath = 'polygon(50% 0%, 61% 12%, 100% 12%, 100% 32%, 88% 52%, 50% 100%, 12% 52%, 0% 32%, 0% 12%, 39% 12%)'
+      
+      const keywordCloudData = sortedKeywords.map((keyword, idx) => {
+        // 키워드 개수에 따라 크기 조정 (첫 번째가 가장 크고 점점 작아짐)
+        const baseSize = 48 - (idx * 2)
+        const size = Math.max(18, Math.min(48, baseSize))
+        const color = colors[idx % colors.length]
         
-        const keywordCloudData = sortedKeywords.map((keyword, idx) => {
-          // 키워드 개수에 따라 크기 조정 (첫 번째가 가장 크고 점점 작아짐)
-          const baseSize = 48 - (idx * 2)
-          const size = Math.max(16, Math.min(48, baseSize))
-          const color = colors[idx % colors.length]
-          const shape = shapes[idx % shapes.length]
-          
-          // word2vec 기반 위치 또는 폴백 위치
-          const pos = positions[idx] || { x: 50, y: 50 }
-          
-          return {
-            text: keyword,
-            size,
-            color,
-            x: pos.x,
-            y: pos.y,
-            shape: shape.name,
-            clipPath: shape.clipPath
-          }
-        })
+        // 모든 키워드를 하트 모양으로 표시
+        const pos = positions[idx] || { x: 50, y: 50 }
         
-        setKeywordCloud(keywordCloudData)
-      } catch (error) {
-        console.error('[MyPage] Error generating keyword cloud:', error)
-        // 에러 발생 시 폴백: 스파이럴 배치
-        const sortedKeywords = [...normalizedKeywords].sort((a, b) => b.length - a.length)
-        const keywordCloudData = sortedKeywords.map((keyword, idx) => {
-          const baseSize = 48 - (idx * 2)
-          const size = Math.max(16, Math.min(48, baseSize))
-          const color = colors[idx % colors.length]
-          const shape = shapes[idx % shapes.length]
-          const angle = idx * 0.5
-          const radius = 15 + (idx * 2.5)
-          return {
-            text: keyword,
-            size,
-            color,
-            x: 50 + (radius * Math.cos(angle)),
-            y: 50 + (radius * Math.sin(angle)),
-            shape: shape.name,
-            clipPath: shape.clipPath
-          }
-        })
-        setKeywordCloud(keywordCloudData)
-      } finally {
-        setIsLoadingKeywordEmbeddings(false)
-      }
+        return {
+          text: keyword,
+          size,
+          color,
+          x: pos.x,
+          y: pos.y,
+          shape: 'heart',
+          clipPath: heartClipPath
+        }
+      })
+      
+      setKeywordCloud(keywordCloudData)
+      setIsLoadingKeywordEmbeddings(false)
     } else {
       setKeywordCloud([])
     }
