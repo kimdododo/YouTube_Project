@@ -334,23 +334,24 @@ function MyPage() {
     // y = 13cos(t) - 5cos(2t) - 2cos(3t) - cos(4t)
     const numPoints = keywords.length
     
-    // 1단계: 하트 모양 내부에 균등하게 분산 배치
-    const initialPositions = keywords.map((keyword, idx) => {
-      // 하트 모양 내부의 균등 분포 (경계선이 아닌 내부 영역)
+    // 하트 모양 경계선을 따라 균등하게 배치 (간단하고 확실한 방법)
+    const positions = keywords.map((keyword, idx) => {
+      // 하트 모양 경계선을 따라 균등하게 배치
       const t = (idx / numPoints) * Math.PI * 2
-      const scale = 0.6 + (Math.random() * 0.3) // 하트 모양 내부에 랜덤하게 분산 (60-90%)
       
-      // 하트 모양 좌표 (정규화)
-      let x = 16 * Math.pow(Math.sin(t), 3) * scale
-      let y = -(13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t)) * scale
+      // 하트 모양 좌표 계산
+      let x = 16 * Math.pow(Math.sin(t), 3)
+      let y = -(13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t))
       
       // 하트 모양을 0-100 범위로 정규화
-      x = (x + 16) / 32 * 80 + 10  // x: 10-90
-      y = (y + 13) / 26 * 70 + 15  // y: 15-85
+      x = ((x + 16) / 32) * 80 + 10  // x: 10-90
+      y = ((y + 13) / 26) * 70 + 15  // y: 15-85
       
-      // 중앙에 약간의 랜덤 오프셋 추가 (더 자연스러운 분산)
-      x += (Math.random() - 0.5) * 5
-      y += (Math.random() - 0.5) * 5
+      // 하트 모양 내부로 약간 안쪽으로 이동 (70% 위치)
+      const centerX = 50
+      const centerY = 50
+      x = centerX + (x - centerX) * 0.7
+      y = centerY + (y - centerY) * 0.7
       
       // 경계 체크
       x = Math.max(15, Math.min(85, x))
@@ -359,45 +360,10 @@ function MyPage() {
       return { x, y }
     })
 
-    // 2단계: 유사도 기반으로 위치 조정 (여러 번 반복)
-    const positions = [...initialPositions]
-    for (let iter = 0; iter < 3; iter++) {
-      keywords.forEach((keyword, idx) => {
-        if (similarities[idx]) {
-          const similarIndices = []
-          for (let j = 0; j < similarities[idx].length; j++) {
-            if (j !== idx && similarities[idx][j] > 0.4) {
-              similarIndices.push(j)
-            }
-          }
-          
-          if (similarIndices.length > 0) {
-            // 유사한 키워드들의 평균 위치 계산
-            let avgX = 0
-            let avgY = 0
-            let count = 0
-            similarIndices.forEach(j => {
-              avgX += positions[j].x
-              avgY += positions[j].y
-              count++
-            })
-            
-            if (count > 0) {
-              avgX /= count
-              avgY /= count
-              // 유사한 키워드 근처에 배치 (하지만 하트 모양 내부 유지)
-              positions[idx].x = positions[idx].x * 0.7 + avgX * 0.3
-              positions[idx].y = positions[idx].y * 0.7 + avgY * 0.3
-            }
-          }
-        }
-      })
-    }
-
     return positions
   }
 
-  // Force-directed layout 알고리즘 (유사도 기반)
+  // Force-directed layout 알고리즘 (유사도 기반) - 사용하지 않음
   const forceDirectedLayout = (keywords, embeddings, width = 100, height = 100, iterations = 100) => {
     if (!embeddings || embeddings.length === 0) {
       // 폴백: 스파이럴 배치
@@ -510,6 +476,7 @@ function MyPage() {
     )
     
     console.log('[MyPage] 정규화된 키워드:', normalizedKeywords)
+    console.log('[MyPage] 키워드 라벨 매핑 테스트:', normalizedKeywords.map(k => ({ id: k, label: TRAVEL_KEYWORD_LABELS[k] })))
 
     setPreferenceScores(computePreferenceScores(normalizedPreferences))
     setTravelPreferenceSummary(formatPreferenceSummary(normalizedPreferences))
@@ -518,91 +485,108 @@ function MyPage() {
     setSelectedKeywords(normalizedKeywords)
 
     // 키워드 클라우드 생성 (word2vec 기반)
-    const colors = [
-      '#F9FAFB', '#A5B4FC', '#F9A8D4', '#FBBF24', '#E0E7FF',
-      '#FB7185', '#F87171', '#BFDBFE', '#FCD34D', '#FCA5A5',
-      '#38BDF8', '#FDBA74', '#67E8F9', '#60A5FA', '#4ADE80',
-      '#A855F7', '#FACC15', '#F5D0FE', '#C4B5FD', '#FDE68A',
-      '#93C5FD', '#BFDBFE'
-    ]
+    // 이미지 스타일에 맞춘 색상 팔레트: 노란색/크림, 분홍/빨강, 파란색, 흰색/회색
+    const colorPalettes = {
+      yellow: ['#FBBF24', '#FCD34D', '#FDE68A', '#FEF3C7', '#FFFBEB'], // 노란색/크림 계열
+      pink: ['#F9A8D4', '#FB7185', '#F87171', '#FCA5A5', '#FECACA'], // 분홍/빨강 계열
+      blue: ['#60A5FA', '#3B82F6', '#38BDF8', '#67E8F9', '#A5B4FC'], // 파란색 계열
+      white: ['#F9FAFB', '#F3F4F6', '#E5E7EB', '#D1D5DB', '#FFFFFF'] // 흰색/회색 계열
+    }
     
-    // 다양한 모양 정의 (CSS clip-path)
-    const shapes = [
-      { name: 'cloud', clipPath: 'polygon(20% 40%, 30% 20%, 50% 20%, 60% 0%, 80% 0%, 100% 30%, 100% 60%, 80% 80%, 60% 100%, 40% 100%, 20% 80%, 0% 60%, 0% 40%)' }, // 구름
-      { name: 'heart', clipPath: 'polygon(50% 0%, 65% 15%, 100% 15%, 100% 35%, 85% 55%, 50% 100%, 15% 55%, 0% 35%, 0% 15%, 35% 15%)' }, // 하트
-      { name: 'star', clipPath: 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)' }, // 별
-      { name: 'triangle', clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)' }, // 삼각형
-      { name: 'circle', clipPath: 'circle(50% at 50% 50%)' }, // 원
-      { name: 'diamond', clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)' }, // 다이아몬드
-      { name: 'hexagon', clipPath: 'polygon(30% 0%, 70% 0%, 100% 50%, 70% 100%, 30% 100%, 0% 50%)' }, // 육각형
-      { name: 'pentagon', clipPath: 'polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%)' }, // 오각형
-      { name: 'octagon', clipPath: 'polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%)' }, // 팔각형
-      { name: 'blob', clipPath: 'polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%)' } // 블롭
-    ]
+    // 자연스러운 워드 클라우드 레이아웃 생성
+    const createWordCloudLayout = (keywords, width = 100, height = 100) => {
+      const positions = []
+      const usedPositions = new Set()
+      const centerX = width / 2
+      const centerY = height / 2
+      
+      keywords.forEach((keyword, idx) => {
+        let attempts = 0
+        let x, y
+        
+        // 스파이럴 레이아웃으로 자연스럽게 배치
+        const angle = (idx * 137.508) % 360 // 황금각 사용
+        const radius = 15 + (idx * 3) + Math.random() * 10
+        
+        x = centerX + radius * Math.cos((angle * Math.PI) / 180)
+        y = centerY + radius * Math.sin((angle * Math.PI) / 180)
+        
+        // 경계 체크 및 조정
+        x = Math.max(10, Math.min(width - 10, x))
+        y = Math.max(15, Math.min(height - 15, y))
+        
+        positions.push({ x, y })
+      })
+      
+      return positions
+    }
 
-    // word2vec 기반 하트 모양 키워드 클라우드 생성 (더미 데이터 사용)
+    // word2vec 기반 자연스러운 키워드 클라우드 생성
     if (normalizedKeywords.length > 0) {
       setIsLoadingKeywordEmbeddings(true)
       
-      // 더미 임베딩 데이터 생성
-      const dummyEmbeddings = generateDummyEmbeddings(normalizedKeywords)
-      
-      // 하트 모양 배치 (원본 키워드 순서로)
-      const positions = heartShapeLayout(normalizedKeywords, dummyEmbeddings, 100, 100)
-
-      // 키워드를 크기별로 정렬하되, 위치는 원본 인덱스로 매핑
-      const keywordsWithPositions = normalizedKeywords.map((keyword, idx) => ({
-        keyword,
-        position: positions[idx] || { x: 50, y: 50 },
-        originalIdx: idx
-      }))
-      
-      // 한글 라벨 길이 기준으로 정렬 (큰 것부터)
-      const sortedKeywords = keywordsWithPositions.sort((a, b) => {
-        const labelA = TRAVEL_KEYWORD_LABELS[a.keyword] || a.keyword
-        const labelB = TRAVEL_KEYWORD_LABELS[b.keyword] || b.keyword
-        return labelB.length - labelA.length
+      // 키워드를 한글 라벨로 변환하고 길이 기준으로 정렬
+      const keywordsWithLabels = normalizedKeywords.map((keywordId) => {
+        const keywordLabel = TRAVEL_KEYWORD_LABELS[keywordId] || keywordId
+        return {
+          id: keywordId,
+          label: keywordLabel,
+          length: keywordLabel.length
+        }
       })
       
-      // 하트 모양 clip-path (더 정확한 하트 모양 - SVG path 기반)
-      // polygon 대신 더 매끄러운 하트 모양 사용
-      const heartClipPath = 'polygon(50% 0%, 61% 8%, 100% 8%, 100% 28%, 88% 48%, 50% 100%, 12% 48%, 0% 28%, 0% 8%, 39% 8%)'
+      // 길이와 중요도 기준으로 정렬 (긴 키워드가 더 중요하다고 가정)
+      const sortedKeywords = keywordsWithLabels.sort((a, b) => b.length - a.length)
+      
+      // 자연스러운 레이아웃 생성
+      const positions = createWordCloudLayout(sortedKeywords, 100, 100)
+      
+      // 색상 그룹 선택 (이미지 스타일 반영)
+      const allColors = [
+        ...colorPalettes.yellow,
+        ...colorPalettes.pink,
+        ...colorPalettes.blue,
+        ...colorPalettes.white
+      ]
       
       const keywordCloudData = sortedKeywords.map((item, idx) => {
-        // 키워드 ID를 한글 라벨로 변환
-        const keywordId = item.keyword
-        let keywordLabel = TRAVEL_KEYWORD_LABELS[keywordId]
+        // 크기 계산: 첫 번째가 가장 크고 점점 작아짐
+        const maxSize = 56
+        const minSize = 16
+        const sizeRange = maxSize - minSize
+        const sizeStep = sizeRange / Math.max(1, sortedKeywords.length - 1)
+        const fontSize = Math.max(minSize, maxSize - (idx * sizeStep))
         
-        // 키워드 라벨을 찾을 수 없는 경우
-        if (!keywordLabel) {
-          console.warn(`[MyPage] 키워드 라벨을 찾을 수 없음: "${keywordId}", 타입: ${typeof keywordId}`)
-          console.warn(`[MyPage] 사용 가능한 키워드 ID:`, Object.keys(TRAVEL_KEYWORD_LABELS))
-          // 이미 한글이면 그대로 사용, 아니면 키워드 ID 사용
-          keywordLabel = keywordId
+        // 색상 선택: 인덱스에 따라 다양한 색상 그룹에서 선택
+        let color
+        if (idx < 3) {
+          // 가장 큰 키워드들은 노란색/크림 계열
+          color = colorPalettes.yellow[idx % colorPalettes.yellow.length]
+        } else if (idx < 6) {
+          // 중간 크기 키워드들은 분홍/빨강 계열
+          color = colorPalettes.pink[(idx - 3) % colorPalettes.pink.length]
+        } else if (idx < 9) {
+          // 작은 키워드들은 파란색 계열
+          color = colorPalettes.blue[(idx - 6) % colorPalettes.blue.length]
+        } else {
+          // 가장 작은 키워드들은 흰색/회색 계열
+          color = colorPalettes.white[(idx - 9) % colorPalettes.white.length]
         }
         
-        // 키워드 개수에 따라 크기 조정 (첫 번째가 가장 크고 점점 작아짐)
-        const baseSize = 48 - (idx * 2)
-        const size = Math.max(18, Math.min(48, baseSize))
-        const color = colors[idx % colors.length]
-        
-        // 하트 모양 위치 사용
-        const pos = item.position
+        const pos = positions[idx] || { x: 50, y: 50 }
         
         return {
-          text: keywordLabel,
-          size,
+          text: item.label,
+          size: Math.round(fontSize),
           color,
           x: pos.x,
-          y: pos.y,
-          shape: 'heart',
-          clipPath: heartClipPath
+          y: pos.y
         }
       })
       
       console.log('[MyPage] 키워드 클라우드 생성 완료:', {
         normalizedKeywords,
-        keywordCloudData: keywordCloudData.map(item => ({ text: item.text, x: item.x, y: item.y }))
+        keywordCloudData: keywordCloudData.map(item => ({ text: item.text, x: item.x, y: item.y, size: item.size }))
       })
       
       setKeywordCloud(keywordCloudData)
@@ -1348,9 +1332,10 @@ function MyPage() {
                   <div 
                     className="relative"
                     style={{ 
-                      minHeight: '200px',
+                      minHeight: '400px',
                       padding: '20px 0',
-                      width: '100%'
+                      width: '100%',
+                      background: 'transparent'
                     }}
                   >
                     {keywordCloud.length === 0 && !isLoadingPreferences && !isLoadingKeywordEmbeddings ? (
@@ -1362,7 +1347,7 @@ function MyPage() {
                         키워드 클라우드 생성 중...
                       </div>
                     ) : (
-                      keywordCloud.map(({ text, size, color, x, y, clipPath }, idx) => (
+                      keywordCloud.map(({ text, size, color, x, y }, idx) => (
                         <div
                           key={`${text}-${idx}`}
                           style={{
@@ -1371,30 +1356,23 @@ function MyPage() {
                             top: `${y}%`,
                             transform: 'translate(-50%, -50%)',
                             fontSize: `${size}px`,
-                            color: '#FFFFFF',
+                            color: color,
                             lineHeight: '1.2',
-                            fontWeight: 700,
+                            fontWeight: idx < 3 ? 800 : idx < 6 ? 700 : 600,
                             whiteSpace: 'nowrap',
                             transition: 'all 0.3s ease',
                             cursor: 'default',
                             zIndex: keywordCloud.length - idx,
-                            padding: '10px 18px',
-                            background: `linear-gradient(135deg, ${color} 0%, ${color}dd 100%)`,
-                            clipPath: clipPath,
-                            WebkitClipPath: clipPath,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            minWidth: 'fit-content',
-                            minHeight: 'fit-content',
-                            textShadow: '0 2px 4px rgba(0, 0, 0, 0.5)',
-                            boxShadow: `0 4px 12px ${color}40, inset 0 1px 0 rgba(255, 255, 255, 0.2)`,
-                            border: `1px solid ${color}80`,
-                            overflow: 'hidden'
+                            textShadow: idx < 3 
+                              ? '0 2px 8px rgba(0, 0, 0, 0.6), 0 0 20px rgba(255, 255, 255, 0.1)' 
+                              : '0 2px 4px rgba(0, 0, 0, 0.5)',
+                            userSelect: 'none',
+                            pointerEvents: 'auto'
                           }}
-                          className="hover:scale-110 hover:brightness-110"
+                          className="hover:scale-110 hover:brightness-110 transition-transform"
+                          title={text}
                         >
-                          <span style={{ position: 'relative', zIndex: 1 }}>{text}</span>
+                          {text}
                         </div>
                       ))
                     )}
