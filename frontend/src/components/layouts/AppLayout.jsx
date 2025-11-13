@@ -102,7 +102,7 @@ function AppLayout({ children }) {
       `}</style>
 
       {/* Header - 모든 페이지에서 공통 */}
-      <header className="relative z-10 bg-[#0a0e27]/80 backdrop-blur-sm border-b border-blue-900/30">
+      <header className="relative z-50 bg-[#0a0e27]/80 backdrop-blur-sm border-b border-blue-900/30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <Link to="/" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
@@ -119,10 +119,10 @@ function AppLayout({ children }) {
                 여유
               </span>
             </Link>
-            <nav className="hidden md:flex items-center space-x-6" style={{ fontFamily: 'Arial, sans-serif' }}>
+            <nav className="flex items-center space-x-4 sm:space-x-6" style={{ fontFamily: 'Arial, sans-serif' }}>
               {/* 돋보기 아이콘 (검색) */}
               <button
-                className="text-blue-300 hover:text-white transition-colors"
+                className="text-blue-300 hover:text-white transition-colors flex-shrink-0"
                 style={{ 
                   fontSize: '16px',
                   lineHeight: '24px',
@@ -136,9 +136,9 @@ function AppLayout({ children }) {
               {/* 여행 트렌드 */}
               <Link 
                 to="/travel-trends" 
-                className={`font-bold leading-6 ${location.pathname === '/travel-trends' ? 'text-white' : 'text-blue-300'}`}
+                className={`font-bold leading-6 whitespace-nowrap ${location.pathname === '/travel-trends' ? 'text-white' : 'text-blue-300'}`}
                 style={{ 
-                  fontSize: '16px',
+                  fontSize: '14px',
                   lineHeight: '24px',
                   fontFamily: 'Arial, sans-serif'
                 }}
@@ -149,9 +149,9 @@ function AppLayout({ children }) {
               {/* 개인 맞춤 영상 추천 */}
               <Link 
                 to="/recommendedVideos" 
-                className={`font-bold leading-6 ${location.pathname === '/recommendedVideos' ? 'text-white' : 'text-blue-300'}`}
+                className={`font-bold leading-6 whitespace-nowrap ${location.pathname === '/recommendedVideos' ? 'text-white' : 'text-blue-300'}`}
                 style={{ 
-                  fontSize: '16px',
+                  fontSize: '14px',
                   lineHeight: '24px',
                   fontFamily: 'Arial, sans-serif'
                 }}
@@ -163,27 +163,29 @@ function AppLayout({ children }) {
               {isLoggedIn ? (
                 <Link 
                   to="/mypage" 
-                  className={`font-bold leading-6 flex items-center ${location.pathname === '/mypage' ? 'text-white' : 'text-blue-300'}`}
+                  className={`font-bold leading-6 flex items-center whitespace-nowrap ${location.pathname === '/mypage' ? 'text-white' : 'text-blue-300'}`}
                   style={{ 
-                    fontSize: '16px',
+                    fontSize: '14px',
                     lineHeight: '24px',
                     fontFamily: 'Arial, sans-serif'
                   }}
                 >
-                  <User className="w-4 h-4 mr-1" />
-                  마이페이지
+                  <User className="w-4 h-4 mr-1 flex-shrink-0" />
+                  <span className="hidden sm:inline">마이페이지</span>
+                  <span className="sm:hidden">마이</span>
                 </Link>
               ) : (
                 <Link 
                   to="/login" 
-                  className="font-bold leading-6 flex items-center text-blue-300"
+                  className="font-bold leading-6 flex items-center text-blue-300 whitespace-nowrap"
                   style={{ 
-                    fontSize: '16px',
+                    fontSize: '14px',
                     lineHeight: '24px',
                     fontFamily: 'Arial, sans-serif'
                   }}
                 >
-                  로그인하기
+                  <span className="hidden sm:inline">로그인하기</span>
+                  <span className="sm:hidden">로그인</span>
                 </Link>
               )}
             </nav>
