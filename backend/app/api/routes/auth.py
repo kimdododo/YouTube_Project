@@ -14,15 +14,23 @@ from app.schemas.user import (
     ResendCodeRequest
 )
 from app.schemas.user_preference import TravelPreferenceCreate, TravelPreferenceResponse
-from app.crud.user import (
-    create_user, 
-    authenticate, 
-    get_by_username_or_email,
-    get_by_email,
-    get_by_id, 
-    update_password,
-    verify_user_email
-)
+# CRUD 함수 import (lazy import로 변경하여 모듈 로딩 문제 방지)
+try:
+    from app.crud.user import (
+        create_user, 
+        authenticate, 
+        get_by_username_or_email,
+        get_by_email,
+        get_by_id, 
+        update_password,
+        verify_user_email
+    )
+except ImportError as e:
+    # Import 실패 시 상세한 오류 정보 출력
+    import traceback
+    print(f"[ERROR] Failed to import from app.crud.user: {e}")
+    print(f"[ERROR] Traceback: {traceback.format_exc()}")
+    raise
 from app.crud import email_verification as crud_email_verification
 from app.utils.email_utils import send_verification_email
 from app.core.config import EMAIL_VERIFICATION_MAX_ATTEMPTS
