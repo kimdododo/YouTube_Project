@@ -490,10 +490,26 @@ function MyPage() {
     const normalizedKeywords = Array.from(
       new Set(
         (keywordsList || [])
-          .map((key) => (key || '').toString().trim())
+          .map((key) => {
+            const str = (key || '').toString().trim()
+            // 키워드가 한글이면 ID로 변환 시도 (역변환)
+            if (str && !TRAVEL_KEYWORD_LABELS[str]) {
+              // 한글을 ID로 역변환
+              const foundId = Object.keys(TRAVEL_KEYWORD_LABELS).find(
+                id => TRAVEL_KEYWORD_LABELS[id] === str
+              )
+              if (foundId) {
+                console.log(`[MyPage] 키워드 한글->ID 변환: ${str} -> ${foundId}`)
+                return foundId
+              }
+            }
+            return str
+          })
           .filter(Boolean)
       )
     )
+    
+    console.log('[MyPage] 정규화된 키워드:', normalizedKeywords)
 
     setPreferenceScores(computePreferenceScores(normalizedPreferences))
     setTravelPreferenceSummary(formatPreferenceSummary(normalizedPreferences))
@@ -531,26 +547,47 @@ function MyPage() {
       // 더미 임베딩 데이터 생성
       const dummyEmbeddings = generateDummyEmbeddings(normalizedKeywords)
       
-      // 하트 모양 배치
+      // 하트 모양 배치 (원본 키워드 순서로)
       const positions = heartShapeLayout(normalizedKeywords, dummyEmbeddings, 100, 100)
 
-      // 키워드를 크기별로 정렬 (큰 것부터)
-      const sortedKeywords = [...normalizedKeywords].sort((a, b) => b.length - a.length)
+      // 키워드를 크기별로 정렬하되, 위치는 원본 인덱스로 매핑
+      const keywordsWithPositions = normalizedKeywords.map((keyword, idx) => ({
+        keyword,
+        position: positions[idx] || { x: 50, y: 50 },
+        originalIdx: idx
+      }))
       
-      // 하트 모양 clip-path (더 정확한 하트 모양)
-      const heartClipPath = 'polygon(50% 0%, 61% 10%, 100% 10%, 100% 30%, 88% 50%, 50% 100%, 12% 50%, 0% 30%, 0% 10%, 39% 10%)'
+      // 한글 라벨 길이 기준으로 정렬 (큰 것부터)
+      const sortedKeywords = keywordsWithPositions.sort((a, b) => {
+        const labelA = TRAVEL_KEYWORD_LABELS[a.keyword] || a.keyword
+        const labelB = TRAVEL_KEYWORD_LABELS[b.keyword] || b.keyword
+        return labelB.length - labelA.length
+      })
       
-      const keywordCloudData = sortedKeywords.map((keyword, idx) => {
+      // 하트 모양 clip-path (더 정확한 하트 모양 - SVG path 기반)
+      // polygon 대신 더 매끄러운 하트 모양 사용
+      const heartClipPath = 'polygon(50% 0%, 61% 8%, 100% 8%, 100% 28%, 88% 48%, 50% 100%, 12% 48%, 0% 28%, 0% 8%, 39% 8%)'
+      
+      const keywordCloudData = sortedKeywords.map((item, idx) => {
         // 키워드 ID를 한글 라벨로 변환
-        const keywordLabel = TRAVEL_KEYWORD_LABELS[keyword] || keyword
+        const keywordId = item.keyword
+        let keywordLabel = TRAVEL_KEYWORD_LABELS[keywordId]
+        
+        // 키워드 라벨을 찾을 수 없는 경우
+        if (!keywordLabel) {
+          console.warn(`[MyPage] 키워드 라벨을 찾을 수 없음: "${keywordId}", 타입: ${typeof keywordId}`)
+          console.warn(`[MyPage] 사용 가능한 키워드 ID:`, Object.keys(TRAVEL_KEYWORD_LABELS))
+          // 이미 한글이면 그대로 사용, 아니면 키워드 ID 사용
+          keywordLabel = keywordId
+        }
         
         // 키워드 개수에 따라 크기 조정 (첫 번째가 가장 크고 점점 작아짐)
         const baseSize = 48 - (idx * 2)
         const size = Math.max(18, Math.min(48, baseSize))
         const color = colors[idx % colors.length]
         
-        // 모든 키워드를 하트 모양으로 표시
-        const pos = positions[idx] || { x: 50, y: 50 }
+        // 하트 모양 위치 사용
+        const pos = item.position
         
         return {
           text: keywordLabel,
@@ -561,6 +598,11 @@ function MyPage() {
           shape: 'heart',
           clipPath: heartClipPath
         }
+      })
+      
+      console.log('[MyPage] 키워드 클라우드 생성 완료:', {
+        normalizedKeywords,
+        keywordCloudData: keywordCloudData.map(item => ({ text: item.text, x: item.x, y: item.y }))
       })
       
       setKeywordCloud(keywordCloudData)
@@ -1345,13 +1387,14 @@ function MyPage() {
                             justifyContent: 'center',
                             minWidth: 'fit-content',
                             minHeight: 'fit-content',
-                            textShadow: '0 2px 4px rgba(0, 0, 0, 0.3)',
+                            textShadow: '0 2px 4px rgba(0, 0, 0, 0.5)',
                             boxShadow: `0 4px 12px ${color}40, inset 0 1px 0 rgba(255, 255, 255, 0.2)`,
-                            border: `1px solid ${color}80`
+                            border: `1px solid ${color}80`,
+                            overflow: 'hidden'
                           }}
                           className="hover:scale-110 hover:brightness-110"
                         >
-                          {text}
+                          <span style={{ position: 'relative', zIndex: 1 }}>{text}</span>
                         </div>
                       ))
                     )}
