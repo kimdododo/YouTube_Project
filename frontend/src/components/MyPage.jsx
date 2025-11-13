@@ -307,8 +307,8 @@ function MyPage() {
       const color = colors[idx % colors.length]
       const shape = shapes[idx % shapes.length]
       
-      // 구름 모양 배치를 위한 위치 계산
-      // 중앙에 큰 키워드, 주변에 작은 키워드를 원형으로 배치
+      // 구름 모양 배치를 위한 위치 계산 (Word Cloud 스타일)
+      // 중앙에 큰 키워드, 주변에 작은 키워드를 구름처럼 불규칙하게 배치
       const totalKeywords = sortedKeywords.length
       const centerX = 50 // 중앙 X 위치 (%)
       const centerY = 50 // 중앙 Y 위치 (%)
@@ -321,12 +321,25 @@ function MyPage() {
         x = centerX
         y = centerY
       } else {
-        // 나머지 키워드는 원형으로 배치
-        const angle = (idx - 1) * (360 / Math.max(1, totalKeywords - 1)) * (Math.PI / 180)
-        // 거리는 키워드 크기에 비례하여 조정
-        const distance = 20 + (idx * 3) // 작은 키워드일수록 더 멀리
-        x = centerX + (distance * Math.cos(angle))
-        y = centerY + (distance * Math.sin(angle))
+        // 스파이럴 알고리즘을 사용하여 구름 모양으로 배치
+        // 나선형으로 배치하여 자연스러운 구름 모양 생성
+        const spiralAngle = idx * 0.5 // 나선 각도 (0.5 라디안씩 증가)
+        const spiralRadius = 15 + (idx * 2.5) // 나선 반경 (점점 커짐)
+        
+        // 구름 모양을 위해 약간의 불규칙성 추가
+        const noiseX = Math.sin(idx * 0.7) * 3 // X축 노이즈
+        const noiseY = Math.cos(idx * 0.9) * 3 // Y축 노이즈
+        
+        // 키워드 크기에 따라 거리 조정 (큰 키워드는 가까이, 작은 키워드는 멀리)
+        const sizeFactor = (48 - size) / 32 // 크기 팩터 (0~1)
+        const adjustedRadius = spiralRadius + (sizeFactor * 8)
+        
+        x = centerX + (adjustedRadius * Math.cos(spiralAngle)) + noiseX
+        y = centerY + (adjustedRadius * Math.sin(spiralAngle)) + noiseY
+        
+        // 경계 체크 (10% ~ 90% 범위 내로 제한)
+        x = Math.max(10, Math.min(90, x))
+        y = Math.max(10, Math.min(90, y))
       }
       
       return {
