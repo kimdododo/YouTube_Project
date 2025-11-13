@@ -18,8 +18,11 @@ from app.crud.user_preference import (
 )
 from app.core.security import verify_password
 from app.models.login_history import LoginHistory
+from app.utils.ml_client import get_embeddings_batch
+from typing import List
 import traceback
 import re
+import asyncio
 
 router = APIRouter(tags=["auth"])
 
@@ -309,5 +312,56 @@ def change_password(
         raise HTTPException(status_code=500, detail=f"비밀번호 변경 중 오류가 발생했습니다: {str(e)}")
 
     return ok({"message": "비밀번호가 변경되었습니다. 다시 로그인해주세요."}).model_dump()
+
+
+@router.post("/keywords/embeddings")
+async def get_keyword_embeddings(
+    keywords: List[str],
+    current_user_id_str: str = Depends(get_current_user_id)
+):
+    """
+    키워드 목록을 임베딩 벡터로 변환 (word2vec 기반 키워드 클라우드용)
+    """
+    try:
+        if not keywords or len(keywords) == 0:
+            return ok({"embeddings": []}).model_dump()
+        
+        # 키워드를 한글로 변환 (키워드 ID -> 한글 라벨)
+        keyword_labels = {
+            'solo': '혼자여행',
+            'budget': '가성비여행',
+            'vlog': '브이로그',
+            'aesthetic': '감성여행',
+            'domestic': '국내여행',
+            'global': '해외여행',
+            'oneday': '당일치기',
+            'food': '맛집투어',
+            'stay': '숙소리뷰',
+            'camping': '캠핑',
+            'cafe': '카페투어'
+        }
+        
+        # 키워드 ID를 한글 라벨로 변환
+        texts = [keyword_labels.get(kw, kw) for kw in keywords]
+        
+        # 배치로 임베딩 가져오기
+        embeddings = await get_embeddings_batch(texts)
+        
+        if embeddings is None:
+            # ML API 실패 시 빈 배열 반환 (프론트엔드에서 폴백 처리)
+            return ok({"embeddings": []}).model_dump()
+        
+        # 키워드와 임베딩을 매핑
+        result = [
+            {"keyword": kw, "embedding": emb}
+            for kw, emb in zip(keywords, embeddings)
+        ]
+        
+        return ok({"embeddings": result}).model_dump()
+    except Exception as e:
+        print(f"[ERROR] Error getting keyword embeddings: {str(e)}")
+        print(f"[ERROR] Traceback: {traceback.format_exc()}")
+        # 에러 발생 시 빈 배열 반환 (프론트엔드에서 폴백 처리)
+        return ok({"embeddings": []}).model_dump()
 
 

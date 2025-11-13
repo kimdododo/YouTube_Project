@@ -250,3 +250,46 @@ export const fetchTravelPreferences = async () => {
   return result.data || result
 }
 
+/**
+ * 키워드 목록을 임베딩 벡터로 변환 (word2vec 기반 키워드 클라우드용)
+ * @param {string[]} keywords - 키워드 ID 배열
+ * @returns {Promise<Array<{keyword: string, embedding: number[]}>>} 키워드와 임베딩 매핑
+ */
+export const getKeywordEmbeddings = async (keywords) => {
+  const token = getToken()
+  if (!token || !keywords || keywords.length === 0) {
+    return []
+  }
+
+  try {
+    const headers = {
+      'Content-Type': 'application/json',
+      ...authHeaders()
+    }
+
+    const response = await fetch(`${API_BASE_URL}/auth/keywords/embeddings`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(keywords)
+    })
+
+    if (!response.ok) {
+      // 401 Unauthorized인 경우 토큰이 만료되었을 수 있음
+      if (response.status === 401) {
+        console.warn('[auth.js] Unauthorized - token may be expired')
+        localStorage.removeItem('access_token')
+        localStorage.removeItem('token_type')
+        return []
+      }
+      console.warn('[auth.js] Failed to get keyword embeddings:', response.status)
+      return []
+    }
+
+    const result = await response.json()
+    return result.data?.embeddings || result.embeddings || []
+  } catch (error) {
+    console.error('[auth.js] Error getting keyword embeddings:', error?.message || error)
+    return []
+  }
+}
+

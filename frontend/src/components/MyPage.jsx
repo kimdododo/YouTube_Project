@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { User, Settings, Camera, Edit3, X, LogOut, Bookmark, Bell, Lock, Eye, EyeOff, Clock } from 'lucide-react'
 import Logo from './Logo'
 import { getRecommendedVideos } from '../api/videos'
-import { changePassword, saveTravelPreferences, fetchTravelPreferences, getToken, logout as clearAuth, getCurrentUser } from '../api/auth'
+import { changePassword, saveTravelPreferences, fetchTravelPreferences, getToken, logout as clearAuth, getCurrentUser, getKeywordEmbeddings } from '../api/auth'
 import {
   Chart as ChartJS,
   ArcElement,
@@ -84,6 +84,7 @@ function MyPage() {
   })
 
   const [keywordCloud, setKeywordCloud] = useState([])
+  const [isLoadingKeywordEmbeddings, setIsLoadingKeywordEmbeddings] = useState(false)
   const preferenceOptions = useMemo(
     () => Object.entries(TRAVEL_PREFERENCE_LABELS).map(([id, label]) => ({ id: Number(id), label })),
     []
@@ -252,7 +253,104 @@ function MyPage() {
       .join(', ')
   }
 
-  const applyPreferenceState = (preferencesList = [], keywordsList = []) => {
+  // 코사인 유사도 계산
+  const cosineSimilarity = (vec1, vec2) => {
+    if (!vec1 || !vec2 || vec1.length !== vec2.length) return 0
+    let dotProduct = 0
+    let norm1 = 0
+    let norm2 = 0
+    for (let i = 0; i < vec1.length; i++) {
+      dotProduct += vec1[i] * vec2[i]
+      norm1 += vec1[i] * vec1[i]
+      norm2 += vec2[i] * vec2[i]
+    }
+    const denominator = Math.sqrt(norm1) * Math.sqrt(norm2)
+    return denominator === 0 ? 0 : dotProduct / denominator
+  }
+
+  // Force-directed layout 알고리즘 (유사도 기반)
+  const forceDirectedLayout = (keywords, embeddings, width = 100, height = 100, iterations = 100) => {
+    if (!embeddings || embeddings.length === 0) {
+      // 폴백: 스파이럴 배치
+      return keywords.map((kw, idx) => {
+        const angle = idx * 0.5
+        const radius = 15 + (idx * 2.5)
+        return {
+          x: 50 + (radius * Math.cos(angle)),
+          y: 50 + (radius * Math.sin(angle))
+        }
+      })
+    }
+
+    // 유사도 행렬 계산
+    const similarities = embeddings.map((emb1, i) =>
+      embeddings.map((emb2, j) => i === j ? 1 : cosineSimilarity(emb1.embedding, emb2.embedding))
+    )
+
+    // 초기 위치 (원형 배치)
+    const positions = keywords.map((_, idx) => {
+      const angle = (idx / keywords.length) * Math.PI * 2
+      const radius = 20
+      return {
+        x: width / 2 + radius * Math.cos(angle),
+        y: height / 2 + radius * Math.sin(angle),
+        vx: 0,
+        vy: 0
+      }
+    })
+
+    // Force-directed simulation
+    const k = Math.sqrt((width * height) / keywords.length) // 최적 거리
+    const repulsionStrength = 0.1
+    const attractionStrength = 0.05
+    const damping = 0.9
+
+    for (let iter = 0; iter < iterations; iter++) {
+      // 각 노드에 대해 힘 계산
+      for (let i = 0; i < keywords.length; i++) {
+        let fx = 0
+        let fy = 0
+
+        for (let j = 0; j < keywords.length; j++) {
+          if (i === j) continue
+
+          const dx = positions[j].x - positions[i].x
+          const dy = positions[j].y - positions[i].y
+          const distance = Math.sqrt(dx * dx + dy * dy) || 1
+
+          const similarity = similarities[i][j]
+          
+          if (similarity > 0.3) {
+            // 유사한 키워드는 가까이 (인력)
+            const force = attractionStrength * similarity * (distance - k * (1 - similarity))
+            fx += (dx / distance) * force
+            fy += (dy / distance) * force
+          } else {
+            // 유사하지 않은 키워드는 멀리 (반발력)
+            const force = repulsionStrength * (k * k) / distance
+            fx -= (dx / distance) * force
+            fy -= (dy / distance) * force
+          }
+        }
+
+        // 속도 업데이트
+        positions[i].vx = (positions[i].vx + fx) * damping
+        positions[i].vy = (positions[i].vy + fy) * damping
+
+        // 위치 업데이트
+        positions[i].x += positions[i].vx
+        positions[i].y += positions[i].vy
+
+        // 경계 체크
+        positions[i].x = Math.max(10, Math.min(width - 10, positions[i].x))
+        positions[i].y = Math.max(10, Math.min(height - 10, positions[i].y))
+      }
+    }
+
+    return positions.map(p => ({ x: p.x, y: p.y }))
+  }
+
+  const applyPreferenceState = async (preferencesList = [], keywordsList = []) => {
     const normalizedPreferences = Array.from(
       new Set(
         (preferencesList || [])
@@ -274,7 +372,7 @@ function MyPage() {
     setSelectedPreferences(normalizedPreferences)
     setSelectedKeywords(normalizedKeywords)
 
-    // 키워드 클라우드 생성 (실제 키워드 데이터 사용, 다양한 모양으로 배치)
+    // 키워드 클라우드 생성 (word2vec 기반)
     const colors = [
       '#F9FAFB', '#A5B4FC', '#F9A8D4', '#FBBF24', '#E0E7FF',
       '#FB7185', '#F87171', '#BFDBFE', '#FCD34D', '#FCA5A5',
@@ -296,64 +394,83 @@ function MyPage() {
       { name: 'octagon', clipPath: 'polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%)' }, // 팔각형
       { name: 'blob', clipPath: 'polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%)' } // 블롭
     ]
-    
-    // 키워드를 크기별로 정렬 (큰 것부터)
-    const sortedKeywords = [...normalizedKeywords].sort((a, b) => b.length - a.length)
-    
-    const keywordCloudData = sortedKeywords.map((keyword, idx) => {
-      // 키워드 개수에 따라 크기 조정 (첫 번째가 가장 크고 점점 작아짐)
-      const baseSize = 48 - (idx * 2)
-      const size = Math.max(16, Math.min(48, baseSize))
-      const color = colors[idx % colors.length]
-      const shape = shapes[idx % shapes.length]
-      
-      // 구름 모양 배치를 위한 위치 계산 (Word Cloud 스타일)
-      // 중앙에 큰 키워드, 주변에 작은 키워드를 구름처럼 불규칙하게 배치
-      const totalKeywords = sortedKeywords.length
-      const centerX = 50 // 중앙 X 위치 (%)
-      const centerY = 50 // 중앙 Y 위치 (%)
-      
-      let x = centerX
-      let y = centerY
-      
-      if (idx === 0) {
-        // 첫 번째(가장 큰) 키워드는 중앙에
-        x = centerX
-        y = centerY
-      } else {
-        // 스파이럴 알고리즘을 사용하여 구름 모양으로 배치
-        // 나선형으로 배치하여 자연스러운 구름 모양 생성
-        const spiralAngle = idx * 0.5 // 나선 각도 (0.5 라디안씩 증가)
-        const spiralRadius = 15 + (idx * 2.5) // 나선 반경 (점점 커짐)
+
+    // 임베딩 기반 키워드 클라우드 생성
+    if (normalizedKeywords.length > 0) {
+      setIsLoadingKeywordEmbeddings(true)
+      try {
+        // 백엔드에서 키워드 임베딩 가져오기
+        const embeddings = await getKeywordEmbeddings(normalizedKeywords)
         
-        // 구름 모양을 위해 약간의 불규칙성 추가
-        const noiseX = Math.sin(idx * 0.7) * 3 // X축 노이즈
-        const noiseY = Math.cos(idx * 0.9) * 3 // Y축 노이즈
+        let positions = []
+        if (embeddings && embeddings.length > 0) {
+          // word2vec 기반 force-directed layout
+          positions = forceDirectedLayout(normalizedKeywords, embeddings, 100, 100, 150)
+        } else {
+          // 폴백: 스파이럴 배치
+          positions = normalizedKeywords.map((_, idx) => {
+            const angle = idx * 0.5
+            const radius = 15 + (idx * 2.5)
+            return {
+              x: 50 + (radius * Math.cos(angle)),
+              y: 50 + (radius * Math.sin(angle))
+            }
+          })
+        }
+
+        // 키워드를 크기별로 정렬 (큰 것부터)
+        const sortedKeywords = [...normalizedKeywords].sort((a, b) => b.length - a.length)
         
-        // 키워드 크기에 따라 거리 조정 (큰 키워드는 가까이, 작은 키워드는 멀리)
-        const sizeFactor = (48 - size) / 32 // 크기 팩터 (0~1)
-        const adjustedRadius = spiralRadius + (sizeFactor * 8)
+        const keywordCloudData = sortedKeywords.map((keyword, idx) => {
+          // 키워드 개수에 따라 크기 조정 (첫 번째가 가장 크고 점점 작아짐)
+          const baseSize = 48 - (idx * 2)
+          const size = Math.max(16, Math.min(48, baseSize))
+          const color = colors[idx % colors.length]
+          const shape = shapes[idx % shapes.length]
+          
+          // word2vec 기반 위치 또는 폴백 위치
+          const pos = positions[idx] || { x: 50, y: 50 }
+          
+          return {
+            text: keyword,
+            size,
+            color,
+            x: pos.x,
+            y: pos.y,
+            shape: shape.name,
+            clipPath: shape.clipPath
+          }
+        })
         
-        x = centerX + (adjustedRadius * Math.cos(spiralAngle)) + noiseX
-        y = centerY + (adjustedRadius * Math.sin(spiralAngle)) + noiseY
-        
-        // 경계 체크 (10% ~ 90% 범위 내로 제한)
-        x = Math.max(10, Math.min(90, x))
-        y = Math.max(10, Math.min(90, y))
+        setKeywordCloud(keywordCloudData)
+      } catch (error) {
+        console.error('[MyPage] Error generating keyword cloud:', error)
+        // 에러 발생 시 폴백: 스파이럴 배치
+        const sortedKeywords = [...normalizedKeywords].sort((a, b) => b.length - a.length)
+        const keywordCloudData = sortedKeywords.map((keyword, idx) => {
+          const baseSize = 48 - (idx * 2)
+          const size = Math.max(16, Math.min(48, baseSize))
+          const color = colors[idx % colors.length]
+          const shape = shapes[idx % shapes.length]
+          const angle = idx * 0.5
+          const radius = 15 + (idx * 2.5)
+          return {
+            text: keyword,
+            size,
+            color,
+            x: 50 + (radius * Math.cos(angle)),
+            y: 50 + (radius * Math.sin(angle)),
+            shape: shape.name,
+            clipPath: shape.clipPath
+          }
+        })
+        setKeywordCloud(keywordCloudData)
+      } finally {
+        setIsLoadingKeywordEmbeddings(false)
       }
-      
-      return {
-        text: keyword,
-        size,
-        color,
-        x,
-        y,
-        shape: shape.name,
-        clipPath: shape.clipPath
-      }
-    })
-    
-    setKeywordCloud(keywordCloudData)
+    } else {
+      setKeywordCloud([])
+    }
 
     localStorage.setItem('travelPreferences', JSON.stringify(normalizedPreferences))
     localStorage.setItem('travelKeywords', JSON.stringify(normalizedKeywords))
@@ -448,27 +565,29 @@ function MyPage() {
   }, [])
 
   useEffect(() => {
-    try {
-      const storedPrefs = JSON.parse(localStorage.getItem('travelPreferences') || '[]')
-      const storedKeywords = JSON.parse(localStorage.getItem('travelKeywords') || '[]')
-      if ((storedPrefs && storedPrefs.length) || (storedKeywords && storedKeywords.length)) {
-        applyPreferenceState(storedPrefs, storedKeywords)
-      } else {
-        applyPreferenceState([], [])
+    const loadFromLocalStorage = async () => {
+      try {
+        const storedPrefs = JSON.parse(localStorage.getItem('travelPreferences') || '[]')
+        const storedKeywords = JSON.parse(localStorage.getItem('travelKeywords') || '[]')
+        if ((storedPrefs && storedPrefs.length) || (storedKeywords && storedKeywords.length)) {
+          await applyPreferenceState(storedPrefs, storedKeywords)
+        } else {
+          await applyPreferenceState([], [])
+        }
+      } catch {
+        await applyPreferenceState([], [])
       }
-    } catch {
-      applyPreferenceState([], [])
     }
+    loadFromLocalStorage()
   }, [])
 
   useEffect(() => {
-    const token = getToken()
-    if (!token) {
-      setPreferencesError('로그인이 필요합니다.')
-      return
-    }
-    
     const loadPreferences = async () => {
+      const token = getToken()
+      if (!token) {
+        setPreferencesError('로그인이 필요합니다.')
+        return
+      }
       setIsLoadingPreferences(true)
       setPreferencesError('')
       
@@ -476,7 +595,7 @@ function MyPage() {
         const result = await fetchTravelPreferences()
         const preferences = result.preference_ids || result.preferences || []
         const keywords = result.keywords || []
-        applyPreferenceState(preferences, keywords)
+        await applyPreferenceState(preferences, keywords)
         setPreferencesError('')
       } catch (error) {
         console.error('[MyPage] Failed to load travel preferences:', error)
@@ -486,7 +605,7 @@ function MyPage() {
           const storedPrefs = JSON.parse(localStorage.getItem('travelPreferences') || '[]')
           const storedKeywords = JSON.parse(localStorage.getItem('travelKeywords') || '[]')
           if (storedPrefs.length > 0 || storedKeywords.length > 0) {
-            applyPreferenceState(storedPrefs, storedKeywords)
+            await applyPreferenceState(storedPrefs, storedKeywords)
           }
         } catch (e) {
           console.error('[MyPage] Failed to load from localStorage:', e)
@@ -672,7 +791,7 @@ function MyPage() {
       const result = await saveTravelPreferences(preferences, keywords)
       const updatedPreferences = result.preference_ids || preferences
       const updatedKeywords = result.keywords || keywords
-      applyPreferenceState(updatedPreferences, updatedKeywords)
+      await applyPreferenceState(updatedPreferences, updatedKeywords)
       onClose()
     } catch (error) {
       console.error('[MyPage] Failed to save preferences:', error)
@@ -1095,13 +1214,13 @@ function MyPage() {
                       width: '100%'
                     }}
                   >
-                    {keywordCloud.length === 0 && !isLoadingPreferences ? (
+                    {keywordCloud.length === 0 && !isLoadingPreferences && !isLoadingKeywordEmbeddings ? (
                       <div className="text-white/60 text-center py-8" style={{ fontSize: '14px' }}>
                         키워드 데이터가 없습니다. 설정에서 키워드를 선택해주세요.
                       </div>
-                    ) : keywordCloud.length === 0 && isLoadingPreferences ? (
+                    ) : (keywordCloud.length === 0 && (isLoadingPreferences || isLoadingKeywordEmbeddings)) ? (
                       <div className="text-white/60 text-center py-8" style={{ fontSize: '14px' }}>
-                        로딩 중...
+                        키워드 클라우드 생성 중...
                       </div>
                     ) : (
                       keywordCloud.map(({ text, size, color, x, y, clipPath }, idx) => (
