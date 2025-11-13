@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
-import VideoCard from './VideoCard'
 import AppLayout from './layouts/AppLayout'
+import MainRecommendationSection from './recommend/MainRecommendationSection'
+import ThemeRecommendationSection from './recommend/ThemeRecommendationSection'
+import useThemeVideos from '../hooks/useThemeVideos'
 import { getPersonalizedRecommendations, getRecommendedVideos, getTrendVideos, getMostLikedVideos, getAllVideos, getDiversifiedVideos } from '../api/videos'
 
 function RecommendedVideos() {
@@ -8,6 +10,10 @@ function RecommendedVideos() {
   const [recommendedVideos, setRecommendedVideos] = useState([])
   const [usePersonalized, setUsePersonalized] = useState(true)
   const [error, setError] = useState(null)
+  const [userName, setUserName] = useState('')
+  
+  // 테마별 비디오 데이터 가져오기
+  const { themes, loading: themesLoading } = useThemeVideos()
 
   // API에서 실제 데이터 가져오기 (useCallback으로 메모이제이션)
   const fetchVideos = useCallback(async () => {
@@ -134,6 +140,14 @@ function RecommendedVideos() {
     fetchVideos()
   }, [fetchVideos])
 
+  // 사용자 이름 가져오기
+  useEffect(() => {
+    const storedName = localStorage.getItem('userName')
+    if (storedName) {
+      setUserName(storedName)
+    }
+  }, [])
+
   return (
     <AppLayout>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -159,43 +173,24 @@ function RecommendedVideos() {
               color: 'rgba(255, 255, 255, 0.9)'
             }}
           >
-            AI가 분석하여 선별한 맞춤 여행 영상을 확인하세요.
+            AI가 당신의 취향을 분석하여 선별한 맞춤 여행 영상을 확인하세요.
           </p>
         </div>
 
-        {/* Video Grid */}
-        {loading ? (
-          <div className="text-center py-12">
-            <div className="text-blue-300 animate-pulse">데이터를 불러오는 중...</div>
-            <div className="text-blue-200 text-sm mt-2">잠시만 기다려주세요...</div>
-          </div>
-        ) : error ? (
-          <div className="text-center py-12">
-            <div className="text-red-400 mb-4">{error}</div>
-            <button 
-              onClick={fetchVideos}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-            >
-              다시 시도
-            </button>
-          </div>
-        ) : recommendedVideos.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="text-blue-300 text-lg mb-2">추천 영상이 없습니다.</div>
-            <div className="text-blue-200 text-sm">데이터를 불러오는 중 문제가 발생했습니다.</div>
-            <button 
-              onClick={fetchVideos}
-              className="mt-4 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-            >
-              다시 시도
-            </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-3 gap-6">
-            {recommendedVideos.slice(0, 6).map((video) => (
-              <VideoCard key={video.id} video={video} featured />
-            ))}
-          </div>
+        {/* 메인 추천 섹션 */}
+        <MainRecommendationSection 
+          videos={recommendedVideos}
+          loading={loading}
+          error={error}
+          onRetry={fetchVideos}
+        />
+
+        {/* 테마별 추천 섹션 */}
+        {!loading && !error && recommendedVideos.length > 0 && (
+          <ThemeRecommendationSection 
+            themes={themes}
+            userName={userName}
+          />
         )}
       </div>
     </AppLayout>
