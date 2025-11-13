@@ -1419,7 +1419,6 @@ function MyPage() {
             ))}
           </div>
         )}
-      </main>
 
       {/* Profile Edit Modal */}
       {isEditModalOpen && (

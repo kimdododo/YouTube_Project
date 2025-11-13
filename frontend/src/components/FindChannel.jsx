@@ -301,6 +301,7 @@ function FindChannel() {
             </div>
           )}
         </section>
+      </div>
 
       {/* AI 리뷰 요약 모달 */}
       <AIReviewModal
