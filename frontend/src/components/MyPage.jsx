@@ -14,8 +14,8 @@ import { Pie } from 'react-chartjs-2'
 
 ChartJS.register(ArcElement, Tooltip, Legend)
 
-const DEFAULT_PREFERENCE_SUMMARY = '도시탐험형, 맛집탐방형, 자연힐링형'
-const DEFAULT_KEYWORD_SUMMARY = '#카페투어, #혼자여행, #호캉스, #자유여행'
+const DEFAULT_PREFERENCE_SUMMARY = ''
+const DEFAULT_KEYWORD_SUMMARY = ''
 
 const TRAVEL_PREFERENCE_LABELS = {
   1: '자연힐링형',
@@ -50,18 +50,12 @@ function MyPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [activeTab, setActiveTab] = useState('insight')
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-  const [userName, setUserName] = useState(localStorage.getItem('userName') || '떡볶이')
-  const [userEmail, setUserEmail] = useState(localStorage.getItem('userEmail') || 'travel@example.com')
+  const [userName, setUserName] = useState(localStorage.getItem('userName') || '')
+  const [userEmail, setUserEmail] = useState(localStorage.getItem('userEmail') || '')
   const [editName, setEditName] = useState(userName)
   const [editEmail, setEditEmail] = useState(userEmail)
   const [bookmarks, setBookmarks] = useState([])
-  const [preferenceScores, setPreferenceScores] = useState([
-    { key: '맛집탐방형', value: 83 },
-    { key: '도시탐험형', value: 52 },
-    { key: '문화체험형', value: 42 },
-    { key: '자연힐링형', value: 38 },
-    { key: '액티비티형', value: 28 }
-  ])
+  const [preferenceScores, setPreferenceScores] = useState([])
   const [watchHistory, setWatchHistory] = useState([])
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
   const [historyError, setHistoryError] = useState('')
@@ -89,45 +83,7 @@ function MyPage() {
     error: ''
   })
 
-  const keywordCloud = useMemo(() => ([
-    // 큰 키워드 (가장 중요)
-    { text: '카페투어', size: 48, color: '#F9FAFB' },
-    { text: '미슐랭', size: 36, color: '#A5B4FC' },
-    { text: '디저트', size: 34, color: '#F9A8D4' },
-    { text: '한식', size: 38, color: '#FBBF24' },
-    { text: '포토존', size: 32, color: '#E0E7FF' },
-    { text: '트렌디', size: 30, color: '#FB7185' },
-    { text: '사진스팟', size: 32, color: '#F87171' },
-    // 중간 키워드
-    { text: '로컬맛집', size: 28, color: '#BFDBFE' },
-    { text: '브런치', size: 26, color: '#FCD34D' },
-    { text: '거리', size: 24, color: '#FCA5A5' },
-    { text: '숨은식당', size: 26, color: '#38BDF8' },
-    { text: '이국적', size: 25, color: '#FDBA74' },
-    { text: '숲속', size: 22, color: '#67E8F9' },
-    { text: '캠핑', size: 22, color: '#38BDF8' },
-    { text: '일몰', size: 23, color: '#FCD34D' },
-    { text: '바람', size: 21, color: '#93C5FD' },
-    { text: '서핑', size: 24, color: '#60A5FA' },
-    { text: '역동적', size: 23, color: '#F87171' },
-    { text: '트래킹', size: 22, color: '#4ADE80' },
-    { text: '야경', size: 24, color: '#A855F7' },
-    { text: '생동감', size: 23, color: '#FACC15' },
-    { text: '스쿠버다이빙', size: 20, color: '#38BDF8' },
-    { text: '감성', size: 22, color: '#F5D0FE' },
-    { text: '신메뉴', size: 24, color: '#FCA5A5' },
-    { text: '챌린지', size: 21, color: '#FB7185' },
-    { text: '자연', size: 23, color: '#67E8F9' },
-    { text: '로컬', size: 22, color: '#60A5FA' },
-    { text: '등산', size: 21, color: '#4ADE80' },
-    { text: '전시', size: 24, color: '#C4B5FD' },
-    { text: '한입', size: 23, color: '#FDE68A' },
-    { text: '건축', size: 22, color: '#93C5FD' },
-    { text: '여유', size: 21, color: '#F9A8D4' },
-    { text: '모험심', size: 20, color: '#FDBA74' },
-    { text: '카페거리', size: 19, color: '#E0E7FF' },
-    { text: '평온', size: 20, color: '#BFDBFE' }
-  ]), [])
+  const [keywordCloud, setKeywordCloud] = useState([])
   const preferenceOptions = useMemo(
     () => Object.entries(TRAVEL_PREFERENCE_LABELS).map(([id, label]) => ({ id: Number(id), label })),
     []
@@ -144,13 +100,7 @@ function MyPage() {
     ],
     []
   )
-  const contentPreferenceData = useMemo(() => ([
-    { label: '여행브이로그', value: 35, color: '#FACC15' },
-    { label: '맛집리뷰', value: 25, color: '#F87171' },
-    { label: '액티비티 체험', value: 18, color: '#38BDF8' },
-    { label: '문화 탐험', value: 12, color: '#4ADE80' },
-    { label: '호캉스', value: 10, color: '#A855F7' }
-  ]), [])
+  const [contentPreferenceData, setContentPreferenceData] = useState([])
 
   const pieChartData = useMemo(() => ({
     labels: contentPreferenceData.map(item => item.label),
@@ -194,18 +144,39 @@ function MyPage() {
   }), [])
 
   const computePreferenceScores = (preferenceIds = []) => {
-    const base = {
-      '맛집탐방형': 30,
-      '도시탐험형': 20,
-      '문화체험형': 15,
-      '자연힐링형': 15,
-      '액티비티형': 10
+    if (!preferenceIds || preferenceIds.length === 0) {
+      return []
     }
-    const bonus = (preferenceIds?.length || 0) * 5
-    return Object.entries(base).map(([key, baseValue], idx) => ({
-      key,
-      value: Math.min(95, baseValue + (idx === 0 ? bonus + 20 : bonus))
-    }))
+    
+    // 실제 preference_ids를 기반으로 점수 계산
+    const preferenceMap = {
+      1: { key: '자연힐링형', baseValue: 20 },
+      2: { key: '도시탐험형', baseValue: 20 },
+      3: { key: '액티비티형', baseValue: 15 },
+      4: { key: '문화체험형', baseValue: 15 },
+      5: { key: '럭셔리형', baseValue: 10 },
+      6: { key: '맛집탐방형', baseValue: 25 },
+      7: { key: '로맨틱형', baseValue: 10 },
+      8: { key: '사진명소형', baseValue: 15 },
+      9: { key: '자기계발형', baseValue: 10 },
+      10: { key: '가족친구형', baseValue: 10 },
+      11: { key: '에코형', baseValue: 10 }
+    }
+    
+    // 선택된 preference_ids에 해당하는 항목만 반환
+    const scores = preferenceIds
+      .map((id) => {
+        const pref = preferenceMap[id]
+        if (!pref) return null
+        return {
+          key: pref.key,
+          value: Math.min(95, pref.baseValue + (preferenceIds.length * 5))
+        }
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.value - a.value) // 값이 큰 순서로 정렬
+    
+    return scores
   }
 
   const formatPreferenceSummary = (preferenceIds = []) => {
@@ -250,13 +221,36 @@ function MyPage() {
           .map((key) => (key || '').toString().trim())
           .filter(Boolean)
       )
-    ).slice(0, 5)
+    )
 
     setPreferenceScores(computePreferenceScores(normalizedPreferences))
     setTravelPreferenceSummary(formatPreferenceSummary(normalizedPreferences))
     setTravelKeywordSummary(formatKeywordSummary(normalizedKeywords))
     setSelectedPreferences(normalizedPreferences)
     setSelectedKeywords(normalizedKeywords)
+
+    // 키워드 클라우드 생성 (실제 키워드 데이터 사용)
+    const colors = [
+      '#F9FAFB', '#A5B4FC', '#F9A8D4', '#FBBF24', '#E0E7FF',
+      '#FB7185', '#F87171', '#BFDBFE', '#FCD34D', '#FCA5A5',
+      '#38BDF8', '#FDBA74', '#67E8F9', '#60A5FA', '#4ADE80',
+      '#A855F7', '#FACC15', '#F5D0FE', '#C4B5FD', '#FDE68A',
+      '#93C5FD', '#BFDBFE'
+    ]
+    
+    const keywordCloudData = normalizedKeywords.map((keyword, idx) => {
+      // 키워드 개수에 따라 크기 조정 (첫 번째가 가장 크고 점점 작아짐)
+      const baseSize = 48 - (idx * 2)
+      const size = Math.max(16, Math.min(48, baseSize))
+      const color = colors[idx % colors.length]
+      return {
+        text: keyword,
+        size,
+        color
+      }
+    })
+    
+    setKeywordCloud(keywordCloudData)
 
     localStorage.setItem('travelPreferences', JSON.stringify(normalizedPreferences))
     localStorage.setItem('travelKeywords', JSON.stringify(normalizedKeywords))
