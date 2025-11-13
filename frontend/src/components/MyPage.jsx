@@ -334,18 +334,27 @@ function MyPage() {
     // y = 13cos(t) - 5cos(2t) - 2cos(3t) - cos(4t)
     const numPoints = keywords.length
     
-    // 1단계: 하트 모양 경계 내에서 초기 위치 생성
+    // 1단계: 하트 모양 내부에 균등하게 분산 배치
     const initialPositions = keywords.map((keyword, idx) => {
-      // 하트 모양 내부의 균등 분포
+      // 하트 모양 내부의 균등 분포 (경계선이 아닌 내부 영역)
       const t = (idx / numPoints) * Math.PI * 2
+      const scale = 0.6 + (Math.random() * 0.3) // 하트 모양 내부에 랜덤하게 분산 (60-90%)
       
       // 하트 모양 좌표 (정규화)
-      let x = 16 * Math.pow(Math.sin(t), 3)
-      let y = -(13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t))
+      let x = 16 * Math.pow(Math.sin(t), 3) * scale
+      let y = -(13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t)) * scale
       
       // 하트 모양을 0-100 범위로 정규화
       x = (x + 16) / 32 * 80 + 10  // x: 10-90
       y = (y + 13) / 26 * 70 + 15  // y: 15-85
+      
+      // 중앙에 약간의 랜덤 오프셋 추가 (더 자연스러운 분산)
+      x += (Math.random() - 0.5) * 5
+      y += (Math.random() - 0.5) * 5
+      
+      // 경계 체크
+      x = Math.max(15, Math.min(85, x))
+      y = Math.max(20, Math.min(80, y))
       
       return { x, y }
     })
@@ -528,10 +537,13 @@ function MyPage() {
       // 키워드를 크기별로 정렬 (큰 것부터)
       const sortedKeywords = [...normalizedKeywords].sort((a, b) => b.length - a.length)
       
-      // 하트 모양 clip-path (정확한 하트 모양)
-      const heartClipPath = 'polygon(50% 0%, 61% 12%, 100% 12%, 100% 32%, 88% 52%, 50% 100%, 12% 52%, 0% 32%, 0% 12%, 39% 12%)'
+      // 하트 모양 clip-path (더 정확한 하트 모양)
+      const heartClipPath = 'polygon(50% 0%, 61% 10%, 100% 10%, 100% 30%, 88% 50%, 50% 100%, 12% 50%, 0% 30%, 0% 10%, 39% 10%)'
       
       const keywordCloudData = sortedKeywords.map((keyword, idx) => {
+        // 키워드 ID를 한글 라벨로 변환
+        const keywordLabel = TRAVEL_KEYWORD_LABELS[keyword] || keyword
+        
         // 키워드 개수에 따라 크기 조정 (첫 번째가 가장 크고 점점 작아짐)
         const baseSize = 48 - (idx * 2)
         const size = Math.max(18, Math.min(48, baseSize))
@@ -541,7 +553,7 @@ function MyPage() {
         const pos = positions[idx] || { x: 50, y: 50 }
         
         return {
-          text: keyword,
+          text: keywordLabel,
           size,
           color,
           x: pos.x,
@@ -1324,13 +1336,15 @@ function MyPage() {
                             transition: 'all 0.3s ease',
                             cursor: 'default',
                             zIndex: keywordCloud.length - idx,
-                            padding: '8px 16px',
+                            padding: '10px 18px',
                             background: `linear-gradient(135deg, ${color} 0%, ${color}dd 100%)`,
                             clipPath: clipPath,
                             WebkitClipPath: clipPath,
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
+                            minWidth: 'fit-content',
+                            minHeight: 'fit-content',
                             textShadow: '0 2px 4px rgba(0, 0, 0, 0.3)',
                             boxShadow: `0 4px 12px ${color}40, inset 0 1px 0 rgba(255, 255, 255, 0.2)`,
                             border: `1px solid ${color}80`
