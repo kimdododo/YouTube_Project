@@ -29,6 +29,7 @@ function RecommendedVideos() {
   // API에서 실제 데이터 가져오기
   useEffect(() => {
     fetchVideos()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [usePersonalized])
 
   const fetchVideos = async () => {
@@ -326,7 +327,7 @@ function RecommendedVideos() {
               color: 'rgba(255, 255, 255, 0.9)'
             }}
           >
-            AI가 당신의 취향을 분석하여 선별한 맞춤 여행 영상을 확인하세요.
+            AI가 분석하여 선별한 맞춤 여행 영상을 확인하세요.
           </p>
         </div>
 
