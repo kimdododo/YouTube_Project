@@ -475,3 +475,59 @@ export const getAllVideos = async (skip = 0, limit = 100) => {
   }
 }
 
+/**
+ * 영상의 키워드 분석 결과 조회
+ * 영상의 텍스트(title/description)를 기반으로 임베딩을 생성하고,
+ * keyword_pool과 코사인 유사도로 상위 Top-K 키워드를 계산하여 반환
+ * 
+ * @param {string} videoId - YouTube 비디오 ID
+ * @param {number} topK - 반환할 상위 키워드 개수 (기본값: 7, 최대: 20)
+ * @returns {Promise<Array<{keyword: string, score: number}>>} 키워드 리스트
+ * @example
+ * const keywords = await fetchVideoKeywords('dQw4w9WgXcQ', 7)
+ * // Returns: [{ keyword: "힐링", score: 0.91 }, { keyword: "바다", score: 0.87 }, ...]
+ */
+export const fetchVideoKeywords = async (videoId, topK = 7) => {
+  try {
+    if (!videoId || typeof videoId !== 'string') {
+      throw new Error('Invalid video ID')
+    }
+    
+    console.log(`[videos.js] Fetching keywords for video: ${videoId}`)
+    
+    // 타임아웃 추가 (60초 - 임베딩 계산에 시간이 걸릴 수 있음)
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 60000)
+    
+    const response = await fetch(
+      `${API_BASE_URL}/videos/${encodeURIComponent(videoId)}/keywords?top_k=${topK}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        signal: controller.signal,
+      }
+    )
+    
+    clearTimeout(timeoutId)
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }))
+      throw new Error(errorData.detail || `HTTP error! status: ${response.status}`)
+    }
+    
+    const keywords = await response.json()
+    console.log(`[videos.js] Fetched ${keywords.length} keywords for video ${videoId}`)
+    
+    return keywords
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      console.error('[videos.js] Request timeout while fetching keywords')
+      throw new Error('요청 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.')
+    }
+    console.error('[videos.js] Error fetching video keywords:', error?.message || error)
+    throw error
+  }
+}
+

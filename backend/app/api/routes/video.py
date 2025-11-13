@@ -471,3 +471,79 @@ def get_video(video_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Video not found")
     return VideoResponse.model_validate(db_video)
 
+
+@router.get("/{video_id}/keywords")
+def get_video_keywords(
+    video_id: str,
+    top_k: int = Query(7, ge=1, le=20, description="반환할 상위 키워드 개수"),
+    db: Session = Depends(get_db)
+):
+    """
+    영상의 텍스트(title/description/comments)를 기반으로 임베딩을 생성하고,
+    keyword_pool과 코사인 유사도로 상위 Top-K 키워드를 계산하여 반환
+    
+    Args:
+        video_id: YouTube 비디오 ID
+        top_k: 반환할 상위 키워드 개수 (기본값: 7, 최대: 20)
+        db: 데이터베이스 세션
+    
+    Returns:
+        List[Dict[str, float]]: [{"keyword": "힐링", "score": 0.91}, ...] 형식의 리스트
+    """
+    import traceback
+    from app.services.embeddings import compute_keyword_similarities
+    
+    try:
+        # 1. 비디오 정보 조회
+        db_video = crud_video.get_video(db, video_id=video_id)
+        if db_video is None:
+            raise HTTPException(status_code=404, detail="Video not found")
+        
+        # 2. 텍스트 데이터 수집 (title + description)
+        text_parts = []
+        
+        # 제목 추가
+        if db_video.title:
+            text_parts.append(db_video.title)
+        
+        # 설명 추가
+        if db_video.description:
+            text_parts.append(db_video.description)
+        
+        # 댓글은 선택적으로 추가 (travel_comments 테이블에서 조회)
+        # 현재는 댓글 조회 기능이 없으므로 title + description만 사용
+        # 필요시 아래 주석을 해제하고 댓글 조회 로직 추가 가능
+        # try:
+        #     from sqlalchemy import text
+        #     comments_query = text("""
+        #         SELECT text FROM travel_comments 
+        #         WHERE video_id = :video_id 
+        #         ORDER BY like_count DESC 
+        #         LIMIT 10
+        #     """)
+        #     comments_result = db.execute(comments_query, {"video_id": video_id})
+        #     comments = [row[0] for row in comments_result if row[0]]
+        #     if comments:
+        #         text_parts.extend(comments[:10])  # 상위 10개 댓글만 사용
+        # except Exception as e:
+        #     print(f"[WARN] Failed to fetch comments: {e}")
+        
+        # 3. 텍스트 결합
+        combined_text = " ".join(text_parts)
+        
+        if not combined_text.strip():
+            # 텍스트가 없으면 빈 리스트 반환
+            return []
+        
+        # 4. 키워드 유사도 계산
+        keywords = compute_keyword_similarities(combined_text, top_k=top_k)
+        
+        return keywords
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        error_trace = traceback.format_exc()
+        print(f"[ERROR] Error in get_video_keywords: {str(e)}")
+        print(f"[ERROR] Traceback: {error_trace}")
+        raise HTTPException(status_code=500, detail=f"Error computing video keywords: {str(e)}")
