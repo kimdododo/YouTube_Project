@@ -316,10 +316,10 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
         print(f"[DEBUG] Creating user: {payload.username}")
         try:
             user = create_user(
-                db, 
-                payload.username, 
-                payload.email, 
-                payload.password, 
+                db,
+                payload.username,
+                payload.email,
+                payload.password,
                 is_verified=False
             )
         except ValueError as ve:

@@ -194,8 +194,7 @@ jobs:
               --set-env-vars="DB_NAME=yt,DB_USER=yt,DB_PORT=3306,DB_HOST=/cloudsql/${{ env.PROJECT_ID }}:asia-northeast3:youtube,JWT_ALGO=HS256,JWT_ACCESS_MINUTES=60,SMTP_HOST=smtp.gmail.com,SMTP_PORT=587,SMTP_USERNAME=hyunggn68@gmail.com,SMTP_FROM_EMAIL=hyunggn68@gmail.com,SMTP_FROM_NAME=여유,EMAIL_VERIFICATION_CODE_EXPIRY_MINUTES=3,EMAIL_VERIFICATION_CODE_LENGTH=6,EMAIL_VERIFICATION_MAX_ATTEMPTS=5" \
               --set-secrets="DB_PASSWORD=db-password:latest,JWT_SECRET=jwt-secret:latest,SMTP_PASSWORD=smtp-password:latest" \
               --cpu-boost \
-              --execution-environment gen2 \
-              --startup-timeout 600
+              --execution-environment gen2
           else
             echo "Updating existing Cloud Run service..."
             gcloud run deploy ${{ env.SERVICE_NAME }} \
