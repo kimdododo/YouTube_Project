@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { User, Settings, Camera, Edit3, Clock, Bookmark } from 'lucide-react'
+import { User, Settings, Camera, Edit3, Clock, Bookmark, Search } from 'lucide-react'
 import Logo from '../Logo'
 import { getCurrentUser, getToken } from '../../api/auth'
 
@@ -101,51 +101,60 @@ function MyPageLayout({ children, activeTab, setActiveTab }) {
                 여유
               </span>
             </Link>
-            <nav className="hidden md:flex items-center space-x-6" style={{ fontFamily: 'Arial, sans-serif' }}>
-              <Link 
-                to="/recommendedVideos" 
-                className="font-bold leading-6 text-blue-300"
+            <nav className="flex items-center space-x-4 sm:space-x-6" style={{ fontFamily: 'Arial, sans-serif' }}>
+              {/* 돋보기 아이콘 (채널 찾기) */}
+              <Link
+                to="/find-channel"
+                className={`text-blue-300 hover:text-white transition-colors flex-shrink-0 ${location.pathname === '/find-channel' ? 'text-white' : 'text-blue-300'}`}
                 style={{ 
                   fontSize: '16px',
                   lineHeight: '24px',
                   fontFamily: 'Arial, sans-serif'
                 }}
+                aria-label="채널 찾기"
               >
-                개인 맞춤 영상 추천
+                <Search className="w-5 h-5" />
               </Link>
-              <Link 
-                to="/find-channel" 
-                className="font-bold leading-6 text-blue-300"
-                style={{ 
-                  fontSize: '16px',
-                  lineHeight: '24px',
-                  fontFamily: 'Arial, sans-serif'
-                }}
-              >
-                채널 찾기
-              </Link>
+              
+              {/* 여행 트렌드 */}
               <Link 
                 to="/travel-trends" 
-                className="font-bold leading-6 text-blue-300"
+                className={`font-bold leading-6 whitespace-nowrap ${location.pathname === '/travel-trends' ? 'text-white' : 'text-blue-300'}`}
                 style={{ 
-                  fontSize: '16px',
+                  fontSize: '14px',
                   lineHeight: '24px',
                   fontFamily: 'Arial, sans-serif'
                 }}
               >
                 여행 트렌드
               </Link>
+              
+              {/* 개인 맞춤 영상 추천 */}
               <Link 
-                to="/mypage" 
-                className="font-bold leading-6 flex items-center text-white"
+                to="/recommendedVideos" 
+                className={`font-bold leading-6 whitespace-nowrap ${location.pathname === '/recommendedVideos' ? 'text-white' : 'text-blue-300'}`}
                 style={{ 
-                  fontSize: '16px',
+                  fontSize: '14px',
                   lineHeight: '24px',
                   fontFamily: 'Arial, sans-serif'
                 }}
               >
-                <User className="w-4 h-4 mr-1" />
-                마이페이지
+                개인 맞춤 영상 추천
+              </Link>
+              
+              {/* 마이페이지 */}
+              <Link 
+                to="/mypage" 
+                className={`font-bold leading-6 flex items-center whitespace-nowrap ${location.pathname === '/mypage' ? 'text-white' : 'text-blue-300'}`}
+                style={{ 
+                  fontSize: '14px',
+                  lineHeight: '24px',
+                  fontFamily: 'Arial, sans-serif'
+                }}
+              >
+                <User className="w-4 h-4 mr-1 flex-shrink-0" />
+                <span className="hidden sm:inline">마이페이지</span>
+                <span className="sm:hidden">마이</span>
               </Link>
             </nav>
           </div>

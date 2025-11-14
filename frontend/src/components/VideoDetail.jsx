@@ -72,9 +72,19 @@ function VideoDetail() {
       if (response.ok) {
         const data = await response.json()
         setComments(Array.isArray(data) ? data : (data.comments || []))
+      } else if (response.status === 404) {
+        // 댓글 API가 없는 경우 빈 배열로 설정 (에러 로그 없이 조용히 처리)
+        console.log('[VideoDetail] Comments API not available, using empty array')
+        setComments([])
+      } else {
+        // 다른 에러의 경우에만 로그 출력
+        console.warn('[VideoDetail] Failed to fetch comments:', response.status, response.statusText)
+        setComments([])
       }
     } catch (err) {
-      console.error('[VideoDetail] Failed to fetch comments:', err)
+      // 네트워크 에러 등은 조용히 처리
+      console.log('[VideoDetail] Comments API unavailable:', err.message)
+      setComments([])
     }
   }
 
@@ -338,6 +348,32 @@ function VideoDetail() {
         <div className="mb-12">
           <h2 className="text-2xl font-bold text-white mb-6">댓글 분석</h2>
           
+          {/* 긍정/부정 비율 바 */}
+          <div className="mb-6">
+            <div className="w-full h-10 bg-[#0b1026] rounded-lg border border-blue-900/40 overflow-hidden relative flex">
+              <div
+                className="h-full bg-gradient-to-r from-blue-600 to-blue-500 flex items-center justify-center"
+                style={{ 
+                  width: `${commentAnalysis.positive > 0 ? commentAnalysis.positive : (comments.length > 0 ? 92 : 0)}%` 
+                }}
+              >
+                <span className="text-white text-sm font-bold">
+                  긍정 댓글 {commentAnalysis.positive > 0 ? commentAnalysis.positive : (comments.length > 0 ? 92 : 0)}%
+                </span>
+              </div>
+              <div
+                className="h-full bg-gradient-to-r from-red-600 to-red-500 flex items-center justify-center"
+                style={{ 
+                  width: `${commentAnalysis.negative > 0 ? commentAnalysis.negative : (comments.length > 0 ? 8 : 0)}%` 
+                }}
+              >
+                <span className="text-white text-sm font-bold">
+                  부정 댓글 {commentAnalysis.negative > 0 ? commentAnalysis.negative : (comments.length > 0 ? 8 : 0)}%
+                </span>
+              </div>
+            </div>
+          </div>
+          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             {/* 긍정 댓글 카드 */}
             <div 
@@ -347,12 +383,7 @@ function VideoDetail() {
                 boxShadow: '0 0 20px rgba(59, 130, 246, 0.3)'
               }}
             >
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-white font-bold text-lg">긍정 댓글</h3>
-                <span className="text-blue-300 font-bold text-xl">
-                  {commentAnalysis.positive > 0 ? commentAnalysis.positive : (comments.length > 0 ? 92 : 0)}%
-                </span>
-              </div>
+              <h3 className="text-white font-bold text-lg mb-4">긍정 댓글</h3>
               <ul className="space-y-2">
                 {commentAnalysis.positivePoints.length > 0 ? (
                   commentAnalysis.positivePoints.map((point, idx) => (
@@ -392,12 +423,7 @@ function VideoDetail() {
                 boxShadow: '0 0 20px rgba(239, 68, 68, 0.3)'
               }}
             >
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-white font-bold text-lg">부정 댓글</h3>
-                <span className="text-red-300 font-bold text-xl">
-                  {commentAnalysis.negative > 0 ? commentAnalysis.negative : (comments.length > 0 ? 8 : 0)}%
-                </span>
-              </div>
+              <h3 className="text-white font-bold text-lg mb-4">부정 댓글</h3>
               <ul className="space-y-2">
                 {commentAnalysis.negativePoints.length > 0 ? (
                   commentAnalysis.negativePoints.map((point, idx) => (
@@ -443,13 +469,13 @@ function VideoDetail() {
               ) : (
                 <>
                   <p className="text-white/90 text-sm leading-relaxed">
-                    전반적으로 높은 만족도를 보이고 있어요. 실용적인 정보와 현지 분위기를 잘 담아낸 영상에 대한 긍정적인 피드백이 많아요.
+                    실용적인 여행 정보와 현지 분위기가 잘 담긴 영상으로 높은 만족도를 보이고 있어요.
                   </p>
                   <p className="text-white/90 text-sm leading-relaxed">
-                    편집과 설명이 도움이 되었다는 피드백이 많아요. 깔끔한 편집과 친절한 설명이 시청자들에게 좋은 반응을 얻고 있어요.
+                    깔끔한 편집과 친절한 설명이 시청자들에게 큰 도움이 되고 있다는 평가예요.
                   </p>
                   <p className="text-white/90 text-sm leading-relaxed">
-                    광고 빈도에 대한 의견이 있지만 전반적으로 긍정적인 반응이에요. 일부 시청자들은 광고가 많다고 느끼지만, 전체적으로는 만족도가 높아요.
+                    중간 광고 빈도에 대한 아쉬움이 일부 있으나 전반적으로 긍정적인 반응이에요.
                   </p>
                 </>
               )}
