@@ -227,7 +227,8 @@ function VideoCard({ video, simple = false, featured = false, hideBookmark = fal
       <div 
         className="group bg-[#0f1629]/40 backdrop-blur-sm rounded-xl overflow-hidden transition-all duration-300 ease-out hover:-translate-y-3 hover:scale-[1.02] cursor-pointer"
         style={{
-          transform: active ? 'scale(1.02) translateY(-8px)' : 'none'
+          transform: active ? 'scale(1.02) translateY(-8px)' : 'none',
+          border: 'none'
         }}
         onMouseEnter={(e) => {
           if (!active) {

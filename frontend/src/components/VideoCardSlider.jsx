@@ -187,7 +187,9 @@ function VideoCardSlider({ videos, cardWidth = 320, gap = 24, hideBookmark = fal
           height: '280px', 
           userSelect: 'none',
           paddingLeft: paddingValue,
-          paddingRight: paddingValue
+          paddingRight: paddingValue,
+          border: 'none',
+          boxShadow: 'none'
         }}
         onMouseDown={handleMouseDown}
         onTouchStart={handleTouchStart}
