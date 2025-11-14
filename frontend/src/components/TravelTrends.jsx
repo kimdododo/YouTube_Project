@@ -9,6 +9,7 @@ function TravelTrends() {
   const [activePeriod, setActivePeriod] = useState('daily')
   const [activeThemeCategory, setActiveThemeCategory] = useState('all') // 테마별 서브 탭
   const [trendVideos, setTrendVideos] = useState([])
+  const [themeVideos, setThemeVideos] = useState([]) // 테마별 여행지 비디오
   const [loading, setLoading] = useState(true)
 
   // 테마별 카테고리 목록
@@ -20,10 +21,26 @@ function TravelTrends() {
     { id: 'activity', name: '액티비티' }
   ]
 
+  // 테마별 카테고리 키워드 매핑
+  const themeCategoryKeywords = {
+    all: [],
+    food: ['맛집', '음식', '식당', '카페', '디저트', '브런치', '로컬맛집', 'food', 'restaurant', 'cafe'],
+    sightseeing: ['관광', '명소', '여행지', '명승지', '유적', '박물관', 'sightseeing', 'tourist', 'attraction', 'landmark'],
+    relaxation: ['휴양', '힐링', '스파', '리조트', '해변', '온천', 'relaxation', 'healing', 'spa', 'resort', 'beach'],
+    activity: ['액티비티', '스포츠', '레저', '등산', '스키', '다이빙', 'activity', 'sports', 'adventure', 'hiking']
+  }
+
   // 트렌드 비디오 데이터 가져오기
   useEffect(() => {
     fetchTrendVideos()
   }, [])
+
+  // 테마별 여행지 비디오 가져오기 (카테고리 변경 시)
+  useEffect(() => {
+    if (activeTab === 'theme') {
+      fetchThemeCategoryVideos()
+    }
+  }, [activeThemeCategory, activeTab])
 
   const diversifyByChannel = (items, target = 8, maxPerChannel = 1) => {
     if (!items || items.length === 0) return []
@@ -69,6 +86,69 @@ function TravelTrends() {
       console.error('Failed to fetch trend videos:', error)
       // API 실패 시 빈 배열 (더미 데이터 사용 안 함)
       setTrendVideos([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchThemeCategoryVideos = async () => {
+    try {
+      setLoading(true)
+      
+      // 전체 카테고리인 경우
+      if (activeThemeCategory === 'all') {
+        try {
+          const diversifiedServer = await getDiversifiedVideos(100, 1)
+          const diversified = diversifyByChannel(diversifiedServer || [], 8, 1)
+          setThemeVideos(diversified)
+        } catch (_) {
+          const trends = await getTrendVideos()
+          const diversified = diversifyByChannel(trends || [], 8, 1)
+          setThemeVideos(diversified)
+        }
+        return
+      }
+
+      // 특정 카테고리인 경우 키워드로 필터링
+      const keywords = themeCategoryKeywords[activeThemeCategory] || []
+      if (keywords.length === 0) {
+        setThemeVideos([])
+        return
+      }
+
+      // 더 많은 비디오를 가져와서 필터링
+      const allVideos = await getDiversifiedVideos(200, 1)
+      
+      const filteredVideos = allVideos.filter((video) => {
+        const title = (video.title || '').toLowerCase()
+        const description = (video.description || '').toLowerCase()
+        const keyword = (video.keyword || '').toLowerCase()
+        const category = (video.category || '').toLowerCase()
+        
+        return keywords.some((kw) => 
+          title.includes(kw.toLowerCase()) || 
+          description.includes(kw.toLowerCase()) || 
+          keyword.includes(kw.toLowerCase()) ||
+          category.includes(kw.toLowerCase())
+        )
+      })
+
+      // 중복 제거 및 채널 다양화
+      const uniqueVideos = []
+      const seenIds = new Set()
+      for (const video of filteredVideos) {
+        const videoId = video.id || video.video_id
+        if (!seenIds.has(videoId)) {
+          uniqueVideos.push(video)
+          seenIds.add(videoId)
+        }
+      }
+
+      const diversified = diversifyByChannel(uniqueVideos, 8, 1)
+      setThemeVideos(diversified)
+    } catch (error) {
+      console.error('Failed to fetch theme category videos:', error)
+      setThemeVideos([])
     } finally {
       setLoading(false)
     }
@@ -205,7 +285,7 @@ function TravelTrends() {
                 {themeCategories.find(cat => cat.id === activeThemeCategory)?.name || '전체'}
               </span>
               <span className="text-white/70 ml-2">
-                · {trendVideos.length > 0 ? `${trendVideos.length}개의 콘텐츠` : '0개의 콘텐츠'}
+                · {themeVideos.length > 0 ? `${themeVideos.length}개의 콘텐츠` : '0개의 콘텐츠'}
               </span>
             </div>
 
@@ -214,13 +294,13 @@ function TravelTrends() {
               <div className="text-center py-12">
                 <div className="text-blue-300">데이터를 불러오는 중...</div>
               </div>
-            ) : trendVideos.length === 0 ? (
+            ) : themeVideos.length === 0 ? (
               <div className="text-center py-12">
                 <div className="text-blue-300">콘텐츠가 없습니다.</div>
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-6">
-                {trendVideos.slice(0, 8).map((video) => (
+                {themeVideos.slice(0, 8).map((video) => (
                   <VideoCard key={video.id || video.video_id} video={video} featured />
                 ))}
               </div>

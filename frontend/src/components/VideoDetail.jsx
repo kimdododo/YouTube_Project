@@ -111,21 +111,33 @@ function VideoDetail() {
 
   // 댓글 분석 결과 가져오기 (백엔드 API에서 받은 데이터 또는 기본값)
   const getCommentAnalysis = () => {
-    if (commentAnalysis) {
+    // 실제 API 데이터가 있으면 사용
+    if (commentAnalysis && (commentAnalysis.positive > 0 || commentAnalysis.negative > 0)) {
       return commentAnalysis
     }
     
-    // API 데이터가 없을 때 기본값 반환
+    // 댓글이 있지만 분석 데이터가 없는 경우 (로딩 중)
+    if (comments.length > 0) {
+      return {
+        positive: 0,
+        negative: 0,
+        positivePoints: [],
+        negativePoints: [],
+        summary: ['댓글을 분석하는 중입니다...'],
+        totalComments: comments.length,
+        analyzedComments: 0
+      }
+    }
+    
+    // 댓글이 없는 경우
     return {
-      positive: comments.length > 0 ? 92 : 0,
-      negative: comments.length > 0 ? 8 : 0,
-      positivePoints: comments.length > 0 ? ['유익한 정보', '현지 분위기 최고', '편집 깔끔', '친절한 설명'] : [],
-      negativePoints: comments.length > 0 ? ['광고 많음', '영상 길이', '음성 작음', '속도 빠름'] : [],
-      summary: comments.length > 0 ? [
-        '실용적인 여행 정보와 현지 분위기가 잘 담긴 영상으로 높은 만족도를 보이고 있어요.',
-        '깔끔한 편집과 친절한 설명이 시청자들에게 큰 도움이 되고 있다는 평가예요.',
-        '중간 광고 빈도에 대한 아쉬움이 일부 있으나 전반적으로 긍정적인 반응이에요.'
-      ] : []
+      positive: 0,
+      negative: 0,
+      positivePoints: [],
+      negativePoints: [],
+      summary: ['댓글이 없어 분석할 수 없습니다.'],
+      totalComments: 0,
+      analyzedComments: 0
     }
   }
 
@@ -339,58 +351,109 @@ function VideoDetail() {
         </div>
 
         {/* 댓글 분석 섹션 */}
-        <div className="mb-12">
-          <h2 className="text-2xl font-bold text-white mb-6">댓글 분석</h2>
-          
-          {/* 댓글 분석 카드 섹션 - 3열 그리드 */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* 긍정 피드백 카드 */}
-            <div className="bg-[#1a1f3a]/80 backdrop-blur-sm rounded-lg p-6 border border-blue-900/30">
-              <ul className="space-y-2">
-                {analysisResult.positivePoints && analysisResult.positivePoints.length > 0 ? (
-                  analysisResult.positivePoints.map((point, idx) => (
-                    <li key={idx} className="text-white text-sm">
-                      {point}
-                    </li>
-                  ))
-                ) : (
-                  <li className="text-white/60 text-sm">분석 중...</li>
-                )}
-              </ul>
-            </div>
+        {comments.length > 0 && (
+          <div className="mb-12">
+            <h2 className="text-2xl font-bold text-white mb-6">댓글 분석</h2>
+            
+            {/* 긍정/부정 비율 표시 */}
+            {(analysisResult.positive > 0 || analysisResult.negative > 0) && (
+              <div className="bg-[#1a1f3a]/80 backdrop-blur-sm rounded-lg p-6 border border-blue-900/30 mb-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-white font-bold text-lg">댓글 감정 분석</h3>
+                  {analysisResult.totalComments && (
+                    <span className="text-white/60 text-sm">
+                      총 {analysisResult.totalComments}개 댓글 중 {analysisResult.analyzedComments || analysisResult.totalComments}개 분석
+                    </span>
+                  )}
+                </div>
+                
+                {/* 프로그레스 바 */}
+                <div className="space-y-4">
+                  {/* 긍정 댓글 */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-blue-400 font-medium">긍정 댓글</span>
+                      <span className="text-white font-bold">{analysisResult.positive}%</span>
+                    </div>
+                    <div className="w-full bg-gray-700/50 rounded-full h-3 overflow-hidden">
+                      <div 
+                        className="bg-gradient-to-r from-blue-500 to-blue-400 h-full rounded-full transition-all duration-500"
+                        style={{ width: `${analysisResult.positive}%` }}
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* 부정 댓글 */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-red-400 font-medium">부정 댓글</span>
+                      <span className="text-white font-bold">{analysisResult.negative}%</span>
+                    </div>
+                    <div className="w-full bg-gray-700/50 rounded-full h-3 overflow-hidden">
+                      <div 
+                        className="bg-gradient-to-r from-red-500 to-red-400 h-full rounded-full transition-all duration-500"
+                        style={{ width: `${analysisResult.negative}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* 댓글 분석 카드 섹션 - 3열 그리드 */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* 긍정 피드백 카드 */}
+              <div className="bg-[#1a1f3a]/80 backdrop-blur-sm rounded-lg p-6 border border-blue-900/30">
+                <h3 className="text-blue-400 font-bold text-lg mb-4">긍정 피드백</h3>
+                <ul className="space-y-2">
+                  {analysisResult.positivePoints && analysisResult.positivePoints.length > 0 ? (
+                    analysisResult.positivePoints.map((point, idx) => (
+                      <li key={idx} className="text-white text-sm flex items-start">
+                        <span className="text-blue-400 mr-2">✓</span>
+                        <span>{point}</span>
+                      </li>
+                    ))
+                  ) : (
+                    <li className="text-white/60 text-sm">긍정 피드백이 없습니다.</li>
+                  )}
+                </ul>
+              </div>
 
-            {/* 부정 피드백 카드 */}
-            <div className="bg-[#1a1f3a]/80 backdrop-blur-sm rounded-lg p-6 border border-red-900/30">
-              <ul className="space-y-2">
-                {analysisResult.negativePoints && analysisResult.negativePoints.length > 0 ? (
-                  analysisResult.negativePoints.map((point, idx) => (
-                    <li key={idx} className="text-red-300 text-sm">
-                      {point}
-                    </li>
-                  ))
-                ) : (
-                  <li className="text-white/60 text-sm">분석 중...</li>
-                )}
-              </ul>
-            </div>
+              {/* 부정 피드백 카드 */}
+              <div className="bg-[#1a1f3a]/80 backdrop-blur-sm rounded-lg p-6 border border-red-900/30">
+                <h3 className="text-red-400 font-bold text-lg mb-4">부정 피드백</h3>
+                <ul className="space-y-2">
+                  {analysisResult.negativePoints && analysisResult.negativePoints.length > 0 ? (
+                    analysisResult.negativePoints.map((point, idx) => (
+                      <li key={idx} className="text-red-300 text-sm flex items-start">
+                        <span className="text-red-400 mr-2">✗</span>
+                        <span>{point}</span>
+                      </li>
+                    ))
+                  ) : (
+                    <li className="text-white/60 text-sm">부정 피드백이 없습니다.</li>
+                  )}
+                </ul>
+              </div>
 
-            {/* 댓글 3줄 요약 */}
-            <div className="bg-[#1a1f3a]/80 backdrop-blur-sm rounded-lg p-6 border border-blue-900/30">
-              <h3 className="text-white font-bold text-lg mb-4">댓글 3줄 요약</h3>
-              <div className="space-y-3">
-                {analysisResult.summary && analysisResult.summary.length > 0 ? (
-                  analysisResult.summary.map((item, idx) => (
-                    <p key={idx} className="text-white/90 text-sm leading-relaxed">
-                      {item}
-                    </p>
-                  ))
-                ) : (
-                  <p className="text-white/60 text-sm">분석 중...</p>
-                )}
+              {/* 댓글 3줄 요약 */}
+              <div className="bg-[#1a1f3a]/80 backdrop-blur-sm rounded-lg p-6 border border-blue-900/30">
+                <h3 className="text-white font-bold text-lg mb-4">댓글 요약</h3>
+                <div className="space-y-3">
+                  {analysisResult.summary && analysisResult.summary.length > 0 ? (
+                    analysisResult.summary.map((item, idx) => (
+                      <p key={idx} className="text-white/90 text-sm leading-relaxed">
+                        {item}
+                      </p>
+                    ))
+                  ) : (
+                    <p className="text-white/60 text-sm">요약 정보가 없습니다.</p>
+                  )}
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* 추천 영상 섹션 - 무한루프 슬라이더 */}
         {similarVideos.length > 0 && (
