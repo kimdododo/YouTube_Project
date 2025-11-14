@@ -171,10 +171,6 @@ function VideoCardSlider({ videos, cardWidth = 320, gap = 24, hideBookmark = fal
         <button
           onClick={slidePrev}
           className="absolute left-0 top-1/2 -translate-y-1/2 z-20 bg-black/70 hover:bg-black/90 rounded-full p-2 text-white transition-all"
-          style={{
-            border: `1px solid ${borderColor}`,
-            boxShadow: `0 0 8px ${glowColor}`
-          }}
         >
           <ChevronLeft className="w-6 h-6" />
         </button>
@@ -188,9 +184,7 @@ function VideoCardSlider({ videos, cardWidth = 320, gap = 24, hideBookmark = fal
           height: '280px', 
           userSelect: 'none',
           paddingLeft: paddingValue,
-          paddingRight: paddingValue,
-          border: `2px solid ${borderColor}`,
-          boxShadow: `0 0 15px ${glowColor}, inset 0 0 15px ${glowColor}`
+          paddingRight: paddingValue
         }}
         onMouseDown={handleMouseDown}
         onTouchStart={handleTouchStart}
@@ -237,10 +231,6 @@ function VideoCardSlider({ videos, cardWidth = 320, gap = 24, hideBookmark = fal
         <button
           onClick={slideNext}
           className="absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-black/70 hover:bg-black/90 rounded-full p-2 text-white transition-all"
-          style={{
-            border: `1px solid ${borderColor}`,
-            boxShadow: `0 0 8px ${glowColor}`
-          }}
         >
           <ChevronRight className="w-6 h-6" />
         </button>
