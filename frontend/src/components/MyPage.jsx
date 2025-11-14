@@ -3,9 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { User, Settings, X, LogOut, Bookmark, Bell, Lock, Eye, EyeOff, Clock } from 'lucide-react'
 import { useBookmark } from '../contexts/BookmarkContext'
 import MyPageLayout from './layouts/MyPageLayout'
-import { getRecommendedVideos, fetchVideoKeywords } from '../api/videos'
+import { getRecommendedVideos } from '../api/videos'
 import { changePassword, saveTravelPreferences, fetchTravelPreferences, getToken, logout as clearAuth, getCurrentUser, getMyKeywords, updateUserProfile } from '../api/auth'
-import VideoKeywordVisualization from './VideoKeywordCard'
 import {
   Chart as ChartJS,
   ArcElement,
@@ -185,13 +184,6 @@ function MyPage() {
 
   const [keywordCloud, setKeywordCloud] = useState([])
   const [isLoadingKeywordEmbeddings, setIsLoadingKeywordEmbeddings] = useState(false)
-  
-  // 키워드 분석 관련 상태
-  const [selectedVideoForKeywords, setSelectedVideoForKeywords] = useState(null)
-  const [videoKeywords, setVideoKeywords] = useState([])
-  const [isLoadingKeywords, setIsLoadingKeywords] = useState(false)
-  const [keywordsError, setKeywordsError] = useState('')
-  const [isVideoKeywordModalOpen, setIsVideoKeywordModalOpen] = useState(false)
   const preferenceOptions = useMemo(
     () => Object.entries(TRAVEL_PREFERENCE_LABELS).map(([id, label]) => ({ id: Number(id), label })),
     []
@@ -646,38 +638,6 @@ function MyPage() {
   }, [])
 
   // 북마크 저장은 BookmarkContext에서 자동으로 처리됨
-  // 키워드 분석 핸들러
-  const handleVideoKeywordAnalysis = async (video) => {
-    const videoId = video.id || video.video_id
-    if (!videoId) {
-      setKeywordsError('비디오 ID를 찾을 수 없습니다.')
-      return
-    }
-    
-    setSelectedVideoForKeywords(video)
-    setIsVideoKeywordModalOpen(true)
-    setIsLoadingKeywords(true)
-    setKeywordsError('')
-    setVideoKeywords([])
-    
-    try {
-      const keywords = await fetchVideoKeywords(videoId, 7)
-      setVideoKeywords(keywords)
-      setIsLoadingKeywords(false)
-    } catch (error) {
-      console.error('[MyPage] 키워드 분석 실패:', error)
-      setKeywordsError(error?.message || '키워드 분석에 실패했습니다.')
-      setIsLoadingKeywords(false)
-    }
-  }
-  
-  const handleCloseVideoKeywordModal = () => {
-    setIsVideoKeywordModalOpen(false)
-    setSelectedVideoForKeywords(null)
-    setVideoKeywords([])
-    setKeywordsError('')
-  }
-  
   const { toggleBookmark } = useBookmark()
   
   const handleToggleBookmark = (video) => {
@@ -1810,74 +1770,6 @@ function MyPage() {
                 className="px-5 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {isSavingPreferences ? '저장 중...' : '변경하기'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Video Keyword Analysis Modal */}
-      {isVideoKeywordModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="relative w-full max-w-4xl max-h-[90vh] bg-[#0f1629] rounded-2xl shadow-2xl overflow-hidden" style={{ border: '2px solid #39489A' }}>
-            {/* 모달 헤더 */}
-            <div className="flex items-center justify-between p-6 border-b border-blue-500/20">
-              <h2 className="text-white font-bold text-xl">키워드 분석</h2>
-              <button
-                onClick={handleCloseVideoKeywordModal}
-                className="p-2 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            
-            {/* 모달 본문 */}
-            <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
-              {selectedVideoForKeywords && (
-                <div className="mb-6">
-                  <h3 className="text-white font-semibold text-lg mb-2">{selectedVideoForKeywords.title}</h3>
-                  {selectedVideoForKeywords.description && (
-                    <p className="text-white/60 text-sm line-clamp-2">{selectedVideoForKeywords.description}</p>
-                  )}
-                </div>
-              )}
-              
-              {isLoadingKeywords && (
-                <div className="flex flex-col items-center justify-center py-12">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
-                  <p className="text-white/60">키워드를 분석하는 중...</p>
-                </div>
-              )}
-              
-              {keywordsError && !isLoadingKeywords && (
-                <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-4 text-red-300">
-                  {keywordsError}
-                </div>
-              )}
-              
-              {!isLoadingKeywords && !keywordsError && videoKeywords.length > 0 && (
-                <div className="bg-white rounded-lg p-6">
-                  <VideoKeywordVisualization
-                    keywords={videoKeywords}
-                    videoTitle={selectedVideoForKeywords?.title}
-                  />
-                </div>
-              )}
-              
-              {!isLoadingKeywords && !keywordsError && videoKeywords.length === 0 && (
-                <div className="text-center py-12 text-white/60">
-                  키워드 데이터가 없습니다.
-                </div>
-              )}
-            </div>
-            
-            {/* 모달 푸터 */}
-            <div className="flex justify-end gap-3 p-6 border-t border-blue-500/20">
-              <button
-                onClick={handleCloseVideoKeywordModal}
-                className="px-5 py-2 rounded-lg bg-gray-700 text-white hover:bg-gray-600 transition-colors"
-              >
-                닫기
               </button>
             </div>
           </div>

@@ -1,10 +1,10 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
-import VideoCardSlider from '../VideoCardSlider'
+import VideoCard from '../VideoCard'
 
 /**
  * 테마별 추천 영상 섹션 컴포넌트
- * 각 테마별로 슬라이더 형태의 카드 리스트 제공
+ * 각 테마별로 그리드 형태의 카드 리스트 제공
  */
 function ThemeRecommendationSection({ themes, userName = '' }) {
   if (!themes || themes.length === 0) {
@@ -145,14 +145,18 @@ function ThemeRecommendationSection({ themes, userName = '' }) {
               )}
             </div>
 
-            {/* 슬라이더 카드 리스트 */}
+            {/* 그리드 카드 리스트 */}
             {theme.videos && theme.videos.length > 0 ? (
-              <VideoCardSlider 
-                videos={theme.videos} 
-                cardWidth={320} 
-                gap={24}
-                hideBookmark={true}
-              />
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                {theme.videos.map((video) => (
+                  <VideoCard 
+                    key={video.id || video.video_id} 
+                    video={video} 
+                    featured 
+                    hideBookmark={true}
+                  />
+                ))}
+              </div>
             ) : (
               <div className="text-center py-8 text-white/60">
                 <p style={{ fontSize: '14px', fontFamily: 'Arial, sans-serif' }}>

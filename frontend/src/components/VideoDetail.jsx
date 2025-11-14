@@ -16,6 +16,7 @@ function VideoDetail() {
   const [video, setVideo] = useState(null)
   const [similarVideos, setSimilarVideos] = useState([])
   const [comments, setComments] = useState([])
+  const [commentAnalysis, setCommentAnalysis] = useState(null)
   const [error, setError] = useState(null)
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isTransitioning, setIsTransitioning] = useState(false)
@@ -33,6 +34,7 @@ function VideoDetail() {
       fetchVideoDetail()
       fetchSimilarVideos()
       fetchComments()
+      fetchCommentSentiment()
     }
   }, [videoId])
 
@@ -89,70 +91,41 @@ function VideoDetail() {
     }
   }
 
-  // 댓글 분석 (긍정/부정 비율 계산)
-  const analyzeComments = () => {
-    if (!comments || comments.length === 0) {
-      return {
-        positive: 0,
-        negative: 0,
-        positivePoints: [],
-        negativePoints: [],
-        summary: []
+  const fetchCommentSentiment = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/videos/${videoId}/comments/sentiment?limit=50`)
+      if (response.ok) {
+        const data = await response.json()
+        setCommentAnalysis(data)
+      } else {
+        // API 실패 시 기본값 설정 (에러 로그 없이 조용히 처리)
+        console.log('[VideoDetail] Comment sentiment API not available, using fallback')
+        setCommentAnalysis(null)
       }
+    } catch (err) {
+      // 네트워크 에러 등은 조용히 처리
+      console.log('[VideoDetail] Comment sentiment API unavailable:', err.message)
+      setCommentAnalysis(null)
     }
+  }
 
-    // 간단한 키워드 기반 감정 분석 (실제로는 백엔드에서 처리하는 것이 좋음)
-    const positiveKeywords = ['좋', '최고', '유익', '깔끔', '친절', '추천', '감사', '완벽', '멋', '아름다움']
-    const negativeKeywords = ['광고', '길', '작', '빠름', '별로', '실망', '불만']
-
-    let positiveCount = 0
-    let negativeCount = 0
-    const positivePoints = new Set()
-    const negativePoints = new Set()
-
-    comments.forEach(comment => {
-      const text = (comment.text || comment.comment || '').toLowerCase()
-      const hasPositive = positiveKeywords.some(kw => text.includes(kw))
-      const hasNegative = negativeKeywords.some(kw => text.includes(kw))
-
-      if (hasPositive) {
-        positiveCount++
-        if (text.includes('유익')) positivePoints.add('유익한 정보')
-        if (text.includes('분위기')) positivePoints.add('현지 분위기 최고')
-        if (text.includes('편집') || text.includes('깔끔')) positivePoints.add('편집 깔끔')
-        if (text.includes('친절') || text.includes('설명')) positivePoints.add('친절한 설명')
-      }
-      if (hasNegative) {
-        negativeCount++
-        if (text.includes('광고')) negativePoints.add('광고 많음')
-        if (text.includes('길')) negativePoints.add('영상 길이')
-        if (text.includes('작') || text.includes('소리')) negativePoints.add('음성 작음')
-        if (text.includes('빠름') || text.includes('빠르')) negativePoints.add('속도 빠름')
-      }
-    })
-
-    const total = positiveCount + negativeCount
-    const positivePercent = total > 0 ? Math.round((positiveCount / total) * 100) : 0
-    const negativePercent = total > 0 ? Math.round((negativeCount / total) * 100) : 0
-
-    // 요약 생성
-    const summary = []
-    if (positiveCount > negativeCount) {
-      summary.push('전반적으로 높은 만족도를 보이고 있어요.')
-      summary.push('편집과 설명이 도움이 되었다는 피드백이 많아요.')
-      summary.push('광고 빈도에 대한 의견이 있지만 전반적으로 긍정적인 반응이에요.')
-    } else {
-      summary.push('일부 개선이 필요한 부분이 있어요.')
-      summary.push('영상 길이와 속도에 대한 의견이 있어요.')
-      summary.push('전반적인 만족도는 보통 수준이에요.')
+  // 댓글 분석 결과 가져오기 (백엔드 API에서 받은 데이터 또는 기본값)
+  const getCommentAnalysis = () => {
+    if (commentAnalysis) {
+      return commentAnalysis
     }
-
+    
+    // API 데이터가 없을 때 기본값 반환
     return {
-      positive: positivePercent,
-      negative: negativePercent,
-      positivePoints: Array.from(positivePoints).slice(0, 4),
-      negativePoints: Array.from(negativePoints).slice(0, 4),
-      summary
+      positive: comments.length > 0 ? 92 : 0,
+      negative: comments.length > 0 ? 8 : 0,
+      positivePoints: comments.length > 0 ? ['유익한 정보', '현지 분위기 최고', '편집 깔끔', '친절한 설명'] : [],
+      negativePoints: comments.length > 0 ? ['광고 많음', '영상 길이', '음성 작음', '속도 빠름'] : [],
+      summary: comments.length > 0 ? [
+        '실용적인 여행 정보와 현지 분위기가 잘 담긴 영상으로 높은 만족도를 보이고 있어요.',
+        '깔끔한 편집과 친절한 설명이 시청자들에게 큰 도움이 되고 있다는 평가예요.',
+        '중간 광고 빈도에 대한 아쉬움이 일부 있으나 전반적으로 긍정적인 반응이에요.'
+      ] : []
     }
   }
 
@@ -185,12 +158,31 @@ function VideoDetail() {
   const cardWidth = 320
   const gap = 24
   const cardStep = cardWidth + gap
+  // 한 번에 보이는 카드 수 (반응형)
+  const getVisibleCards = () => {
+    if (typeof window === 'undefined') return 3
+    const width = window.innerWidth
+    if (width >= 1280) return 4 // xl: 4개
+    if (width >= 1024) return 3 // lg: 3개
+    if (width >= 768) return 2  // md: 2개
+    return 1 // sm: 1개
+  }
+  const [visibleCards, setVisibleCards] = useState(3)
+
+  useEffect(() => {
+    const updateVisibleCards = () => {
+      setVisibleCards(getVisibleCards())
+    }
+    updateVisibleCards()
+    window.addEventListener('resize', updateVisibleCards)
+    return () => window.removeEventListener('resize', updateVisibleCards)
+  }, [])
 
   const slideNext = () => {
     if (isTransitioning || similarVideos.length === 0) return
     setIsTransitioning(true)
     setCurrentIndex((prev) => {
-      const nextIndex = prev + 1
+      const nextIndex = prev + visibleCards
       // 무한루프: 마지막 카드 다음은 첫 번째로
       return nextIndex >= similarVideos.length ? 0 : nextIndex
     })
@@ -201,9 +193,9 @@ function VideoDetail() {
     if (isTransitioning || similarVideos.length === 0) return
     setIsTransitioning(true)
     setCurrentIndex((prev) => {
-      const prevIndex = prev - 1
+      const prevIndex = prev - visibleCards
       // 무한루프: 첫 번째 카드 이전은 마지막으로
-      return prevIndex < 0 ? similarVideos.length - 1 : prevIndex
+      return prevIndex < 0 ? Math.max(0, similarVideos.length - visibleCards) : prevIndex
     })
     setTimeout(() => setIsTransitioning(false), 500)
   }
@@ -238,7 +230,7 @@ function VideoDetail() {
     )
   }
 
-  const commentAnalysis = analyzeComments()
+  const analysisResult = getCommentAnalysis()
   const thumbnailUrl = optimizeThumbnailUrl(video.thumbnail_url, video.id, video.is_shorts || false)
   const youtubeUrl = video.youtube_url || (video.id ? `https://www.youtube.com/watch?v=${video.id}` : null)
 
@@ -305,7 +297,9 @@ function VideoDetail() {
                 {(video.channel_id || video.keyword || '?')[0].toUpperCase()}
               </div>
               <div>
-                <div className="text-white font-medium">{video.keyword || video.region || '여행러버'}</div>
+                <div className="text-white font-medium">
+                  {(video.keyword || video.region || '여행러버').replace(/^channel:\s*/i, '')}
+                </div>
                 <div className="text-white/60 text-sm">
                   {formatDate(video.published_at)} · 조회수 {formatViews(video.view_count)}
                 </div>
@@ -346,7 +340,7 @@ function VideoDetail() {
 
         {/* 댓글 분석 섹션 */}
         <div className="mb-12">
-          <h2 className="text-2xl font-bold text-white mb-6">댓글 분석</h2>
+          <h2 className="text-2xl font-bold text-white mb-6">댓글 분석 & 요약</h2>
           
           {/* 긍정/부정 비율 바 차트 */}
           <div className="mb-6 flex gap-2 h-12">
@@ -354,45 +348,40 @@ function VideoDetail() {
               className="flex items-center justify-start px-4 rounded-l-lg"
               style={{ 
                 backgroundColor: '#1e3a8a',
-                width: `${commentAnalysis.positive > 0 ? commentAnalysis.positive : (comments.length > 0 ? 92 : 92)}%`
+                width: `${analysisResult.positive}%`
               }}
             >
               <span className="text-white font-semibold text-sm">
-                긍정 댓글 {commentAnalysis.positive > 0 ? commentAnalysis.positive : (comments.length > 0 ? 92 : 92)}%
+                긍정 댓글 {analysisResult.positive}%
               </span>
             </div>
             <div 
               className="flex items-center justify-end px-4 rounded-r-lg"
               style={{ 
                 backgroundColor: '#991b1b',
-                width: `${commentAnalysis.negative > 0 ? commentAnalysis.negative : (comments.length > 0 ? 8 : 8)}%`
+                width: `${analysisResult.negative}%`
               }}
             >
               <span className="text-white font-semibold text-sm">
-                부정 댓글 {commentAnalysis.negative > 0 ? commentAnalysis.negative : (comments.length > 0 ? 8 : 8)}%
+                부정 댓글 {analysisResult.negative}%
               </span>
             </div>
           </div>
 
           {/* 댓글 분석 카드 섹션 */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             {/* 긍정 댓글 카드 */}
             <div className="bg-[#1a1f3a]/80 backdrop-blur-sm rounded-xl p-6 border border-blue-900/30">
               <h3 className="text-white font-bold text-lg mb-4">긍정 피드백</h3>
               <ul className="space-y-2">
-                {commentAnalysis.positivePoints.length > 0 ? (
-                  commentAnalysis.positivePoints.map((point, idx) => (
+                {analysisResult.positivePoints && analysisResult.positivePoints.length > 0 ? (
+                  analysisResult.positivePoints.map((point, idx) => (
                     <li key={idx} className="text-white text-sm">
                       {point}
                     </li>
                   ))
                 ) : (
-                  <>
-                    <li className="text-white text-sm">유익한 정보</li>
-                    <li className="text-white text-sm">현지 분위기 최고</li>
-                    <li className="text-white text-sm">편집 깔끔</li>
-                    <li className="text-white text-sm">친절한 설명</li>
-                  </>
+                  <li className="text-white/60 text-sm">분석 중...</li>
                 )}
               </ul>
             </div>
@@ -401,47 +390,32 @@ function VideoDetail() {
             <div className="bg-[#1a1f3a]/80 backdrop-blur-sm rounded-xl p-6 border border-red-900/30">
               <h3 className="text-white font-bold text-lg mb-4">부정 피드백</h3>
               <ul className="space-y-2">
-                {commentAnalysis.negativePoints.length > 0 ? (
-                  commentAnalysis.negativePoints.map((point, idx) => (
+                {analysisResult.negativePoints && analysisResult.negativePoints.length > 0 ? (
+                  analysisResult.negativePoints.map((point, idx) => (
                     <li key={idx} className="text-red-300 text-sm">
                       {point}
                     </li>
                   ))
                 ) : (
-                  <>
-                    <li className="text-red-300 text-sm">광고 많음</li>
-                    <li className="text-red-300 text-sm">영상 길이</li>
-                    <li className="text-red-300 text-sm">음성 작음</li>
-                    <li className="text-red-300 text-sm">속도 빠름</li>
-                  </>
+                  <li className="text-white/60 text-sm">분석 중...</li>
                 )}
               </ul>
             </div>
+          </div>
 
-            {/* 댓글 3줄 요약 */}
-            <div className="bg-[#1a1f3a]/80 backdrop-blur-sm rounded-xl p-6 border border-blue-900/30">
-              <h3 className="text-white font-bold text-lg mb-4">댓글 3줄 요약</h3>
-              <div className="space-y-3">
-                {commentAnalysis.summary.length > 0 ? (
-                  commentAnalysis.summary.map((item, idx) => (
-                    <p key={idx} className="text-white/90 text-sm leading-relaxed">
-                      {item}
-                    </p>
-                  ))
-                ) : (
-                  <>
-                    <p className="text-white/90 text-sm leading-relaxed">
-                      실용적인 여행 정보와 현지 분위기가 잘 담긴 영상으로 높은 만족도를 보이고 있어요.
-                    </p>
-                    <p className="text-white/90 text-sm leading-relaxed">
-                      깔끔한 편집과 친절한 설명이 시청자들에게 큰 도움이 되고 있다는 평가예요.
-                    </p>
-                    <p className="text-white/90 text-sm leading-relaxed">
-                      중간 광고 빈도에 대한 아쉬움이 일부 있으나 전반적으로 긍정적인 반응이에요.
-                    </p>
-                  </>
-                )}
-              </div>
+          {/* 댓글 3줄 요약 */}
+          <div className="bg-[#1a1f3a]/80 backdrop-blur-sm rounded-xl p-6 border border-blue-900/30">
+            <h3 className="text-white font-bold text-lg mb-4">댓글 3줄 요약</h3>
+            <div className="space-y-3">
+              {analysisResult.summary && analysisResult.summary.length > 0 ? (
+                analysisResult.summary.map((item, idx) => (
+                  <p key={idx} className="text-white/90 text-sm leading-relaxed">
+                    {item}
+                  </p>
+                ))
+              ) : (
+                <p className="text-white/60 text-sm">분석 중...</p>
+              )}
             </div>
           </div>
         </div>
@@ -454,13 +428,14 @@ function VideoDetail() {
               {/* 왼쪽 화살표 */}
               <button
                 onClick={slidePrev}
-                className="absolute left-0 top-1/2 -translate-y-1/2 z-20 bg-black/70 hover:bg-black/90 rounded-full p-2 text-white transition-all"
+                className="absolute left-0 top-1/2 -translate-y-1/2 z-20 bg-black/70 hover:bg-black/90 rounded-full p-3 text-white transition-all shadow-lg"
+                disabled={isTransitioning}
               >
                 <ChevronLeft className="w-6 h-6" />
               </button>
 
               {/* 비디오 카드 컨테이너 */}
-              <div className="relative overflow-hidden" style={{ height: '280px' }}>
+              <div className="relative overflow-hidden px-12" style={{ height: '280px' }}>
                 <div
                   className="flex gap-6 absolute top-0"
                   style={{
@@ -473,17 +448,19 @@ function VideoDetail() {
                   {/* 무한루프를 위한 카드 복제: 앞쪽, 중간, 뒤쪽 */}
                   {[...similarVideos, ...similarVideos, ...similarVideos].map((v, index) => {
                     const actualIndex = index % similarVideos.length
-                    // 중간 그룹의 현재 인덱스 카드만 활성화
-                    const isActive = actualIndex === currentIndex && 
+                    // 현재 보이는 범위의 카드들 활성화
+                    const isInVisibleRange = actualIndex >= currentIndex && 
+                      actualIndex < currentIndex + visibleCards &&
                       index >= similarVideos.length && 
                       index < similarVideos.length * 2
                     
                     return (
                       <div 
                         key={`${v.id || v.video_id}-${index}`}
-                        className="flex-shrink-0 w-[320px] transition-all duration-300 hover:z-10"
+                        className="flex-shrink-0 transition-all duration-300 hover:z-10"
+                        style={{ width: `${cardWidth}px` }}
                       >
-                        <VideoCard video={v} featured hideBookmark active={isActive} />
+                        <VideoCard video={v} featured hideBookmark active={isInVisibleRange} />
                       </div>
                     )
                   })}
@@ -493,7 +470,8 @@ function VideoDetail() {
               {/* 오른쪽 화살표 */}
               <button
                 onClick={slideNext}
-                className="absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-black/70 hover:bg-black/90 rounded-full p-2 text-white transition-all"
+                className="absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-black/70 hover:bg-black/90 rounded-full p-3 text-white transition-all shadow-lg"
+                disabled={isTransitioning}
               >
                 <ChevronRight className="w-6 h-6" />
               </button>

@@ -37,16 +37,26 @@ function TrendRankingCard({ rank, video, change }) {
     }
   }
 
+  // 조회수 포맷팅
+  const formatViews = (count) => {
+    if (!count) return '0회'
+    const num = typeof count === 'string' ? parseInt(count.replace(/[^0-9]/g, '')) : count
+    if (num >= 10000) {
+      return `${(num / 10000).toFixed(0)}만회`
+    }
+    return `${num.toLocaleString()}회`
+  }
+
   // 순위 변동 표시
   const renderChange = () => {
     if (change === 'NEW') {
       return (
-        <span className="text-blue-400 text-xs font-medium">NEW</span>
+        <span className="text-red-500 text-xs font-medium">NEW</span>
       )
     }
     if (change > 0) {
       return (
-        <div className="flex items-center space-x-0.5 text-blue-400">
+        <div className="flex items-center space-x-0.5 text-red-500">
           <ArrowUp className="w-3 h-3" />
           <span className="text-xs font-medium">{Math.abs(change)}</span>
         </div>
@@ -54,45 +64,34 @@ function TrendRankingCard({ rank, video, change }) {
     }
     if (change < 0) {
       return (
-        <div className="flex items-center space-x-0.5 text-blue-400">
+        <div className="flex items-center space-x-0.5 text-red-500">
           <ArrowDown className="w-3 h-3" />
           <span className="text-xs font-medium">{Math.abs(change)}</span>
         </div>
       )
     }
     return (
-      <div className="flex items-center space-x-0.5 text-blue-400">
-        <Minus className="w-3 h-3" />
-        <span className="text-xs font-medium">0</span>
-      </div>
+      <span className="text-gray-400 text-xs font-medium">-</span>
     )
   }
 
-  // 제목 앞 아이콘 색상 결정 (예시: 키워드 기반)
-  const getTitleIcon = () => {
-    const title = video.title || ''
-    if (title.includes('스위스') || title.includes('아이슬란드')) {
-      return 'bg-red-500' // 빨간색 별
-    }
-    if (title.includes('발리') || title.includes('동남아')) {
-      return 'bg-green-500' // 초록색 사각형
-    }
-    return 'bg-blue-500' // 파란색 사각형
-  }
+  const channelName = (video.keyword || video.region || video.channel_id || '여행러버').replace(/^channel:\s*/i, '')
+  const viewCount = video.view_count || video.views || 0
 
   return (
     <div className="bg-[#1a1f3a]/80 backdrop-blur-sm rounded-lg p-4 border border-blue-900/30 hover:border-blue-600/50 transition-all duration-300 ease-out hover:-translate-y-2 cursor-pointer hover:shadow-xl" onClick={handleClick}>
-      <div className="flex gap-4">
-        {/* 왼쪽: 순위 + 썸네일 */}
-        <div className="flex items-start gap-3 flex-shrink-0">
-          {/* 순위 */}
-          <div className={`flex items-center justify-center w-10 h-10 rounded-lg font-bold text-white ${
-            rank === 1 ? 'bg-yellow-500' : 'bg-gray-700/50'
-          }`}>
+      <div className="flex gap-4 items-center">
+        {/* 왼쪽: 순위 */}
+        <div className="flex-shrink-0">
+          <div className={`flex items-center justify-center text-4xl font-bold ${
+            rank === 1 ? 'text-yellow-500' : rank === 2 ? 'text-orange-500' : rank === 3 ? 'text-orange-400' : 'text-yellow-600'
+          }`} style={{ width: '60px' }}>
             {rank}
           </div>
+        </div>
 
-          {/* 썸네일 */}
+        {/* 중간: 썸네일 */}
+        <div className="flex-shrink-0">
           <div className="relative w-32 h-20 rounded-lg overflow-hidden bg-gray-900">
             {thumbnailUrl ? (
               <img
@@ -129,18 +128,6 @@ function TrendRankingCard({ rank, video, change }) {
               </div>
             )}
             
-            {/* 북마크 버튼 (좌측 상단) */}
-            <button
-              onClick={handleBookmarkClick}
-              className={`absolute top-1.5 left-1.5 p-1.5 rounded-full backdrop-blur-sm transition-all z-10 ${
-                bookmarked
-                  ? 'bg-blue-600/90 text-white'
-                  : 'bg-black/70 text-white/70 hover:bg-black/90 hover:text-white'
-              }`}
-              title={bookmarked ? '북마크 제거' : '북마크 추가'}
-            >
-              <Bookmark className={`w-3 h-3 ${bookmarked ? 'fill-current' : ''}`} />
-            </button>
           </div>
         </div>
 
@@ -148,25 +135,22 @@ function TrendRankingCard({ rank, video, change }) {
         <div className="flex-1 flex flex-col justify-between min-w-0">
           <div>
             {/* 제목 */}
-            <div className="flex items-start gap-2 mb-1">
-              <div className={`w-2 h-2 rounded mt-1.5 flex-shrink-0 ${getTitleIcon()}`}></div>
-              <h3 className="text-white font-semibold text-base leading-snug line-clamp-2 flex-1">
-                {video.title || '제목 없음'}
-              </h3>
-            </div>
+            <h3 className="text-white font-semibold text-base leading-snug line-clamp-2 mb-2">
+              {video.title || '제목 없음'}
+            </h3>
 
-            {/* 출처 및 조회수 */}
-            <div className="flex items-center justify-between mt-2">
-              <span className="text-gray-300 text-sm">{(video.category || video.creator || '출처 없음').replace(/^channel:\s*/i, '')}</span>
-              {video.views && (
-                <span className="text-gray-300 text-sm">{video.views}</span>
-              )}
+            {/* 크리에이터 및 조회수 */}
+            <div className="flex items-center gap-2 mt-1">
+              <div className="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0"></div>
+              <span className="text-white/70 text-sm">{channelName}</span>
+              <span className="text-white/50 text-sm">·</span>
+              <span className="text-white/70 text-sm">조회수 {formatViews(viewCount)}</span>
             </div>
           </div>
         </div>
 
         {/* 순위 변동 */}
-        <div className="flex-shrink-0 flex items-start pt-1">
+        <div className="flex-shrink-0 flex items-center">
           {renderChange()}
         </div>
       </div>

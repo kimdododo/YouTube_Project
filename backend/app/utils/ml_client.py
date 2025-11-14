@@ -86,3 +86,36 @@ async def rerank_videos(query: str, candidates: List[Dict[str, str]]) -> Optiona
         return result
     return None
 
+
+async def analyze_sentiment(text: str) -> Optional[float]:
+    """
+    텍스트의 감정 점수 분석 (0.0 ~ 1.0, 높을수록 긍정)
+    
+    Args:
+        text: 분석할 텍스트
+        
+    Returns:
+        감정 점수 (0.0 ~ 1.0) 또는 None (실패 시)
+    """
+    result = await call_ml_api("/sentiment", {"text": text})
+    if result and "score" in result:
+        return result["score"]
+    return None
+
+
+async def analyze_sentiments_batch(texts: List[str]) -> Optional[List[float]]:
+    """
+    여러 텍스트의 감정 점수를 배치로 분석
+    
+    Args:
+        texts: 분석할 텍스트 리스트
+        
+    Returns:
+        감정 점수 리스트 (각 점수는 0.0 ~ 1.0) 또는 None (실패 시)
+    """
+    # ML API에 배치 엔드포인트가 없으면 개별 호출
+    results = []
+    for text in texts:
+        score = await analyze_sentiment(text)
+        results.append(score if score is not None else 0.5)  # 기본값 0.5 (중립)
+    return results if results else None

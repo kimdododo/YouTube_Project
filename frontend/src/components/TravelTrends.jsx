@@ -1,42 +1,14 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
-import { User, BarChart3, TrendingUp, Grid, Eye, Waves, MapPin, Clock, Globe, Leaf, Building2, Palette } from 'lucide-react'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar } from 'recharts'
-import Logo from './Logo'
 import AppLayout from './layouts/AppLayout'
 import TrendRankingCard from './TrendRankingCard'
-import TrendCard from './TrendCard'
 import VideoCard from './VideoCard'
 import { getTrendVideos, getDiversifiedVideos } from '../api/videos'
 
 function TravelTrends() {
-  const [activeTab, setActiveTab] = useState('category')
+  const [activeTab, setActiveTab] = useState('trending')
   const [activePeriod, setActivePeriod] = useState('daily')
-  const [activeCategory, setActiveCategory] = useState('all')
-  const [currentTime, setCurrentTime] = useState(new Date())
   const [trendVideos, setTrendVideos] = useState([])
   const [loading, setLoading] = useState(true)
-
-  // 로그인 상태 체크는 AppLayout에서 처리
-
-  const categories = [
-    { id: 'all', name: '전체', icon: null },
-    { id: 'europe', name: '유럽', icon: Globe },
-    { id: 'asia', name: '아시아', icon: Globe },
-    { id: 'america', name: '아메리카', icon: Globe },
-    { id: 'oceania', name: '오세아니아', icon: Globe },
-    { id: 'nature', name: '자연', icon: Leaf },
-    { id: 'city', name: '도시', icon: Building2 },
-    { id: 'culture', name: '문화', icon: Palette }
-  ]
-
-  // 실시간 시간 업데이트
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentTime(new Date())
-    }, 1000)
-    return () => clearInterval(interval)
-  }, [])
 
   // 트렌드 비디오 데이터 가져오기
   useEffect(() => {
@@ -93,45 +65,7 @@ function TravelTrends() {
   }
 
   // 순위 변동 데이터 (예시)
-  const rankChanges = [2, -1, 1, 0, 3, -2, 'NEW', -1]
-
-  // 실시간 조회수 추이 데이터
-  const viewsData = [
-    { time: '14:00', views: 2000 },
-    { time: '15:00', views: 3500 },
-    { time: '16:00', views: 4200 },
-    { time: '17:00', views: 5800 },
-    { time: '18:00', views: 7200 },
-    { time: '19:00', views: 8500 },
-    { time: '20:00', views: 9200 },
-    { time: currentTime.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }), views: 10000 }
-  ]
-
-  // 지역별 관심도 데이터
-  const regionData = [
-    { name: '유럽', value: 35, color: '#FCD34D' },
-    { name: '아시아', value: 28, color: '#EF4444' },
-    { name: '아메리카', value: 22, color: '#60A5FA' },
-    { name: '오세아니아', value: 10, color: '#34D399' },
-    { name: '아프리카', value: 5, color: '#A78BFA' }
-  ]
-
-  // 급상승 여행지 데이터
-  const trendingData = [
-    { name: '아이슬란드', value: 8500 },
-    { name: '뉴욕', value: 7200 },
-    { name: '스위스', value: 9500 },
-    { name: '베네치아', value: 6800 }
-  ]
-
-  const formatTime = (date) => {
-    return date.toLocaleTimeString('ko-KR', { 
-      hour: '2-digit', 
-      minute: '2-digit', 
-      second: '2-digit',
-      hour12: true 
-    })
-  }
+  const rankChanges = [2, -1, 0, 'NEW', 0, 0, 0, 0]
 
   return (
     <AppLayout>
@@ -143,163 +77,71 @@ function TravelTrends() {
             여행 트렌드
           </h1>
           <p className="text-lg text-white/90">
-            지금 전 세계에서 가장 인기 있는 여행지와 트렌드를 확인하세요.
+            지금 전세계에서 가장 인기 있는 여행지와 트렌드를 확인해보세요.
           </p>
         </div>
 
-        {/* Tabs */}
+        {/* Main Tabs */}
         <div className="flex space-x-4 mb-4">
           <button
-            onClick={() => setActiveTab('realtime')}
-            className={`flex items-center space-x-2 px-6 py-3 rounded-lg font-medium transition-all ${
-              activeTab === 'realtime'
+            onClick={() => setActiveTab('trending')}
+            className={`px-6 py-3 rounded-lg font-medium transition-all ${
+              activeTab === 'trending'
                 ? 'bg-blue-600 text-white'
                 : 'bg-gray-800/50 text-white hover:bg-gray-700/50'
             }`}
           >
-            <BarChart3 className="w-5 h-5" />
-            <span>실시간 분석</span>
+            지금 뜨는 여행
           </button>
           <button
-            onClick={() => setActiveTab('ranking')}
-            className={`flex items-center space-x-2 px-6 py-3 rounded-lg font-medium transition-all ${
-              activeTab === 'ranking'
+            onClick={() => setActiveTab('theme')}
+            className={`px-6 py-3 rounded-lg font-medium transition-all ${
+              activeTab === 'theme'
                 ? 'bg-blue-600 text-white'
                 : 'bg-gray-800/50 text-white hover:bg-gray-700/50'
             }`}
           >
-            <TrendingUp className="w-5 h-5" />
-            <span>트랜드 순위</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('category')}
-            className={`flex items-center space-x-2 px-6 py-3 rounded-lg font-medium transition-all ${
-              activeTab === 'category'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-800/50 text-white hover:bg-gray-700/50'
-            }`}
-          >
-            <Grid className="w-5 h-5" />
-            <span>카테고리별</span>
+            테마별 여행지
           </button>
         </div>
 
-        {/* Period Tabs (트랜드 순위 탭일 때만 표시) */}
-        {activeTab === 'ranking' && (
-          <div className="flex space-x-3 mb-6">
-            <button
-              onClick={() => setActivePeriod('daily')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                activePeriod === 'daily'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-800/50 text-white hover:bg-gray-700/50'
-              }`}
-            >
-              일간
-            </button>
-            <button
-              onClick={() => setActivePeriod('weekly')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                activePeriod === 'weekly'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-800/50 text-white hover:bg-gray-700/50'
-              }`}
-            >
-              주간
-            </button>
-            <button
-              onClick={() => setActivePeriod('monthly')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                activePeriod === 'monthly'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-800/50 text-white hover:bg-gray-700/50'
-              }`}
-            >
-              월간
-            </button>
-          </div>
-        )}
-
-        {/* Category Filter Buttons (카테고리별 탭일 때만 표시) */}
-        {activeTab === 'category' && (
-          <div className="flex flex-wrap gap-3 mb-6">
-            {categories.map((category) => {
-              const Icon = category.icon
-              return (
-                <button
-                  key={category.id}
-                  onClick={() => setActiveCategory(category.id)}
-                  className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                    activeCategory === category.id
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-800/50 text-white hover:bg-gray-700/50'
-                  }`}
-                >
-                  {Icon && <Icon className="w-4 h-4" />}
-                  <span>{category.name}</span>
-                </button>
-              )
-            })}
-          </div>
-        )}
-
-        {/* Real-time Update Status (실시간 분석 탭일 때만 표시) */}
-        {activeTab === 'realtime' && (
-          <div className="flex items-center space-x-2 mb-8">
-            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-            <span className="text-sm text-white/80">
-              실시간 업데이트 중 {formatTime(currentTime)}
-            </span>
-          </div>
-        )}
-
-        {/* Summary Cards (실시간 분석 탭일 때만 표시) */}
-        {activeTab === 'realtime' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          {/* 실시간 조회수 */}
-          <div className="bg-[#1a1f3a]/80 backdrop-blur-sm rounded-lg p-6 border border-blue-900/30">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-white/70 text-sm">실시간 조회수</span>
-              <Eye className="w-5 h-5 text-blue-400" />
-            </div>
-            <div className="text-3xl font-bold text-white mb-1">47,238</div>
-            <div className="text-sm text-green-400">+12.5%</div>
-          </div>
-
-          {/* 시간당 증가율 */}
-          <div className="bg-[#1a1f3a]/80 backdrop-blur-sm rounded-lg p-6 border border-blue-900/30">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-white/70 text-sm">시간당 증가율</span>
-              <Waves className="w-5 h-5 text-blue-400" />
-            </div>
-            <div className="text-3xl font-bold text-white mb-1">+1,234</div>
-            <div className="text-sm text-white/60">지난 1시간</div>
-          </div>
-
-          {/* 인기 지역 */}
-          <div className="bg-[#1a1f3a]/80 backdrop-blur-sm rounded-lg p-6 border border-blue-900/30">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-white/70 text-sm">인기 지역</span>
-              <MapPin className="w-5 h-5 text-blue-400" />
-            </div>
-            <div className="text-3xl font-bold text-white mb-1">유럽</div>
-            <div className="text-sm text-white/60">35% 점유율</div>
-          </div>
-
-          {/* 평균 시청 시간 */}
-          <div className="bg-[#1a1f3a]/80 backdrop-blur-sm rounded-lg p-6 border border-blue-900/30">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-white/70 text-sm">평균 시청 시간</span>
-              <Clock className="w-5 h-5 text-blue-400" />
-            </div>
-            <div className="text-3xl font-bold text-white mb-1">4분 32초</div>
-            <div className="text-sm text-green-400">+8%</div>
-          </div>
+        {/* Period Tabs (항상 표시) */}
+        <div className="flex space-x-3 mb-6">
+          <button
+            onClick={() => setActivePeriod('daily')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              activePeriod === 'daily'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-800/50 text-white hover:bg-gray-700/50'
+            }`}
+          >
+            일간
+          </button>
+          <button
+            onClick={() => setActivePeriod('weekly')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              activePeriod === 'weekly'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-800/50 text-white hover:bg-gray-700/50'
+            }`}
+          >
+            주간
+          </button>
+          <button
+            onClick={() => setActivePeriod('monthly')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              activePeriod === 'monthly'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-800/50 text-white hover:bg-gray-700/50'
+            }`}
+          >
+            월간
+          </button>
         </div>
-        )}
 
-        {/* 트랜드 순위 목록 */}
-        {activeTab === 'ranking' && (
+
+        {/* 지금 뜨는 여행 - 트렌드 순위 목록 */}
+        {activeTab === 'trending' && (
           <div className="space-y-4 mb-8">
             {loading ? (
               <div className="text-center py-12">
@@ -312,7 +154,7 @@ function TravelTrends() {
             ) : (
               trendVideos.slice(0, 8).map((video, index) => (
                 <TrendRankingCard
-                  key={video.id}
+                  key={video.id || video.video_id}
                   rank={index + 1}
                   video={video}
                   change={rankChanges[index]}
@@ -322,28 +164,8 @@ function TravelTrends() {
           </div>
         )}
 
-        {/* 요약 정보 (트랜드 순위 탭일 때만 표시) */}
-        {activeTab === 'ranking' && !loading && trendVideos.length > 0 && (
-          <div className="bg-[#1a1f3a]/80 backdrop-blur-sm rounded-lg p-6 border border-blue-900/30 mb-8">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div>
-                <div className="text-white/70 text-sm mb-1">전체 조회수</div>
-                <div className="text-2xl font-bold text-white">58.8만회</div>
-              </div>
-              <div>
-                <div className="text-white/70 text-sm mb-1">평균 평점</div>
-                <div className="text-2xl font-bold text-white">4.96/5.0</div>
-              </div>
-              <div>
-                <div className="text-white/70 text-sm mb-1">순위 변동</div>
-                <div className="text-2xl font-bold text-white">5개 콘텐츠</div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* 카테고리별 콘텐츠 그리드 */}
-        {activeTab === 'category' && (
+        {/* 테마별 여행지 - 카테고리별 콘텐츠 그리드 */}
+        {activeTab === 'theme' && (
           <div className="mb-8">
             {/* 콘텐츠 개수 표시 */}
             <div className="text-white mb-6">
@@ -369,108 +191,6 @@ function TravelTrends() {
           </div>
         )}
 
-        {/* Charts Section (실시간 분석 탭일 때만 표시) */}
-        {activeTab === 'realtime' && (
-          <>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          {/* Real-time Views Chart */}
-          <div className="bg-[#1a1f3a]/80 backdrop-blur-sm rounded-lg p-6 border border-blue-900/30">
-            <h3 className="text-xl font-bold text-white mb-6">실시간 조회수 추이</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={viewsData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                <XAxis 
-                  dataKey="time" 
-                  stroke="#94a3b8"
-                  style={{ fontSize: '12px' }}
-                />
-                <YAxis 
-                  stroke="#94a3b8"
-                  style={{ fontSize: '12px' }}
-                  domain={[0, 10000]}
-                  ticks={[0, 2500, 5000, 7500, 10000]}
-                />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: '#1a1f3a',
-                    border: '1px solid #334155',
-                    borderRadius: '8px',
-                    color: '#fff'
-                  }}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="views" 
-                  stroke="#FCD34D" 
-                  strokeWidth={3}
-                  dot={{ fill: '#FCD34D', r: 4 }}
-                  activeDot={{ r: 6, fill: '#EC4899' }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* Region Interest Chart */}
-          <div className="bg-[#1a1f3a]/80 backdrop-blur-sm rounded-lg p-6 border border-blue-900/30">
-            <h3 className="text-xl font-bold text-white mb-6">지역별 관심도</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={regionData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, value }) => `${name} ${value}%`}
-                  outerRadius={100}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {regionData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: '#1a1f3a',
-                    border: '1px solid #334155',
-                    borderRadius: '8px',
-                    color: '#fff'
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Trending Destinations */}
-        <div className="bg-[#1a1f3a]/80 backdrop-blur-sm rounded-lg p-6 border border-blue-900/30 mb-8">
-          <h3 className="text-xl font-bold text-white mb-6">급상승 여행지</h3>
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={trendingData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-              <XAxis 
-                dataKey="name" 
-                stroke="#94a3b8"
-                style={{ fontSize: '12px' }}
-              />
-              <YAxis 
-                stroke="#94a3b8"
-                style={{ fontSize: '12px' }}
-              />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: '#1a1f3a',
-                  border: '1px solid #334155',
-                  borderRadius: '8px',
-                  color: '#fff'
-                }}
-              />
-              <Bar dataKey="value" fill="#FCD34D" radius={[8, 8, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-        </>
-        )}
       </div>
     </AppLayout>
   )
