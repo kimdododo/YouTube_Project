@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search, Star } from 'lucide-react'
 import AppLayout from './layouts/AppLayout'
-import AIReviewModal from './AIReviewModal'
 import { getAllVideos, getDiversifiedVideos, getTrendVideos, getRecommendedVideos, getMostLikedVideos } from '../api/videos'
 import { searchChannels } from '../api/channels'
 import { handleImageError } from '../utils/imageUtils'
@@ -10,8 +9,6 @@ import { handleImageError } from '../utils/imageUtils'
 function FindChannel() {
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
-  const [selectedVideo, setSelectedVideo] = useState(null)
-  const [isModalOpen, setIsModalOpen] = useState(false)
   const [channelCards, setChannelCards] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -195,15 +192,8 @@ function FindChannel() {
     if (videoId) {
       navigate(`/video/${videoId}`)
     } else {
-      // 비디오 ID가 없으면 모달 표시
-      setSelectedVideo(card)
-      setIsModalOpen(true)
+      console.warn('[FindChannel] Video ID not found for card:', card)
     }
-  }
-
-  const handleCloseModal = () => {
-    setIsModalOpen(false)
-    setSelectedVideo(null)
   }
 
   return (
@@ -304,13 +294,6 @@ function FindChannel() {
           )}
         </section>
       </div>
-
-      {/* AI 리뷰 요약 모달 */}
-      <AIReviewModal
-        isOpen={isModalOpen}
-        onClose={handleCloseModal}
-        video={selectedVideo}
-      />
     </AppLayout>
   )
 }

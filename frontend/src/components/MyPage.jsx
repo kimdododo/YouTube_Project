@@ -1398,7 +1398,7 @@ function MyPage() {
                                 {bookmark.title}
                               </h4>
                               {bookmark.channel && (
-                                <p className="text-blue-200 text-sm mt-1">{bookmark.channel}</p>
+                                <p className="text-blue-200 text-sm mt-1">{bookmark.channel.replace(/^channel:/, '')}</p>
                               )}
                             </div>
                             <button
