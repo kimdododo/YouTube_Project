@@ -404,14 +404,15 @@ function VideoDetail() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* 긍정 피드백 카드 */}
               <div className="bg-[#1a1f3a]/80 backdrop-blur-sm rounded-lg p-6 border border-blue-900/30">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-blue-400 font-bold text-lg">긍정 피드백</h3>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-blue-400 font-bold text-lg">긍정 댓글</h3>
                   {(analysisResult.positive > 0 || analysisResult.negative > 0) && (
                     <span className="text-white/90 text-sm">
                       {analysisResult.positive}%
                     </span>
                   )}
                 </div>
+                <p className="text-white/70 text-sm mb-4">긍정 피드백</p>
                 <ul className="space-y-2">
                   {analysisResult.positivePoints && analysisResult.positivePoints.length > 0 ? (
                     analysisResult.positivePoints.map((point, idx) => (
@@ -428,14 +429,15 @@ function VideoDetail() {
 
               {/* 부정 피드백 카드 */}
               <div className="bg-[#1a1f3a]/80 backdrop-blur-sm rounded-lg p-6 border border-red-900/30">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-red-400 font-bold text-lg">부정 피드백</h3>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-red-400 font-bold text-lg">부정 댓글</h3>
                   {(analysisResult.positive > 0 || analysisResult.negative > 0) && (
                     <span className="text-white/90 text-sm">
                       {analysisResult.negative}%
                     </span>
                   )}
                 </div>
+                <p className="text-white/70 text-sm mb-4">부정 피드백</p>
                 <ul className="space-y-2">
                   {analysisResult.negativePoints && analysisResult.negativePoints.length > 0 ? (
                     analysisResult.negativePoints.map((point, idx) => (

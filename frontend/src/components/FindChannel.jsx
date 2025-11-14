@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Search, Star } from 'lucide-react'
 import AppLayout from './layouts/AppLayout'
 import AIReviewModal from './AIReviewModal'
@@ -7,6 +8,7 @@ import { searchChannels } from '../api/channels'
 import { handleImageError } from '../utils/imageUtils'
 
 function FindChannel() {
+  const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedVideo, setSelectedVideo] = useState(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -188,12 +190,12 @@ function FindChannel() {
   const filteredCards = channelCards
 
   const handleVideoClick = (card) => {
-    // YouTube URL이 있으면 새 탭에서 열기
-    if (card.youtube_url || card.id) {
-      const youtubeUrl = card.youtube_url || `https://www.youtube.com/watch?v=${card.id}`
-      window.open(youtubeUrl, '_blank', 'noopener,noreferrer')
+    // 비디오 ID가 있으면 VideoDetail 페이지로 이동
+    const videoId = card.id || card.video_id
+    if (videoId) {
+      navigate(`/video/${videoId}`)
     } else {
-      // 모달은 선택적으로 사용 (필요시)
+      // 비디오 ID가 없으면 모달 표시
       setSelectedVideo(card)
       setIsModalOpen(true)
     }
