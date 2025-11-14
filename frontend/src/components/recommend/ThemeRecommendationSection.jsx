@@ -190,10 +190,11 @@ function ThemeRecommendationSection({ themes, userName = '' }) {
                 cardHeight={175.5}
                 gap={24}
                 hideBookmark={true}
-                themeColors={(() => {
-                  const keywordText = theme.hashtag || `#${theme.name}`
-                  return getKeywordColor(keywordText)
-                })()}
+                themeColors={{
+                  borderColor: '#000000',
+                  textColor: '#000000',
+                  glowColor: 'rgba(0, 0, 0, 0.5)'
+                }}
               />
             ) : (
               <div className="text-center py-8 text-white/60">
