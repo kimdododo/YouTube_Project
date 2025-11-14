@@ -55,6 +55,7 @@ function MyPage() {
   const hasCheckedAuth = useRef(false)
   const selectedPreferencesRef = useRef([])
   const selectedKeywordsRef = useRef([])
+  const hasComputedPreferenceData = useRef(false)
   
   // 사용자 정보 상태
   const [userName, setUserName] = useState(localStorage.getItem('userName') || '')
@@ -183,11 +184,10 @@ function MyPage() {
   const [userInfoError, setUserInfoError] = useState('')
   const [preferencesError, setPreferencesError] = useState('')
 
-  // 여행 취향 기반 콘텐츠 선호도 데이터 계산
-  useEffect(() => {
-    if (selectedPreferences.length === 0) {
-      setContentPreferenceData([])
-      return
+  // 여행 취향 기반 콘텐츠 선호도 데이터 계산 함수 (일반 함수로 변경)
+  const computePreferenceData = (preferences) => {
+    if (preferences.length === 0) {
+      return []
     }
 
     const colors = [
@@ -195,9 +195,9 @@ function MyPage() {
       '#8B5CF6', '#06B6D4', '#F97316', '#84CC16', '#EC4899', '#6366F1'
     ]
 
-    const preferenceData = selectedPreferences.map((prefId, idx) => {
+    const preferenceData = preferences.map((prefId, idx) => {
       const label = TRAVEL_PREFERENCE_LABELS[prefId] || `취향 ${prefId}`
-      const baseValue = 100 / selectedPreferences.length
+      const baseValue = 100 / preferences.length
       const adjustedValue = Math.max(10, Math.min(50, baseValue + (idx * 2)))
       
       return {
@@ -221,8 +221,35 @@ function MyPage() {
       }
     }
 
+    return preferenceData
+  }
+
+  // 여행 취향 기반 콘텐츠 선호도 데이터 계산 (selectedPreferences 변경 시 재계산)
+  useEffect(() => {
+    // 중복 계산 방지: 선택한 성향/키워드가 바뀌지 않았으면 재계산하지 않음
+    if (
+      hasComputedPreferenceData.current &&
+      JSON.stringify(selectedPreferences) === JSON.stringify(selectedPreferencesRef.current)
+    ) {
+      return
+    }
+
+    const prefs = selectedPreferencesRef.current.length > 0 
+      ? selectedPreferencesRef.current 
+      : selectedPreferences
+    
+    if (prefs.length === 0) {
+      setContentPreferenceData([])
+      hasComputedPreferenceData.current = true
+      selectedPreferencesRef.current = []
+      return
+    }
+
+    const preferenceData = computePreferenceData(prefs)
     setContentPreferenceData(preferenceData)
-  }, [selectedPreferences])
+    hasComputedPreferenceData.current = true
+    selectedPreferencesRef.current = [...prefs]
+  }, [selectedPreferences]) // selectedPreferences 변경 시 재계산
 
   const pieChartData = useMemo(() => ({
     labels: contentPreferenceData.map(item => item.label),
@@ -371,6 +398,13 @@ function MyPage() {
     // ref 업데이트
     selectedPreferencesRef.current = normalizedPreferences
     selectedKeywordsRef.current = normalizedKeywords
+    // preferenceData 즉시 재계산
+    if (normalizedPreferences.length > 0) {
+      const preferenceData = computePreferenceData(normalizedPreferences)
+      setContentPreferenceData(preferenceData)
+    } else {
+      setContentPreferenceData([])
+    }
 
     // 키워드 클라우드 생성: 백엔드 API 호출 (word2vec 기반 유사 키워드 추천)
     // 백엔드에서 유사 키워드 Top-K + 점수를 받아서 UI만 렌더링
@@ -642,7 +676,8 @@ function MyPage() {
     localStorage.removeItem('travelPreferences')
     localStorage.removeItem('travelKeywords')
     localStorage.removeItem('subscribedChannels')
-    setIsLoggedIn(false)
+    // setIsLoggedIn은 MyPageLayout에서 관리되므로 여기서는 제거
+    // 로그인 상태는 sessionStorage/localStorage 정리 후 MyPageLayout의 useEffect가 자동으로 감지
     navigate(redirectPath)
   }, [navigate])
 
