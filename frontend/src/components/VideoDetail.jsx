@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Star, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Star, ChevronLeft, ChevronRight, Bookmark } from 'lucide-react'
+import { useBookmark } from '../contexts/BookmarkContext'
 import AppLayout from './layouts/AppLayout'
 import VideoCard from './VideoCard'
 import { optimizeThumbnailUrl } from '../utils/imageUtils'
@@ -10,12 +11,21 @@ const API_BASE_URL = import.meta.env?.VITE_API_URL || '/api'
 function VideoDetail() {
   const { videoId } = useParams()
   const navigate = useNavigate()
+  const { isBookmarked, toggleBookmark } = useBookmark()
   const [loading, setLoading] = useState(true)
   const [video, setVideo] = useState(null)
   const [similarVideos, setSimilarVideos] = useState([])
   const [comments, setComments] = useState([])
   const [error, setError] = useState(null)
   const [recommendedScrollPosition, setRecommendedScrollPosition] = useState(0)
+
+  const bookmarked = video ? isBookmarked(video.id || video.video_id) : false
+
+  const handleBookmarkClick = () => {
+    if (video) {
+      toggleBookmark(video)
+    }
+  }
 
   useEffect(() => {
     if (videoId) {
@@ -244,9 +254,26 @@ function VideoDetail() {
 
           {/* 오른쪽: 비디오 정보 */}
           <div className="space-y-4">
-            <h1 className="text-3xl font-bold text-white leading-tight">
-              {video.title || '제목 없음'}
-            </h1>
+            <div className="flex items-start justify-between gap-4">
+              <h1 className="text-3xl font-bold text-white leading-tight flex-1">
+                {video.title || '제목 없음'}
+              </h1>
+              {/* 북마크 버튼 */}
+              <button
+                onClick={handleBookmarkClick}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all flex-shrink-0 ${
+                  bookmarked
+                    ? 'bg-blue-600 text-white hover:bg-blue-700'
+                    : 'bg-gray-700/50 text-white/70 hover:bg-gray-700 hover:text-white'
+                }`}
+                title={bookmarked ? '북마크 제거' : '북마크 추가'}
+              >
+                <Bookmark className={`w-5 h-5 ${bookmarked ? 'fill-current' : ''}`} />
+                <span className="text-sm font-medium">
+                  {bookmarked ? '북마크됨' : '북마크'}
+                </span>
+              </button>
+            </div>
 
             {/* 업로더 정보 */}
             <div className="flex items-center gap-3">

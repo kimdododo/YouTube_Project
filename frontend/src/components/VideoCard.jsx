@@ -1,9 +1,19 @@
-import { Star, Play } from 'lucide-react'
+import { Star, Play, Bookmark } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { useBookmark } from '../contexts/BookmarkContext'
 import { handleImageError, optimizeThumbnailUrl, getOptimizedImageStyles, handleImageLoadQuality } from '../utils/imageUtils'
 
 function VideoCard({ video, simple = false, featured = false }) {
   const navigate = useNavigate()
+  const { isBookmarked, toggleBookmark } = useBookmark()
+  
+  const videoId = video.id || video.video_id
+  const bookmarked = isBookmarked(videoId)
+
+  const handleBookmarkClick = (e) => {
+    e.stopPropagation() // 카드 클릭 이벤트 방지
+    toggleBookmark(video)
+  }
   
   // 썸네일 URL 최적화 (videoId가 있으면 항상 고화질 URL 사용)
   const rawThumbnailUrl = video.thumbnail_url || video.thumbnail || null
@@ -62,11 +72,24 @@ function VideoCard({ video, simple = false, featured = false }) {
           
           {/* Rating badge (우측 상단) */}
           {shouldShowRating && (
-            <div className="absolute top-2 right-2 flex items-center space-x-1 text-white text-xs font-semibold bg-black/70 backdrop-blur-sm px-2 py-1 rounded-full">
+            <div className="absolute top-2 right-2 flex items-center space-x-1 text-white text-xs font-semibold bg-black/70 backdrop-blur-sm px-2 py-1 rounded-full z-10">
               <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
               <span>{video.rating}</span>
             </div>
           )}
+          
+          {/* 북마크 버튼 (좌측 상단) */}
+          <button
+            onClick={handleBookmarkClick}
+            className={`absolute top-2 left-2 p-2 rounded-full backdrop-blur-sm transition-all z-10 ${
+              bookmarked
+                ? 'bg-blue-600/90 text-white'
+                : 'bg-black/70 text-white/70 hover:bg-black/90 hover:text-white'
+            }`}
+            title={bookmarked ? '북마크 제거' : '북마크 추가'}
+          >
+            <Bookmark className={`w-4 h-4 ${bookmarked ? 'fill-current' : ''}`} />
+          </button>
           
           {/* Play button on hover */}
           <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
@@ -118,6 +141,19 @@ function VideoCard({ video, simple = false, featured = false }) {
               <span className="text-white text-sm font-bold">{video.rating}</span>
             </div>
           )}
+          
+          {/* 북마크 버튼 (좌측 상단) */}
+          <button
+            onClick={handleBookmarkClick}
+            className={`absolute top-4 left-4 p-2.5 rounded-full backdrop-blur-sm transition-all z-10 ${
+              bookmarked
+                ? 'bg-blue-600/90 text-white'
+                : 'bg-black/70 text-white/70 hover:bg-black/90 hover:text-white'
+            }`}
+            title={bookmarked ? '북마크 제거' : '북마크 추가'}
+          >
+            <Bookmark className={`w-5 h-5 ${bookmarked ? 'fill-current' : ''}`} />
+          </button>
           
           {/* Gradient overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />

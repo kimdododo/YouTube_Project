@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import { BookmarkProvider } from './contexts/BookmarkContext'
 import Dashboard from './components/Dashboard'
 import RecommendedVideos from './components/RecommendedVideos'
 import TravelTrends from './components/TravelTrends'
@@ -16,13 +17,14 @@ import './App.css'
 
 function App() {
   return (
-    <Router
-      future={{
-        v7_startTransition: true,
-        v7_relativeSplatPath: true,
-      }}
-    >
-      <Routes>
+    <BookmarkProvider>
+      <Router
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+      >
+        <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/recommendedVideos" element={<RecommendedVideos />} />
         <Route path="/travel-trends" element={<TravelTrends />} />
@@ -37,8 +39,9 @@ function App() {
         <Route path="/api-test" element={<VideoList />} />
         <Route path="/theme/:theme" element={<ThemeVideos />} />
         <Route path="/video/:videoId" element={<VideoDetail />} />
-      </Routes>
-    </Router>
+        </Routes>
+      </Router>
+    </BookmarkProvider>
   )
 }
 

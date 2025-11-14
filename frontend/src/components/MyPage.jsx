@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { User, Settings, X, LogOut, Bookmark, Bell, Lock, Eye, EyeOff, Clock } from 'lucide-react'
+import { useBookmark } from '../contexts/BookmarkContext'
 import MyPageLayout from './layouts/MyPageLayout'
 import { getRecommendedVideos, fetchVideoKeywords } from '../api/videos'
 import { changePassword, saveTravelPreferences, fetchTravelPreferences, getToken, logout as clearAuth, getCurrentUser, getMyKeywords } from '../api/auth'
@@ -152,8 +153,8 @@ function MyPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []) // 빈 배열로 마운트 시에만 실행
   
-  // 사용자 정보는 MyPageLayout에서 관리
-  const [bookmarks, setBookmarks] = useState([])
+  // 북마크는 BookmarkContext에서 관리
+  const { bookmarks, setBookmarks } = useBookmark()
   const [preferenceScores, setPreferenceScores] = useState([])
   const [watchHistory, setWatchHistory] = useState([])
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
@@ -568,18 +569,7 @@ function MyPage() {
     }
   }, [activeTab, isLoadingHistory, watchHistory.length])
 
-  // 북마크 데이터 로드
-  useEffect(() => {
-    const savedBookmarks = localStorage.getItem('bookmarks')
-    if (savedBookmarks) {
-      try {
-        setBookmarks(JSON.parse(savedBookmarks))
-      } catch (e) {
-        console.error('Failed to parse bookmarks:', e)
-        setBookmarks([])
-      }
-    }
-  }, [])
+  // 북마크는 BookmarkContext에서 자동으로 관리되므로 별도 로드 불필요
 
   // 여행 취향 및 키워드 로드 - API 데이터 우선 사용
   useEffect(() => {
@@ -655,10 +645,7 @@ function MyPage() {
     loadPreferences()
   }, [])
 
-  // 북마크 저장
-  useEffect(() => {
-    localStorage.setItem('bookmarks', JSON.stringify(bookmarks))
-  }, [bookmarks])
+  // 북마크 저장은 BookmarkContext에서 자동으로 처리됨
   // 키워드 분석 핸들러
   const handleVideoKeywordAnalysis = async (video) => {
     const videoId = video.id || video.video_id
@@ -691,14 +678,10 @@ function MyPage() {
     setKeywordsError('')
   }
   
+  const { toggleBookmark } = useBookmark()
+  
   const handleToggleBookmark = (video) => {
-    setBookmarks((prev) => {
-      const exists = prev.some((item) => (item.id || item.video_id) === (video.id || video.video_id))
-      if (exists) {
-        return prev.filter((item) => (item.id || item.video_id) !== (video.id || video.video_id))
-      }
-      return [...prev, video]
-    })
+    toggleBookmark(video)
   }
 
   const handleEditClick = () => {
