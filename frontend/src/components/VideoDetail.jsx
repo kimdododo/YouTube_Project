@@ -18,6 +18,7 @@ function VideoDetail() {
   const [comments, setComments] = useState([])
   const [error, setError] = useState(null)
   const [recommendedScrollPosition, setRecommendedScrollPosition] = useState(0)
+  const [activeCardIndex, setActiveCardIndex] = useState(0)
 
   const bookmarked = video ? isBookmarked(video.id || video.video_id) : false
 
@@ -185,27 +186,126 @@ function VideoDetail() {
     const container = document.getElementById('recommended-videos-container')
     if (!container) return
     
-    const scrollAmount = 400
-    const currentScroll = container.scrollLeft
-    const newPosition = direction === 'left' 
-      ? Math.max(0, currentScroll - scrollAmount)
-      : Math.min(container.scrollWidth - container.clientWidth, currentScroll + scrollAmount)
+    // 카드 너비 (320px) + gap (24px = gap-6)
+    const cardWidth = 320
+    const gap = 24
+    const cardStep = cardWidth + gap
     
-    container.scrollTo({ left: newPosition, behavior: 'smooth' })
-    setRecommendedScrollPosition(newPosition)
+    const currentScroll = container.scrollLeft
+    const containerWidth = container.clientWidth
+    const maxScroll = container.scrollWidth - containerWidth
+    
+    // 현재 스크롤 위치를 기준으로 다음/이전 카드 위치 계산
+    let newPosition
+    if (direction === 'left') {
+      // 이전 카드로 이동 (현재 위치에서 가장 가까운 이전 카드 위치)
+      const currentCardIndex = Math.round(currentScroll / cardStep)
+      const targetCardIndex = Math.max(0, currentCardIndex - 1)
+      newPosition = targetCardIndex * cardStep
+    } else {
+      // 다음 카드로 이동 (현재 위치에서 가장 가까운 다음 카드 위치)
+      const currentCardIndex = Math.round(currentScroll / cardStep)
+      const targetCardIndex = currentCardIndex + 1
+      const targetPosition = targetCardIndex * cardStep
+      // 최대 스크롤 위치를 넘지 않도록 제한
+      newPosition = Math.min(targetPosition, maxScroll)
+    }
+    
+    // 부드러운 페이징 애니메이션
+    container.scrollTo({ 
+      left: newPosition, 
+      behavior: 'smooth' 
+    })
+    
+    // 애니메이션 중 스크롤 위치 추적
+    const updatePosition = () => {
+      setRecommendedScrollPosition(container.scrollLeft)
+      if (Math.abs(container.scrollLeft - newPosition) > 1) {
+        requestAnimationFrame(updatePosition)
+      } else {
+        setRecommendedScrollPosition(newPosition)
+      }
+    }
+    requestAnimationFrame(updatePosition)
   }
 
-  // 스크롤 위치 추적
+  // 스크롤 위치 추적 및 화살표 버튼 상태 업데이트
   useEffect(() => {
     const container = document.getElementById('recommended-videos-container')
     if (!container) return
 
+    let isScrolling = false
+    let scrollTimeout = null
+
+    const updateScrollPosition = () => {
+      const scrollLeft = container.scrollLeft
+      setRecommendedScrollPosition(scrollLeft)
+      
+      // 현재 보이는 카드 인덱스 계산
+      const cardWidth = 320
+      const gap = 24
+      const cardStep = cardWidth + gap
+      const currentCardIndex = Math.round(scrollLeft / cardStep)
+      setActiveCardIndex(currentCardIndex)
+    }
+
+    // 초기 위치 설정
+    updateScrollPosition()
+    
+    // 사용자 직접 스크롤 방지 (마우스 휠, 터치 스크롤)
+    const preventScroll = (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+
+    // 스크롤 이벤트 리스너 (화살표 버튼으로 스크롤할 때만 발생)
     const handleScroll = () => {
-      setRecommendedScrollPosition(container.scrollLeft)
+      updateScrollPosition()
+      
+      // 스크롤이 끝난 후 정확한 위치로 스냅 (페이징 효과)
+      if (scrollTimeout) {
+        clearTimeout(scrollTimeout)
+      }
+      
+      isScrolling = true
+      scrollTimeout = setTimeout(() => {
+        isScrolling = false
+        const cardWidth = 320
+        const gap = 24
+        const cardStep = cardWidth + gap
+        const currentScroll = container.scrollLeft
+        const containerWidth = container.clientWidth
+        const maxScroll = container.scrollWidth - containerWidth
+        
+        // 가장 가까운 카드 위치로 스냅
+        const currentCardIndex = Math.round(currentScroll / cardStep)
+        const snapPosition = Math.min(currentCardIndex * cardStep, maxScroll)
+        
+        if (Math.abs(currentScroll - snapPosition) > 5) {
+          container.scrollTo({ 
+            left: snapPosition, 
+            behavior: 'smooth' 
+          })
+        }
+      }, 150) // 스크롤이 끝난 후 150ms 후에 스냅
     }
 
     container.addEventListener('scroll', handleScroll)
-    return () => container.removeEventListener('scroll', handleScroll)
+    
+    // 마우스 휠 이벤트 방지
+    container.addEventListener('wheel', preventScroll, { passive: false })
+    
+    // 터치 스크롤 이벤트 방지
+    container.addEventListener('touchmove', preventScroll, { passive: false })
+    
+    return () => {
+      container.removeEventListener('scroll', handleScroll)
+      container.removeEventListener('wheel', preventScroll)
+      container.removeEventListener('touchmove', preventScroll)
+      if (scrollTimeout) {
+        clearTimeout(scrollTimeout)
+      }
+    }
   }, [similarVideos.length])
 
   if (loading) {
@@ -348,137 +448,100 @@ function VideoDetail() {
         <div className="mb-12">
           <h2 className="text-2xl font-bold text-white mb-6">댓글 분석</h2>
           
-          {/* 긍정/부정 비율 바 */}
-          <div className="mb-6">
-            <div className="w-full h-10 bg-[#0b1026] rounded-lg border border-blue-900/40 overflow-hidden relative flex">
-              <div
-                className="h-full bg-gradient-to-r from-blue-600 to-blue-500 flex items-center justify-center"
-                style={{ 
-                  width: `${commentAnalysis.positive > 0 ? commentAnalysis.positive : (comments.length > 0 ? 92 : 0)}%` 
-                }}
-              >
-                <span className="text-white text-sm font-bold">
-                  긍정 댓글 {commentAnalysis.positive > 0 ? commentAnalysis.positive : (comments.length > 0 ? 92 : 0)}%
-                </span>
-              </div>
-              <div
-                className="h-full bg-gradient-to-r from-red-600 to-red-500 flex items-center justify-center"
-                style={{ 
-                  width: `${commentAnalysis.negative > 0 ? commentAnalysis.negative : (comments.length > 0 ? 8 : 0)}%` 
-                }}
-              >
-                <span className="text-white text-sm font-bold">
-                  부정 댓글 {commentAnalysis.negative > 0 ? commentAnalysis.negative : (comments.length > 0 ? 8 : 0)}%
-                </span>
-              </div>
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            {/* 긍정 댓글 카드 */}
+          {/* 긍정/부정 비율 바 차트 */}
+          <div className="mb-6 flex gap-2 h-12">
             <div 
-              className="bg-blue-600/20 backdrop-blur-sm rounded-xl p-6 border-2"
+              className="flex items-center justify-start px-4 rounded-l-lg"
               style={{ 
-                borderColor: '#3B82F6',
-                boxShadow: '0 0 20px rgba(59, 130, 246, 0.3)'
+                backgroundColor: '#1e3a8a',
+                width: `${commentAnalysis.positive > 0 ? commentAnalysis.positive : (comments.length > 0 ? 92 : 92)}%`
               }}
             >
-              <h3 className="text-white font-bold text-lg mb-4">긍정 댓글</h3>
+              <span className="text-white font-semibold text-sm">
+                긍정 댓글 {commentAnalysis.positive > 0 ? commentAnalysis.positive : (comments.length > 0 ? 92 : 92)}%
+              </span>
+            </div>
+            <div 
+              className="flex items-center justify-end px-4 rounded-r-lg"
+              style={{ 
+                backgroundColor: '#991b1b',
+                width: `${commentAnalysis.negative > 0 ? commentAnalysis.negative : (comments.length > 0 ? 8 : 8)}%`
+              }}
+            >
+              <span className="text-white font-semibold text-sm">
+                부정 댓글 {commentAnalysis.negative > 0 ? commentAnalysis.negative : (comments.length > 0 ? 8 : 8)}%
+              </span>
+            </div>
+          </div>
+
+          {/* 댓글 분석 카드 섹션 */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* 긍정 댓글 카드 */}
+            <div className="bg-[#1a1f3a]/80 backdrop-blur-sm rounded-xl p-6 border border-blue-900/30">
+              <h3 className="text-white font-bold text-lg mb-4">긍정 피드백</h3>
               <ul className="space-y-2">
                 {commentAnalysis.positivePoints.length > 0 ? (
                   commentAnalysis.positivePoints.map((point, idx) => (
-                    <li key={idx} className="text-white/90 text-sm flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 bg-blue-300 rounded-full flex-shrink-0" />
+                    <li key={idx} className="text-white text-sm">
                       {point}
                     </li>
                   ))
                 ) : (
                   <>
-                    <li className="text-white/90 text-sm flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 bg-blue-300 rounded-full flex-shrink-0" />
-                      유익한 정보
-                    </li>
-                    <li className="text-white/90 text-sm flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 bg-blue-300 rounded-full flex-shrink-0" />
-                      현지 분위기 최고
-                    </li>
-                    <li className="text-white/90 text-sm flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 bg-blue-300 rounded-full flex-shrink-0" />
-                      편집 깔끔
-                    </li>
-                    <li className="text-white/90 text-sm flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 bg-blue-300 rounded-full flex-shrink-0" />
-                      친절한 설명
-                    </li>
+                    <li className="text-white text-sm">유익한 정보</li>
+                    <li className="text-white text-sm">현지 분위기 최고</li>
+                    <li className="text-white text-sm">편집 깔끔</li>
+                    <li className="text-white text-sm">친절한 설명</li>
                   </>
                 )}
               </ul>
             </div>
 
             {/* 부정 댓글 카드 */}
-            <div 
-              className="bg-red-600/20 backdrop-blur-sm rounded-xl p-6 border-2"
-              style={{ 
-                borderColor: '#EF4444',
-                boxShadow: '0 0 20px rgba(239, 68, 68, 0.3)'
-              }}
-            >
-              <h3 className="text-white font-bold text-lg mb-4">부정 댓글</h3>
+            <div className="bg-[#1a1f3a]/80 backdrop-blur-sm rounded-xl p-6 border border-red-900/30">
+              <h3 className="text-white font-bold text-lg mb-4">부정 피드백</h3>
               <ul className="space-y-2">
                 {commentAnalysis.negativePoints.length > 0 ? (
                   commentAnalysis.negativePoints.map((point, idx) => (
-                    <li key={idx} className="text-white/90 text-sm flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 bg-red-300 rounded-full flex-shrink-0" />
+                    <li key={idx} className="text-red-300 text-sm">
                       {point}
                     </li>
                   ))
                 ) : (
                   <>
-                    <li className="text-white/90 text-sm flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 bg-red-300 rounded-full flex-shrink-0" />
-                      광고 많음
-                    </li>
-                    <li className="text-white/90 text-sm flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 bg-red-300 rounded-full flex-shrink-0" />
-                      영상 길이
-                    </li>
-                    <li className="text-white/90 text-sm flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 bg-red-300 rounded-full flex-shrink-0" />
-                      음성 작음
-                    </li>
-                    <li className="text-white/90 text-sm flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 bg-red-300 rounded-full flex-shrink-0" />
-                      속도 빠름
-                    </li>
+                    <li className="text-red-300 text-sm">광고 많음</li>
+                    <li className="text-red-300 text-sm">영상 길이</li>
+                    <li className="text-red-300 text-sm">음성 작음</li>
+                    <li className="text-red-300 text-sm">속도 빠름</li>
                   </>
                 )}
               </ul>
             </div>
-          </div>
 
-          {/* 댓글 3줄 요약 */}
-          <div className="bg-[#1a1f3a]/80 backdrop-blur-sm rounded-xl p-6 border border-blue-900/30">
-            <h3 className="text-white font-bold text-lg mb-4">댓글 3줄 요약</h3>
-            <div className="space-y-3">
-              {commentAnalysis.summary.length > 0 ? (
-                commentAnalysis.summary.map((item, idx) => (
-                  <p key={idx} className="text-white/90 text-sm leading-relaxed">
-                    {item}
-                  </p>
-                ))
-              ) : (
-                <>
-                  <p className="text-white/90 text-sm leading-relaxed">
-                    실용적인 여행 정보와 현지 분위기가 잘 담긴 영상으로 높은 만족도를 보이고 있어요.
-                  </p>
-                  <p className="text-white/90 text-sm leading-relaxed">
-                    깔끔한 편집과 친절한 설명이 시청자들에게 큰 도움이 되고 있다는 평가예요.
-                  </p>
-                  <p className="text-white/90 text-sm leading-relaxed">
-                    중간 광고 빈도에 대한 아쉬움이 일부 있으나 전반적으로 긍정적인 반응이에요.
-                  </p>
-                </>
-              )}
+            {/* 댓글 3줄 요약 */}
+            <div className="bg-[#1a1f3a]/80 backdrop-blur-sm rounded-xl p-6 border border-blue-900/30">
+              <h3 className="text-white font-bold text-lg mb-4">댓글 3줄 요약</h3>
+              <div className="space-y-3">
+                {commentAnalysis.summary.length > 0 ? (
+                  commentAnalysis.summary.map((item, idx) => (
+                    <p key={idx} className="text-white/90 text-sm leading-relaxed">
+                      {item}
+                    </p>
+                  ))
+                ) : (
+                  <>
+                    <p className="text-white/90 text-sm leading-relaxed">
+                      실용적인 여행 정보와 현지 분위기가 잘 담긴 영상으로 높은 만족도를 보이고 있어요.
+                    </p>
+                    <p className="text-white/90 text-sm leading-relaxed">
+                      깔끔한 편집과 친절한 설명이 시청자들에게 큰 도움이 되고 있다는 평가예요.
+                    </p>
+                    <p className="text-white/90 text-sm leading-relaxed">
+                      중간 광고 빈도에 대한 아쉬움이 일부 있으나 전반적으로 긍정적인 반응이에요.
+                    </p>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -489,24 +552,38 @@ function VideoDetail() {
             <h2 className="text-2xl font-bold text-white mb-6">이런 영상은 어떠세요?</h2>
             <div className="relative">
               {/* 왼쪽 화살표 */}
-              {recommendedScrollPosition > 0 && (
-                <button
-                  onClick={() => scrollRecommended('left')}
-                  className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-black/70 hover:bg-black/90 rounded-full p-2 text-white transition-all"
-                >
-                  <ChevronLeft className="w-6 h-6" />
-                </button>
-              )}
+              {(() => {
+                const container = document.getElementById('recommended-videos-container')
+                const canScrollLeft = container && recommendedScrollPosition > 10
+                return canScrollLeft ? (
+                  <button
+                    onClick={() => scrollRecommended('left')}
+                    className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-black/70 hover:bg-black/90 rounded-full p-2 text-white transition-all"
+                  >
+                    <ChevronLeft className="w-6 h-6" />
+                  </button>
+                ) : null
+              })()}
 
               {/* 비디오 카드 컨테이너 */}
               <div
                 id="recommended-videos-container"
-                className="flex gap-6 overflow-x-auto scrollbar-hide pb-4"
-                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                className="flex gap-6 overflow-x-scroll overflow-y-hidden pb-4 scrollbar-hide"
+                style={{ 
+                  scrollbarWidth: 'none', 
+                  msOverflowStyle: 'none',
+                  WebkitOverflowScrolling: 'auto',
+                  scrollSnapType: 'x mandatory',
+                  scrollBehavior: 'smooth'
+                }}
               >
-                {similarVideos.map((v) => (
-                  <div key={v.id || v.video_id} className="flex-shrink-0 w-[320px]">
-                    <VideoCard video={v} featured />
+                {similarVideos.map((v, index) => (
+                  <div 
+                    key={v.id || v.video_id} 
+                    className="flex-shrink-0 w-[320px] transition-all duration-300 hover:z-10"
+                    style={{ scrollSnapAlign: 'start' }}
+                  >
+                    <VideoCard video={v} featured hideBookmark active={index === activeCardIndex} />
                   </div>
                 ))}
               </div>
@@ -516,7 +593,7 @@ function VideoDetail() {
                 const container = document.getElementById('recommended-videos-container')
                 const canScrollRight = container && 
                   container.scrollWidth > container.clientWidth &&
-                  recommendedScrollPosition < (container.scrollWidth - container.clientWidth - 50)
+                  recommendedScrollPosition < (container.scrollWidth - container.clientWidth - 10)
                 return canScrollRight ? (
                   <button
                     onClick={() => scrollRecommended('right')}

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useBookmark } from '../contexts/BookmarkContext'
 import { handleImageError, optimizeThumbnailUrl, getOptimizedImageStyles, handleImageLoadQuality } from '../utils/imageUtils'
 
-function VideoCard({ video, simple = false, featured = false }) {
+function VideoCard({ video, simple = false, featured = false, hideBookmark = false, active = false }) {
   const navigate = useNavigate()
   const { isBookmarked, toggleBookmark } = useBookmark()
   
@@ -73,13 +73,13 @@ function VideoCard({ video, simple = false, featured = false }) {
 
   if (simple) {
     return (
-      <div className="group relative cursor-pointer transition-transform duration-300 ease-out hover:-translate-y-2" onClick={handleClick}>
-        <div className="relative rounded-lg overflow-hidden bg-gray-900 border border-white/20" style={{ aspectRatio: '9/16' }}>
+      <div className="group relative cursor-pointer transition-all duration-300 ease-out hover:-translate-y-3 hover:scale-[1.02] hover:shadow-2xl hover:shadow-blue-900/50" onClick={handleClick}>
+        <div className="relative rounded-lg overflow-hidden bg-gray-900 border border-white/20 group-hover:border-blue-500/70 transition-all duration-300" style={{ aspectRatio: '9/16' }}>
           {thumbnailUrl ? (
             <img
               src={thumbnailUrl}
               alt={video.title || 'Video'}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ease-out"
               style={optimizedStyles}
               loading="lazy"
               decoding="async"
@@ -105,28 +105,30 @@ function VideoCard({ video, simple = false, featured = false }) {
           
           {/* Rating badge (우측 상단) */}
           {shouldShowRating && (
-            <div className="absolute top-2 right-2 flex items-center space-x-1 text-white text-xs font-semibold bg-black/70 backdrop-blur-sm px-2 py-1 rounded-full z-10">
-              <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-              <span>{video.rating}</span>
+            <div className="absolute top-2 right-2 flex items-center space-x-1 text-white text-xs font-semibold bg-black/70 backdrop-blur-sm px-2 py-1 rounded-full z-10 group-hover:scale-110 group-hover:bg-yellow-400/20 transition-all duration-300">
+              <Star className="w-3 h-3 fill-yellow-400 text-yellow-400 group-hover:scale-110 transition-transform duration-300" />
+              <span className="group-hover:text-yellow-300 transition-colors duration-300">{video.rating}</span>
             </div>
           )}
           
           {/* 북마크 버튼 (좌측 상단) */}
-          <button
-            onClick={handleBookmarkClick}
-            className={`absolute top-2 left-2 p-2 rounded-full backdrop-blur-sm transition-all z-10 ${
-              bookmarked
-                ? 'bg-blue-600/90 text-white'
-                : 'bg-black/70 text-white/70 hover:bg-black/90 hover:text-white'
-            }`}
-            title={bookmarked ? '북마크 제거' : '북마크 추가'}
-          >
-            <Bookmark className={`w-4 h-4 ${bookmarked ? 'fill-current' : ''}`} />
-          </button>
+          {!hideBookmark && (
+            <button
+              onClick={handleBookmarkClick}
+              className={`absolute top-2 left-2 p-2 rounded-full backdrop-blur-sm transition-all z-10 group-hover:scale-110 ${
+                bookmarked
+                  ? 'bg-blue-600/90 text-white hover:bg-blue-500 hover:scale-110'
+                  : 'bg-black/70 text-white/70 hover:bg-black/90 hover:text-white hover:scale-110'
+              }`}
+              title={bookmarked ? '북마크 제거' : '북마크 추가'}
+            >
+              <Bookmark className={`w-4 h-4 ${bookmarked ? 'fill-current' : ''}`} />
+            </button>
+          )}
           
           {/* Play button on hover */}
-          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-            <div className="bg-black/70 backdrop-blur-sm rounded-full p-4">
+          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none">
+            <div className="bg-black/80 backdrop-blur-sm rounded-full p-4 group-hover:scale-110 transition-transform duration-300 shadow-2xl">
               <Play className="w-8 h-8 text-white fill-white" />
             </div>
           </div>
@@ -137,13 +139,21 @@ function VideoCard({ video, simple = false, featured = false }) {
 
   if (featured) {
     return (
-      <div className="group bg-[#0f1629]/40 backdrop-blur-sm rounded-xl overflow-hidden border border-blue-800/30 hover:border-blue-600/50 transition-all duration-300 ease-out hover:-translate-y-2 cursor-pointer shadow-lg hover:shadow-2xl" onClick={handleClick}>
-        <div className="relative" style={{ aspectRatio: '16/9' }}>
+      <div className={`group bg-[#0f1629]/40 backdrop-blur-sm rounded-xl overflow-hidden border transition-all duration-300 ease-out hover:-translate-y-3 hover:scale-[1.02] cursor-pointer shadow-lg hover:shadow-blue-900/50 hover:shadow-2xl ${
+        active 
+          ? 'border-blue-500/70 shadow-blue-900/50 shadow-2xl scale-[1.02] -translate-y-2' 
+          : 'border-blue-800/30'
+      }`} onClick={handleClick}>
+        <div className="relative overflow-hidden" style={{ aspectRatio: '16/9' }}>
           {thumbnailUrl ? (
             <img
               src={thumbnailUrl}
               alt={video.title || 'Video'}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              className={`w-full h-full object-cover transition-transform duration-500 ease-out ${
+                active 
+                  ? 'scale-110' 
+                  : 'group-hover:scale-110'
+              }`}
               style={optimizedStyles}
               loading="lazy"
               decoding="async"
@@ -169,35 +179,37 @@ function VideoCard({ video, simple = false, featured = false }) {
           
           {/* Rating badge (우측 상단) */}
           {shouldShowRating && (
-            <div className="absolute top-4 right-4 flex items-center space-x-1.5 bg-black/80 backdrop-blur-sm px-3 py-1.5 rounded-full z-10">
-              <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-              <span className="text-white text-sm font-bold">{video.rating}</span>
+            <div className="absolute top-4 right-4 flex items-center space-x-1.5 bg-black/80 backdrop-blur-sm px-3 py-1.5 rounded-full z-10 group-hover:scale-110 group-hover:bg-yellow-400/20 transition-all duration-300">
+              <Star className="w-4 h-4 fill-yellow-400 text-yellow-400 group-hover:scale-110 transition-transform duration-300" />
+              <span className="text-white text-sm font-bold group-hover:text-yellow-300 transition-colors duration-300">{video.rating}</span>
             </div>
           )}
           
           {/* 북마크 버튼 (좌측 상단) */}
-          <button
-            onClick={handleBookmarkClick}
-            className={`absolute top-4 left-4 p-2.5 rounded-full backdrop-blur-sm transition-all z-10 ${
-              bookmarked
-                ? 'bg-blue-600/90 text-white'
-                : 'bg-black/70 text-white/70 hover:bg-black/90 hover:text-white'
-            }`}
-            title={bookmarked ? '북마크 제거' : '북마크 추가'}
-          >
-            <Bookmark className={`w-5 h-5 ${bookmarked ? 'fill-current' : ''}`} />
-          </button>
+          {!hideBookmark && (
+            <button
+              onClick={handleBookmarkClick}
+              className={`absolute top-4 left-4 p-2.5 rounded-full backdrop-blur-sm transition-all z-10 group-hover:scale-110 ${
+                bookmarked
+                  ? 'bg-blue-600/90 text-white hover:bg-blue-500 hover:scale-110'
+                  : 'bg-black/70 text-white/70 hover:bg-black/90 hover:text-white hover:scale-110'
+              }`}
+              title={bookmarked ? '북마크 제거' : '북마크 추가'}
+            >
+              <Bookmark className={`w-5 h-5 ${bookmarked ? 'fill-current' : ''}`} />
+            </button>
+          )}
           
           {/* Gradient overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
           
           {/* Content overlay */}
-          <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black via-black/90 to-transparent">
+          <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black via-black/90 to-transparent group-hover:bg-gradient-to-t group-hover:from-black group-hover:via-black/95 group-hover:to-transparent transition-all duration-300">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 {keywordColor && videoKeyword && (
                   <div
-                    className="px-3 py-1.5 rounded-lg"
+                    className="px-3 py-1.5 rounded-lg group-hover:scale-110 transition-transform duration-300"
                     style={{
                       border: `1px solid ${keywordColor.borderColor}`,
                       boxShadow: `0 0 10px ${keywordColor.glowColor}`,
@@ -213,22 +225,22 @@ function VideoCard({ video, simple = false, featured = false }) {
                   </div>
                 )}
                 {categoryLabel && !keywordColor && (
-                  <span className="px-3 py-1.5 bg-blue-600/90 backdrop-blur-sm text-white text-xs font-semibold rounded">
+                  <span className="px-3 py-1.5 bg-blue-600/90 backdrop-blur-sm text-white text-xs font-semibold rounded group-hover:bg-blue-500 group-hover:scale-110 transition-all duration-300">
                     {categoryLabel}
                   </span>
                 )}
               </div>
               {video.views && (
-                <span className="text-white/90 text-xs font-medium">{video.views}</span>
+                <span className="text-white/90 text-xs font-medium group-hover:text-white transition-colors duration-300">{video.views}</span>
               )}
             </div>
             {video.title && (
-              <h3 className="text-white font-bold mb-2 text-xl leading-tight line-clamp-2">
+              <h3 className="text-white font-bold mb-2 text-xl leading-tight line-clamp-2 group-hover:text-blue-300 transition-colors duration-300">
                 {video.title}
               </h3>
             )}
             {video.description && (
-              <p className="text-blue-200 text-sm leading-relaxed line-clamp-2">
+              <p className="text-blue-200 text-sm leading-relaxed line-clamp-2 group-hover:text-blue-100 transition-colors duration-300">
                 {video.description}
               </p>
             )}
