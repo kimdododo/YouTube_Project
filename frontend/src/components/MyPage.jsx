@@ -53,6 +53,8 @@ function MyPage() {
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const hasCheckedAuth = useRef(false)
+  const selectedPreferencesRef = useRef([])
+  const selectedKeywordsRef = useRef([])
   
   // 사용자 정보 상태
   const [userName, setUserName] = useState(localStorage.getItem('userName') || '')
@@ -366,6 +368,9 @@ function MyPage() {
     setTravelKeywordSummary(formatKeywordSummary(normalizedKeywords))
     setSelectedPreferences(normalizedPreferences)
     setSelectedKeywords(normalizedKeywords)
+    // ref 업데이트
+    selectedPreferencesRef.current = normalizedPreferences
+    selectedKeywordsRef.current = normalizedKeywords
 
     // 키워드 클라우드 생성: 백엔드 API 호출 (word2vec 기반 유사 키워드 추천)
     // 백엔드에서 유사 키워드 Top-K + 점수를 받아서 UI만 렌더링
@@ -710,10 +715,11 @@ function MyPage() {
   }
 
   const openPreferenceModal = useCallback(() => {
-    setPreferenceDraft(selectedPreferences)
+    // ref를 사용하여 최신 값 참조
+    setPreferenceDraft(selectedPreferencesRef.current)
     setPreferenceModalError('')
     setIsPreferenceModalOpen(true)
-  }, [selectedPreferences])
+  }, [])
 
   const closePreferenceModal = useCallback(() => {
     setIsPreferenceModalOpen(false)
@@ -721,10 +727,11 @@ function MyPage() {
   }, [])
 
   const openKeywordModal = useCallback(() => {
-    setKeywordDraft(selectedKeywords)
+    // ref를 사용하여 최신 값 참조
+    setKeywordDraft(selectedKeywordsRef.current)
     setKeywordModalError('')
     setIsKeywordModalOpen(true)
-  }, [selectedKeywords])
+  }, [])
 
   const closeKeywordModal = () => {
     setIsKeywordModalOpen(false)
