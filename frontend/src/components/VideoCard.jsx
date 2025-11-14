@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useBookmark } from '../contexts/BookmarkContext'
 import { handleImageError, optimizeThumbnailUrl, getOptimizedImageStyles, handleImageLoadQuality } from '../utils/imageUtils'
 
-function VideoCard({ video, simple = false, featured = false, hideBookmark = false, active = false }) {
+function VideoCard({ video, simple = false, featured = false, hideBookmark = false, active = false, themeColors = null }) {
   const navigate = useNavigate()
   const { isBookmarked, toggleBookmark } = useBookmark()
   
@@ -138,12 +138,45 @@ function VideoCard({ video, simple = false, featured = false, hideBookmark = fal
   }
 
   if (featured) {
+    // 테마 색상이 있으면 사용, 없으면 기본 색상
+    const borderColor = themeColors?.borderColor || '#60A5FA'
+    const glowColor = themeColors?.glowColor || 'rgba(96, 165, 250, 0.5)'
+    
+    // hex 색상을 rgba로 변환하는 헬퍼 함수
+    const hexToRgba = (hex: string, alpha: number) => {
+      const r = parseInt(hex.slice(1, 3), 16)
+      const g = parseInt(hex.slice(3, 5), 16)
+      const b = parseInt(hex.slice(5, 7), 16)
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`
+    }
+    
+    const defaultBorderColor = active ? borderColor : hexToRgba(borderColor, 0.5)
+    const defaultBoxShadow = active 
+      ? `0 0 20px ${glowColor}, 0 0 40px ${glowColor}80, inset 0 0 10px ${glowColor}40`
+      : `0 0 10px ${glowColor}40`
+    
     return (
-      <div className={`group bg-[#0f1629]/40 backdrop-blur-sm rounded-xl overflow-hidden border transition-all duration-300 ease-out hover:-translate-y-3 hover:scale-[1.02] cursor-pointer shadow-lg hover:shadow-blue-900/50 hover:shadow-2xl ${
-        active 
-          ? 'border-blue-500/70 shadow-blue-900/50 shadow-2xl scale-[1.02] -translate-y-2' 
-          : 'border-blue-800/30'
-      }`} onClick={handleClick}>
+      <div 
+        className="group bg-[#0f1629]/40 backdrop-blur-sm rounded-xl overflow-hidden border transition-all duration-300 ease-out hover:-translate-y-3 hover:scale-[1.02] cursor-pointer"
+        style={{
+          borderColor: defaultBorderColor,
+          boxShadow: defaultBoxShadow,
+          transform: active ? 'scale(1.02) translateY(-8px)' : 'none'
+        }}
+        onMouseEnter={(e) => {
+          if (!active) {
+            e.currentTarget.style.borderColor = borderColor
+            e.currentTarget.style.boxShadow = `0 0 15px ${glowColor}, 0 0 30px ${glowColor}80, inset 0 0 10px ${glowColor}40`
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!active) {
+            e.currentTarget.style.borderColor = hexToRgba(borderColor, 0.5)
+            e.currentTarget.style.boxShadow = `0 0 10px ${glowColor}40`
+          }
+        }}
+        onClick={handleClick}
+      >
         <div className="relative overflow-hidden" style={{ aspectRatio: '16/9' }}>
           {thumbnailUrl ? (
             <img

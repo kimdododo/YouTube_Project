@@ -6,7 +6,7 @@ import VideoCard from './VideoCard'
  * VideoCard 슬라이더 컴포넌트
  * 4열 1행 레이아웃, 마우스 호버 시 휠로 좌우 이동 가능
  */
-function VideoCardSlider({ videos, cardWidth = 320, gap = 24, hideBookmark = false }) {
+function VideoCardSlider({ videos, cardWidth = 320, gap = 24, hideBookmark = false, themeColors = null }) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isTransitioning, setIsTransitioning] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
@@ -159,6 +159,10 @@ function VideoCardSlider({ videos, cardWidth = 320, gap = 24, hideBookmark = fal
   const maxIndex = Math.max(0, videos.length - visibleCards)
   const totalWidth = cardWidth * visibleCards + gap * (visibleCards - 1)
   const paddingValue = `calc((100% - ${totalWidth}px) / 2)`
+  
+  // 테마 색상이 없으면 기본 색상 사용
+  const borderColor = themeColors?.borderColor || '#60A5FA'
+  const glowColor = themeColors?.glowColor || 'rgba(96, 165, 250, 0.5)'
 
   return (
     <div className="relative overflow-hidden" ref={containerRef}>
@@ -167,6 +171,10 @@ function VideoCardSlider({ videos, cardWidth = 320, gap = 24, hideBookmark = fal
         <button
           onClick={slidePrev}
           className="absolute left-0 top-1/2 -translate-y-1/2 z-20 bg-black/70 hover:bg-black/90 rounded-full p-2 text-white transition-all"
+          style={{
+            border: `1px solid ${borderColor}`,
+            boxShadow: `0 0 8px ${glowColor}`
+          }}
         >
           <ChevronLeft className="w-6 h-6" />
         </button>
@@ -175,12 +183,14 @@ function VideoCardSlider({ videos, cardWidth = 320, gap = 24, hideBookmark = fal
       {/* 슬라이더 컨테이너 */}
       <div 
         ref={sliderRef}
-        className="relative overflow-hidden cursor-grab active:cursor-grabbing select-none"
+        className="relative overflow-hidden cursor-grab active:cursor-grabbing select-none rounded-lg"
         style={{ 
           height: '280px', 
           userSelect: 'none',
           paddingLeft: paddingValue,
-          paddingRight: paddingValue
+          paddingRight: paddingValue,
+          border: `2px solid ${borderColor}`,
+          boxShadow: `0 0 15px ${glowColor}, inset 0 0 15px ${glowColor}`
         }}
         onMouseDown={handleMouseDown}
         onTouchStart={handleTouchStart}
@@ -209,7 +219,13 @@ function VideoCardSlider({ videos, cardWidth = 320, gap = 24, hideBookmark = fal
                 className="flex-shrink-0 transition-all duration-300 hover:z-10"
                 style={{ width: `${cardWidth}px` }}
               >
-                <VideoCard video={video} featured hideBookmark={hideBookmark} active={isVisible} />
+                <VideoCard 
+                  video={video} 
+                  featured 
+                  hideBookmark={hideBookmark} 
+                  active={isVisible}
+                  themeColors={themeColors}
+                />
               </div>
             )
           })}
@@ -221,6 +237,10 @@ function VideoCardSlider({ videos, cardWidth = 320, gap = 24, hideBookmark = fal
         <button
           onClick={slideNext}
           className="absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-black/70 hover:bg-black/90 rounded-full p-2 text-white transition-all"
+          style={{
+            border: `1px solid ${borderColor}`,
+            boxShadow: `0 0 8px ${glowColor}`
+          }}
         >
           <ChevronRight className="w-6 h-6" />
         </button>
