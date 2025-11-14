@@ -1,7 +1,6 @@
-import React, { useState } from 'react'
+import React from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
-import VideoCard from '../VideoCard'
+import VideoCardSlider from '../VideoCardSlider'
 
 /**
  * 테마별 추천 영상 섹션 컴포넌트
@@ -12,53 +11,6 @@ function ThemeRecommendationSection({ themes, userName = '' }) {
     return null
   }
 
-  // 각 테마별 슬라이더 인덱스 관리
-  const [sliderIndices, setSliderIndices] = useState({})
-  const [isTransitioning, setIsTransitioning] = useState({})
-
-  const cardWidth = 320
-  const gap = 24
-  const cardStep = cardWidth + gap
-
-  const slideNext = (themeId) => {
-    const theme = themes.find(t => (t.id || t.name) === themeId)
-    if (!theme || !theme.videos || theme.videos.length === 0) return
-    
-    if (isTransitioning[themeId]) return
-    
-    setIsTransitioning(prev => ({ ...prev, [themeId]: true }))
-    setSliderIndices(prev => {
-      const currentIndex = prev[themeId] || 0
-      const nextIndex = currentIndex + 1
-      return {
-        ...prev,
-        [themeId]: nextIndex >= theme.videos.length ? 0 : nextIndex
-      }
-    })
-    setTimeout(() => {
-      setIsTransitioning(prev => ({ ...prev, [themeId]: false }))
-    }, 500)
-  }
-
-  const slidePrev = (themeId) => {
-    const theme = themes.find(t => (t.id || t.name) === themeId)
-    if (!theme || !theme.videos || theme.videos.length === 0) return
-    
-    if (isTransitioning[themeId]) return
-    
-    setIsTransitioning(prev => ({ ...prev, [themeId]: true }))
-    setSliderIndices(prev => {
-      const currentIndex = prev[themeId] || 0
-      const prevIndex = currentIndex - 1
-      return {
-        ...prev,
-        [themeId]: prevIndex < 0 ? theme.videos.length - 1 : prevIndex
-      }
-    })
-    setTimeout(() => {
-      setIsTransitioning(prev => ({ ...prev, [themeId]: false }))
-    }, 500)
-  }
 
   // 키워드별 색상 매핑
   const getKeywordColor = (keyword) => {
@@ -195,56 +147,12 @@ function ThemeRecommendationSection({ themes, userName = '' }) {
 
             {/* 슬라이더 카드 리스트 */}
             {theme.videos && theme.videos.length > 0 ? (
-              <div className="relative overflow-hidden">
-                {/* 왼쪽 화살표 */}
-                <button
-                  onClick={() => slidePrev(theme.id || theme.name)}
-                  className="absolute left-0 top-1/2 -translate-y-1/2 z-20 bg-black/70 hover:bg-black/90 rounded-full p-2 text-white transition-all"
-                >
-                  <ChevronLeft className="w-6 h-6" />
-                </button>
-
-                {/* 비디오 카드 컨테이너 */}
-                <div className="relative overflow-hidden" style={{ height: '280px' }}>
-                  <div
-                    className="flex gap-6 absolute top-0"
-                    style={{
-                      left: '50%',
-                      transform: `translateX(calc(-50% - ${(sliderIndices[theme.id || theme.name] || 0) * cardStep}px))`,
-                      transition: isTransitioning[theme.id || theme.name] 
-                        ? 'transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)' 
-                        : 'none',
-                      willChange: 'transform'
-                    }}
-                  >
-                    {/* 무한루프를 위한 카드 복제 */}
-                    {[...theme.videos, ...theme.videos, ...theme.videos].map((video, index) => {
-                      const actualIndex = index % theme.videos.length
-                      const currentIndex = sliderIndices[theme.id || theme.name] || 0
-                      const isActive = actualIndex === currentIndex && 
-                        index >= theme.videos.length && 
-                        index < theme.videos.length * 2
-                      
-                      return (
-                        <div 
-                          key={`${video.id || video.video_id}-${index}`}
-                          className="flex-shrink-0 w-[280px] sm:w-[320px] transition-all duration-300 hover:z-10"
-                        >
-                          <VideoCard video={video} featured active={isActive} />
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-
-                {/* 오른쪽 화살표 */}
-                <button
-                  onClick={() => slideNext(theme.id || theme.name)}
-                  className="absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-black/70 hover:bg-black/90 rounded-full p-2 text-white transition-all"
-                >
-                  <ChevronRight className="w-6 h-6" />
-                </button>
-              </div>
+              <VideoCardSlider 
+                videos={theme.videos} 
+                cardWidth={320} 
+                gap={24}
+                hideBookmark={true}
+              />
             ) : (
               <div className="text-center py-8 text-white/60">
                 <p style={{ fontSize: '14px', fontFamily: 'Arial, sans-serif' }}>
