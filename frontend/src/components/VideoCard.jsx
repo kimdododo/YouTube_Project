@@ -29,6 +29,65 @@ function VideoCard({ video, simple = false, featured = false, hideBookmark = fal
     if (!keyword) return null
     const keywordLower = String(keyword).toLowerCase()
     
+    // 구체적인 키워드 먼저 체크
+    if (keywordLower.includes('브이로그') || keywordLower.includes('vlog')) {
+      return {
+        borderColor: '#8B5CF6', // 보라색
+        textColor: '#8B5CF6',
+        glowColor: 'rgba(139, 92, 246, 0.5)'
+      }
+    }
+    if (keywordLower.includes('국내여행') || keywordLower.includes('domestic')) {
+      return {
+        borderColor: '#10B981', // 초록색
+        textColor: '#10B981',
+        glowColor: 'rgba(16, 185, 129, 0.5)'
+      }
+    }
+    if (keywordLower.includes('해외여행') || keywordLower.includes('global')) {
+      return {
+        borderColor: '#06B6D4', // 청록색/시안색
+        textColor: '#06B6D4',
+        glowColor: 'rgba(6, 182, 212, 0.5)'
+      }
+    }
+    if (keywordLower.includes('당일치기') || keywordLower.includes('oneday')) {
+      return {
+        borderColor: '#EC4899', // 분홍색/핑크색
+        textColor: '#EC4899',
+        glowColor: 'rgba(236, 72, 153, 0.5)'
+      }
+    }
+    if (keywordLower.includes('맛집투어') || keywordLower.includes('food')) {
+      return {
+        borderColor: '#F97316', // 주황색
+        textColor: '#F97316',
+        glowColor: 'rgba(249, 115, 22, 0.5)'
+      }
+    }
+    if (keywordLower.includes('숙소리뷰') || keywordLower.includes('stay')) {
+      return {
+        borderColor: '#14B8A6', // 청록색
+        textColor: '#14B8A6',
+        glowColor: 'rgba(20, 184, 166, 0.5)'
+      }
+    }
+    if (keywordLower.includes('캠핑') || keywordLower.includes('camping')) {
+      return {
+        borderColor: '#84CC16', // 라임색
+        textColor: '#84CC16',
+        glowColor: 'rgba(132, 204, 22, 0.5)'
+      }
+    }
+    if (keywordLower.includes('카페투어') || keywordLower.includes('cafe')) {
+      return {
+        borderColor: '#F59E0B', // 앰버색/주황노란색
+        textColor: '#F59E0B',
+        glowColor: 'rgba(245, 158, 11, 0.5)'
+      }
+    }
+    
+    // 기존 키워드들
     if (keywordLower.includes('가성비') || keywordLower.includes('budget')) {
       return {
         borderColor: '#60A5FA', // 밝은 파란색
@@ -157,27 +216,39 @@ function VideoCard({ video, simple = false, featured = false, hideBookmark = fal
     
     return (
       <div 
-        className="group bg-[#0f1629]/40 backdrop-blur-sm rounded-xl overflow-hidden border transition-all duration-300 ease-out hover:-translate-y-3 hover:scale-[1.02] cursor-pointer"
+        className="group bg-[#0f1629]/40 backdrop-blur-sm rounded-xl overflow-hidden transition-all duration-300 ease-out hover:-translate-y-3 hover:scale-[1.02] cursor-pointer"
         style={{
-          borderColor: defaultBorderColor,
           boxShadow: defaultBoxShadow,
           transform: active ? 'scale(1.02) translateY(-8px)' : 'none'
         }}
         onMouseEnter={(e) => {
           if (!active) {
-            e.currentTarget.style.borderColor = borderColor
+            const thumbnailDiv = e.currentTarget.querySelector('.thumbnail-container')
+            if (thumbnailDiv) {
+              thumbnailDiv.style.borderColor = borderColor
+            }
             e.currentTarget.style.boxShadow = `0 6px 24px rgba(0, 0, 0, 0.4), 0 0 15px ${glowColor}, 0 0 30px ${glowColor}80, inset 0 0 10px ${glowColor}40`
           }
         }}
         onMouseLeave={(e) => {
           if (!active) {
-            e.currentTarget.style.borderColor = hexToRgba(borderColor, 0.5)
+            const thumbnailDiv = e.currentTarget.querySelector('.thumbnail-container')
+            if (thumbnailDiv) {
+              thumbnailDiv.style.borderColor = hexToRgba(borderColor, 0.5)
+            }
             e.currentTarget.style.boxShadow = `0 4px 12px rgba(0, 0, 0, 0.2), 0 0 10px ${glowColor}40`
           }
         }}
         onClick={handleClick}
       >
-        <div className="relative overflow-hidden" style={{ aspectRatio: '16/9' }}>
+        <div 
+          className="relative overflow-hidden thumbnail-container rounded-xl" 
+          style={{ 
+            aspectRatio: '16/9',
+            border: `2px solid ${defaultBorderColor}`,
+            boxShadow: `0 0 10px ${glowColor}40`
+          }}
+        >
           {thumbnailUrl ? (
             <img
               src={thumbnailUrl}
