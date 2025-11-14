@@ -103,25 +103,37 @@ function MyPage() {
   // 로그인 체크 및 리다이렉트 (마운트 시에만 실행)
   useEffect(() => {
     // 이미 체크를 완료했으면 실행하지 않음
-    if (hasCheckedAuth.current) return
+    if (hasCheckedAuth.current) {
+      setIsCheckingAuth(false)
+      return
+    }
     
     hasCheckedAuth.current = true
     
+    // 동기적으로 로그인 상태 체크
     const token = getToken()
     const isLoggedIn = sessionStorage.getItem('isLoggedIn') === 'true' || 
                       localStorage.getItem('isLoggedIn') === 'true'
     
-    setIsCheckingAuth(false)
+    console.log('[MyPage] Auth check:', { token: !!token, isLoggedIn })
     
+    // 로그인하지 않은 경우 로그인 페이지로 리다이렉트
     if (!token && !isLoggedIn) {
-      // 로그인하지 않은 경우 로그인 페이지로 리다이렉트
+      console.log('[MyPage] Not logged in, redirecting to login')
+      setIsCheckingAuth(false)
       navigate('/login', { 
         state: { from: location.pathname },
-        replace: false // 히스토리 스택 유지
+        replace: true
       })
+      return
     }
+    
+    // 로그인 체크 완료
+    console.log('[MyPage] Auth check complete, user is logged in')
+    setIsCheckingAuth(false)
+    
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // 빈 배열로 마운트 시에만 실행 (navigate와 location은 안정적이므로 의존성 제외)
+  }, []) // 빈 배열로 마운트 시에만 실행
   
   // 사용자 정보는 MyPageLayout에서 관리
   const [bookmarks, setBookmarks] = useState([])
@@ -947,6 +959,7 @@ function MyPage() {
   ]
 
   // 로그인 체크 중이면 로딩 표시 (모든 훅 호출 후)
+  // 로그인되지 않은 경우는 useEffect에서 리다이렉트하므로 여기서는 체크하지 않음
   if (isCheckingAuth) {
     return (
       <MyPageLayout activeTab={activeTab} setActiveTab={setActiveTab}>
