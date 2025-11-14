@@ -340,39 +340,12 @@ function VideoDetail() {
 
         {/* 댓글 분석 섹션 */}
         <div className="mb-12">
-          <h2 className="text-2xl font-bold text-white mb-6">댓글 분석 & 요약</h2>
+          <h2 className="text-2xl font-bold text-white mb-6">댓글 분석</h2>
           
-          {/* 긍정/부정 비율 바 차트 */}
-          <div className="mb-6 flex gap-2 h-12">
-            <div 
-              className="flex items-center justify-start px-4 rounded-l-lg"
-              style={{ 
-                backgroundColor: '#1e3a8a',
-                width: `${analysisResult.positive}%`
-              }}
-            >
-              <span className="text-white font-semibold text-sm">
-                긍정 댓글 {analysisResult.positive}%
-              </span>
-            </div>
-            <div 
-              className="flex items-center justify-end px-4 rounded-r-lg"
-              style={{ 
-                backgroundColor: '#991b1b',
-                width: `${analysisResult.negative}%`
-              }}
-            >
-              <span className="text-white font-semibold text-sm">
-                부정 댓글 {analysisResult.negative}%
-              </span>
-            </div>
-          </div>
-
-          {/* 댓글 분석 카드 섹션 */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            {/* 긍정 댓글 카드 */}
-            <div className="bg-[#1a1f3a]/80 backdrop-blur-sm rounded-xl p-6 border border-blue-900/30">
-              <h3 className="text-white font-bold text-lg mb-4">긍정 피드백</h3>
+          {/* 댓글 분석 카드 섹션 - 3열 그리드 */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* 긍정 피드백 카드 */}
+            <div className="bg-[#1a1f3a]/80 backdrop-blur-sm rounded-lg p-6 border border-blue-900/30">
               <ul className="space-y-2">
                 {analysisResult.positivePoints && analysisResult.positivePoints.length > 0 ? (
                   analysisResult.positivePoints.map((point, idx) => (
@@ -386,9 +359,8 @@ function VideoDetail() {
               </ul>
             </div>
 
-            {/* 부정 댓글 카드 */}
-            <div className="bg-[#1a1f3a]/80 backdrop-blur-sm rounded-xl p-6 border border-red-900/30">
-              <h3 className="text-white font-bold text-lg mb-4">부정 피드백</h3>
+            {/* 부정 피드백 카드 */}
+            <div className="bg-[#1a1f3a]/80 backdrop-blur-sm rounded-lg p-6 border border-red-900/30">
               <ul className="space-y-2">
                 {analysisResult.negativePoints && analysisResult.negativePoints.length > 0 ? (
                   analysisResult.negativePoints.map((point, idx) => (
@@ -401,21 +373,21 @@ function VideoDetail() {
                 )}
               </ul>
             </div>
-          </div>
 
-          {/* 댓글 3줄 요약 */}
-          <div className="bg-[#1a1f3a]/80 backdrop-blur-sm rounded-xl p-6 border border-blue-900/30">
-            <h3 className="text-white font-bold text-lg mb-4">댓글 3줄 요약</h3>
-            <div className="space-y-3">
-              {analysisResult.summary && analysisResult.summary.length > 0 ? (
-                analysisResult.summary.map((item, idx) => (
-                  <p key={idx} className="text-white/90 text-sm leading-relaxed">
-                    {item}
-                  </p>
-                ))
-              ) : (
-                <p className="text-white/60 text-sm">분석 중...</p>
-              )}
+            {/* 댓글 3줄 요약 */}
+            <div className="bg-[#1a1f3a]/80 backdrop-blur-sm rounded-lg p-6 border border-blue-900/30">
+              <h3 className="text-white font-bold text-lg mb-4">댓글 3줄 요약</h3>
+              <div className="space-y-3">
+                {analysisResult.summary && analysisResult.summary.length > 0 ? (
+                  analysisResult.summary.map((item, idx) => (
+                    <p key={idx} className="text-white/90 text-sm leading-relaxed">
+                      {item}
+                    </p>
+                  ))
+                ) : (
+                  <p className="text-white/60 text-sm">분석 중...</p>
+                )}
+              </div>
             </div>
           </div>
         </div>

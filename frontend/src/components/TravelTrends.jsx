@@ -7,8 +7,18 @@ import { getTrendVideos, getDiversifiedVideos } from '../api/videos'
 function TravelTrends() {
   const [activeTab, setActiveTab] = useState('trending')
   const [activePeriod, setActivePeriod] = useState('daily')
+  const [activeThemeCategory, setActiveThemeCategory] = useState('all') // 테마별 서브 탭
   const [trendVideos, setTrendVideos] = useState([])
   const [loading, setLoading] = useState(true)
+
+  // 테마별 카테고리 목록
+  const themeCategories = [
+    { id: 'all', name: '전체' },
+    { id: 'food', name: '맛집' },
+    { id: 'sightseeing', name: '관광' },
+    { id: 'relaxation', name: '휴양' },
+    { id: 'activity', name: '액티비티' }
+  ]
 
   // 트렌드 비디오 데이터 가져오기
   useEffect(() => {
@@ -105,39 +115,60 @@ function TravelTrends() {
           </button>
         </div>
 
-        {/* Period Tabs (항상 표시) */}
-        <div className="flex space-x-3 mb-6">
-          <button
-            onClick={() => setActivePeriod('daily')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              activePeriod === 'daily'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-800/50 text-white hover:bg-gray-700/50'
-            }`}
-          >
-            일간
-          </button>
-          <button
-            onClick={() => setActivePeriod('weekly')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              activePeriod === 'weekly'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-800/50 text-white hover:bg-gray-700/50'
-            }`}
-          >
-            주간
-          </button>
-          <button
-            onClick={() => setActivePeriod('monthly')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              activePeriod === 'monthly'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-800/50 text-white hover:bg-gray-700/50'
-            }`}
-          >
-            월간
-          </button>
-        </div>
+        {/* Period Tabs (지금 뜨는 여행 탭일 때만 표시) */}
+        {activeTab === 'trending' && (
+          <div className="flex space-x-3 mb-6">
+            <button
+              onClick={() => setActivePeriod('daily')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                activePeriod === 'daily'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-800/50 text-white hover:bg-gray-700/50'
+              }`}
+            >
+              일간
+            </button>
+            <button
+              onClick={() => setActivePeriod('weekly')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                activePeriod === 'weekly'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-800/50 text-white hover:bg-gray-700/50'
+              }`}
+            >
+              주간
+            </button>
+            <button
+              onClick={() => setActivePeriod('monthly')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                activePeriod === 'monthly'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-800/50 text-white hover:bg-gray-700/50'
+              }`}
+            >
+              월간
+            </button>
+          </div>
+        )}
+
+        {/* 테마별 서브 탭 (테마별 여행지 탭일 때만 표시) */}
+        {activeTab === 'theme' && (
+          <div className="flex space-x-3 mb-6">
+            {themeCategories.map((category) => (
+              <button
+                key={category.id}
+                onClick={() => setActiveThemeCategory(category.id)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  activeThemeCategory === category.id
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-800/50 text-white hover:bg-gray-700/50'
+                }`}
+              >
+                {category.name}
+              </button>
+            ))}
+          </div>
+        )}
 
 
         {/* 지금 뜨는 여행 - 트렌드 순위 목록 */}
@@ -167,9 +198,15 @@ function TravelTrends() {
         {/* 테마별 여행지 - 카테고리별 콘텐츠 그리드 */}
         {activeTab === 'theme' && (
           <div className="mb-8">
-            {/* 콘텐츠 개수 표시 */}
+            {/* 선택된 테마 카테고리 표시 */}
             <div className="text-white mb-6">
-              {trendVideos.length > 0 ? `${trendVideos.length}개의 콘텐츠` : '0개의 콘텐츠'}
+              <span className="text-white/70">현재 선택: </span>
+              <span className="font-semibold">
+                {themeCategories.find(cat => cat.id === activeThemeCategory)?.name || '전체'}
+              </span>
+              <span className="text-white/70 ml-2">
+                · {trendVideos.length > 0 ? `${trendVideos.length}개의 콘텐츠` : '0개의 콘텐츠'}
+              </span>
             </div>
 
             {/* 그리드 (개인맞춤영상추천과 동일: 2열, Featured 카드) */}
@@ -184,7 +221,7 @@ function TravelTrends() {
             ) : (
               <div className="grid grid-cols-2 gap-6">
                 {trendVideos.slice(0, 8).map((video) => (
-                  <VideoCard key={video.id} video={video} featured />
+                  <VideoCard key={video.id || video.video_id} video={video} featured />
                 ))}
               </div>
             )}

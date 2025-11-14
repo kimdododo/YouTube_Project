@@ -84,7 +84,7 @@ function TrendRankingCard({ rank, video, change }) {
         {/* 왼쪽: 순위 */}
         <div className="flex-shrink-0">
           <div className={`flex items-center justify-center text-4xl font-bold ${
-            rank === 1 ? 'text-yellow-500' : rank === 2 ? 'text-orange-500' : rank === 3 ? 'text-orange-400' : 'text-yellow-600'
+            rank === 1 ? 'text-yellow-500' : 'text-white'
           }`} style={{ width: '60px' }}>
             {rank}
           </div>
