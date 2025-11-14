@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { User, Settings, X, LogOut, Bookmark, Bell, Lock, Eye, EyeOff, Clock } from 'lucide-react'
 import MyPageLayout from './layouts/MyPageLayout'
@@ -628,7 +628,7 @@ function MyPage() {
     setIsEditModalOpen(false)
   }
 
-  const handleLogout = (redirectPath = '/') => {
+  const handleLogout = useCallback((redirectPath = '/') => {
     clearAuth()
     sessionStorage.removeItem('isLoggedIn')
     sessionStorage.removeItem('userName')
@@ -639,9 +639,9 @@ function MyPage() {
     localStorage.removeItem('subscribedChannels')
     setIsLoggedIn(false)
     navigate(redirectPath)
-  }
+  }, [navigate])
 
-  const openPasswordModal = () => {
+  const openPasswordModal = useCallback(() => {
     setPasswordForm({
       currentPassword: '',
       newPassword: '',
@@ -652,7 +652,7 @@ function MyPage() {
       error: ''
     })
     setIsPasswordModalOpen(true)
-  }
+  }, [])
 
   const closePasswordModal = () => {
     setIsPasswordModalOpen(false)
@@ -709,22 +709,22 @@ function MyPage() {
     handleLogout('/login')
   }
 
-  const openPreferenceModal = () => {
+  const openPreferenceModal = useCallback(() => {
     setPreferenceDraft(selectedPreferences)
     setPreferenceModalError('')
     setIsPreferenceModalOpen(true)
-  }
+  }, [selectedPreferences])
 
-  const closePreferenceModal = () => {
+  const closePreferenceModal = useCallback(() => {
     setIsPreferenceModalOpen(false)
     setPreferenceModalError('')
-  }
+  }, [])
 
-  const openKeywordModal = () => {
+  const openKeywordModal = useCallback(() => {
     setKeywordDraft(selectedKeywords)
     setKeywordModalError('')
     setIsKeywordModalOpen(true)
-  }
+  }, [selectedKeywords])
 
   const closeKeywordModal = () => {
     setIsKeywordModalOpen(false)
