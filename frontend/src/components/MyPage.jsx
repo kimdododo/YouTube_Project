@@ -1319,31 +1319,11 @@ function MyPage() {
                           {video.description}
                         </p>
                       )}
-                      <div className="mt-auto pt-4 flex items-center justify-between">
+                      <div className="mt-auto pt-4">
                         <div className="flex items-center gap-3 text-xs text-white/50">
                           {video.category && <span>{video.category}</span>}
                           <span>•</span>
                           <span>{index === 0 ? '방금 시청' : index === 1 ? '1시간 전' : `${index + 1}시간 전`}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <a
-                            href={youtubeUrl || '#'}
-                            target={youtubeUrl ? '_blank' : undefined}
-                            rel={youtubeUrl ? 'noopener noreferrer' : undefined}
-                            onClick={!youtubeUrl ? (e) => { e.preventDefault(); console.warn('[MyPage] Invalid video ID:', videoId) } : undefined}
-                            className="px-3 py-1 text-xs font-medium text-blue-300 hover:text-blue-200 transition-colors"
-                          >
-                            YouTube 보기
-                          </a>
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault()
-                              handleVideoKeywordAnalysis(video)
-                            }}
-                            className="px-3 py-1 text-xs font-medium bg-blue-600/40 hover:bg-blue-600/60 text-white rounded-lg transition-colors"
-                          >
-                            키워드 분석
-                          </button>
                         </div>
                       </div>
                     </div>
