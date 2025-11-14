@@ -29,40 +29,49 @@ function VideoCard({ video, simple = false, featured = false, hideBookmark = fal
     if (!keyword) return null
     const keywordLower = String(keyword).toLowerCase()
     
-    // 구체적인 키워드 먼저 체크
-    if (keywordLower.includes('브이로그') || keywordLower.includes('vlog')) {
+    // 구체적인 해시태그 먼저 체크 (ThemeRecommendationSection과 동일한 순서)
+    if (keywordLower.includes('감성여행') || keywordLower.includes('#감성여행')) {
       return {
-        borderColor: '#8B5CF6', // 보라색
-        textColor: '#8B5CF6',
-        glowColor: 'rgba(139, 92, 246, 0.5)'
+        borderColor: '#FCD34D', // 황금색/노란색
+        textColor: '#FCD34D',
+        glowColor: 'rgba(252, 211, 77, 0.5)'
       }
     }
-    if (keywordLower.includes('국내여행') || keywordLower.includes('domestic')) {
+    if (keywordLower.includes('국내여행') || keywordLower.includes('#국내여행') || keywordLower.includes('domestic')) {
       return {
         borderColor: '#10B981', // 초록색
         textColor: '#10B981',
         glowColor: 'rgba(16, 185, 129, 0.5)'
       }
     }
-    if (keywordLower.includes('해외여행') || keywordLower.includes('global')) {
+    if (keywordLower.includes('맛집투어') || keywordLower.includes('#맛집투어') || keywordLower.includes('food')) {
+      return {
+        borderColor: '#F97316', // 주황색
+        textColor: '#F97316',
+        glowColor: 'rgba(249, 115, 22, 0.5)'
+      }
+    }
+    if (keywordLower.includes('해외여행') || keywordLower.includes('#해외여행') || keywordLower.includes('global')) {
       return {
         borderColor: '#06B6D4', // 청록색/시안색
         textColor: '#06B6D4',
         glowColor: 'rgba(6, 182, 212, 0.5)'
       }
     }
-    if (keywordLower.includes('당일치기') || keywordLower.includes('oneday')) {
+    if (keywordLower.includes('당일치기') || keywordLower.includes('#당일치기') || keywordLower.includes('oneday')) {
       return {
         borderColor: '#EC4899', // 분홍색/핑크색
         textColor: '#EC4899',
         glowColor: 'rgba(236, 72, 153, 0.5)'
       }
     }
-    if (keywordLower.includes('맛집투어') || keywordLower.includes('food')) {
+    
+    // 추가 키워드들
+    if (keywordLower.includes('브이로그') || keywordLower.includes('vlog')) {
       return {
-        borderColor: '#F97316', // 주황색
-        textColor: '#F97316',
-        glowColor: 'rgba(249, 115, 22, 0.5)'
+        borderColor: '#8B5CF6', // 보라색
+        textColor: '#8B5CF6',
+        glowColor: 'rgba(139, 92, 246, 0.5)'
       }
     }
     if (keywordLower.includes('숙소리뷰') || keywordLower.includes('stay')) {
