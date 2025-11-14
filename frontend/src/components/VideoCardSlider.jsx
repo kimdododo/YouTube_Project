@@ -166,16 +166,27 @@ function VideoCardSlider({ videos, cardWidth = 320, gap = 24, hideBookmark = fal
   
   // 화살표 버튼 표시 조건: 비디오가 4개 이상이면 항상 표시
   const showArrows = videos.length > visibleCards
+  const canGoPrev = currentIndex > 0
+  const canGoNext = currentIndex < maxIndex
 
   return (
     <div className="relative overflow-hidden" ref={containerRef}>
-      {/* 왼쪽 화살표 */}
-      {showArrows && currentIndex > 0 && (
+      {/* 왼쪽 화살표 - 항상 표시하되 비활성화 상태 표시 */}
+      {showArrows && (
         <button
           onClick={slidePrev}
-          className="absolute left-0 top-1/2 -translate-y-1/2 z-20 bg-black/70 hover:bg-black/90 rounded-full p-2 text-white transition-all"
+          disabled={!canGoPrev || isTransitioning}
+          className={`absolute left-2 top-1/2 -translate-y-1/2 z-20 rounded-full p-3 text-white transition-all ${
+            canGoPrev 
+              ? 'bg-black/80 hover:bg-black/95 cursor-pointer shadow-lg hover:shadow-xl' 
+              : 'bg-black/30 cursor-not-allowed opacity-50'
+          }`}
+          style={{
+            transform: 'translateY(-50%)',
+            transition: 'all 0.3s ease'
+          }}
         >
-          <ChevronLeft className="w-6 h-6" />
+          <ChevronLeft className="w-6 h-6 sm:w-7 sm:h-7" />
         </button>
       )}
 
@@ -189,7 +200,9 @@ function VideoCardSlider({ videos, cardWidth = 320, gap = 24, hideBookmark = fal
           paddingLeft: paddingValue,
           paddingRight: paddingValue,
           border: 'none',
-          boxShadow: 'none'
+          boxShadow: 'none',
+          marginLeft: showArrows ? '48px' : '0',
+          marginRight: showArrows ? '48px' : '0'
         }}
         onMouseDown={handleMouseDown}
         onTouchStart={handleTouchStart}
@@ -231,13 +244,22 @@ function VideoCardSlider({ videos, cardWidth = 320, gap = 24, hideBookmark = fal
         </div>
       </div>
 
-      {/* 오른쪽 화살표 */}
-      {showArrows && currentIndex < maxIndex && (
+      {/* 오른쪽 화살표 - 항상 표시하되 비활성화 상태 표시 */}
+      {showArrows && (
         <button
           onClick={slideNext}
-          className="absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-black/70 hover:bg-black/90 rounded-full p-2 text-white transition-all"
+          disabled={!canGoNext || isTransitioning}
+          className={`absolute right-2 top-1/2 -translate-y-1/2 z-20 rounded-full p-3 text-white transition-all ${
+            canGoNext 
+              ? 'bg-black/80 hover:bg-black/95 cursor-pointer shadow-lg hover:shadow-xl' 
+              : 'bg-black/30 cursor-not-allowed opacity-50'
+          }`}
+          style={{
+            transform: 'translateY(-50%)',
+            transition: 'all 0.3s ease'
+          }}
         >
-          <ChevronRight className="w-6 h-6" />
+          <ChevronRight className="w-6 h-6 sm:w-7 sm:h-7" />
         </button>
       )}
     </div>

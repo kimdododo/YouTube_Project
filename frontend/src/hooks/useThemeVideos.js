@@ -175,7 +175,7 @@ function useThemeVideos() {
 
         // 실제 비디오 데이터 가져오기 (임시로 전체 비디오에서 필터링)
         try {
-          const allVideos = await getDiversifiedVideos(500, 1) // 더 많은 영상 가져오기 (가로 스크롤용)
+          const allVideos = await getDiversifiedVideos(1000, 1) // 더 많은 영상 가져오기 (가로 스크롤용)
           
           // 이미 할당된 비디오 ID를 추적하여 중복 방지
           const assignedVideoIds = new Set()
@@ -205,8 +205,8 @@ function useThemeVideos() {
                   category.includes(kw.toLowerCase())
                 )
               })
-              // 각 테마당 최대 30개로 증가 (가로 스크롤에 많은 영상 표시)
-              .slice(0, 30)
+              // 각 테마당 최대 50개로 증가 (가로 스크롤에 많은 영상 표시)
+              .slice(0, 50)
             
             // 할당된 비디오 ID를 추적에 추가
             filteredVideos.forEach(video => {

@@ -49,7 +49,7 @@ function DetailedVideoCard({ video }) {
   const sanitizedCategory = (video.category || '').replace(/^channel:\s*/i, '')
 
   return (
-    <div className="bg-[#0f1629]/40 backdrop-blur-sm rounded-lg overflow-hidden border border-blue-800/30 hover:border-blue-600/50 transition-all duration-300 ease-out hover:-translate-y-2 cursor-pointer shadow-lg hover:shadow-2xl" onClick={handleClick}>
+    <div className="bg-[#0f1629]/40 backdrop-blur-sm rounded-lg overflow-hidden border border-black/50 hover:border-black/70 transition-all duration-300 ease-out hover:-translate-y-2 cursor-pointer shadow-lg hover:shadow-2xl" onClick={handleClick}>
       <div className="flex p-1">
         {/* 왼쪽: 큰 이미지 썸네일 */}
         <div className="relative flex-shrink-0 w-48 h-40 bg-gray-900">

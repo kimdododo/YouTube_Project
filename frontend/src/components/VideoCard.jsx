@@ -1,14 +1,27 @@
 import { Star, Play, Bookmark } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { useState, useEffect, useRef } from 'react'
 import { useBookmark } from '../contexts/BookmarkContext'
 import { handleImageError, optimizeThumbnailUrl, getOptimizedImageStyles, handleImageLoadQuality } from '../utils/imageUtils'
 
 function VideoCard({ video, simple = false, featured = false, hideBookmark = false, active = false, themeColors = null }) {
   const navigate = useNavigate()
   const { isBookmarked, toggleBookmark } = useBookmark()
+  const thumbnailRef = useRef(null)
+  const [isMobile, setIsMobile] = useState(false)
   
   const videoId = video.id || video.video_id
   const bookmarked = isBookmarked(videoId)
+
+  // 반응형 감지
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 640)
+    }
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
 
   const handleBookmarkClick = (e) => {
     e.stopPropagation() // 카드 클릭 이벤트 방지
@@ -141,8 +154,8 @@ function VideoCard({ video, simple = false, featured = false, hideBookmark = fal
 
   if (simple) {
     return (
-      <div className="group relative cursor-pointer transition-all duration-300 ease-out hover:-translate-y-3 hover:scale-[1.02] hover:shadow-2xl hover:shadow-blue-900/50" onClick={handleClick}>
-        <div className="relative rounded-lg overflow-hidden bg-gray-900 border border-white/20 group-hover:border-blue-500/70 transition-all duration-300" style={{ aspectRatio: '9/16' }}>
+      <div className="group relative cursor-pointer transition-all duration-300 ease-out hover:-translate-y-3 hover:scale-[1.02] hover:shadow-2xl hover:shadow-black/50 w-full" onClick={handleClick}>
+        <div className="relative rounded-lg overflow-hidden bg-gray-900 border border-black/50 group-hover:border-black/70 transition-all duration-300" style={{ aspectRatio: '9/16' }}>
           {thumbnailUrl ? (
             <img
               src={thumbnailUrl}
@@ -206,9 +219,9 @@ function VideoCard({ video, simple = false, featured = false, hideBookmark = fal
   }
 
   if (featured) {
-    // 테마 색상이 있으면 사용, 없으면 기본 색상
-    const borderColor = themeColors?.borderColor || '#60A5FA'
-    const glowColor = themeColors?.glowColor || 'rgba(96, 165, 250, 0.5)'
+    // 모든 영상 카드 라인 색상을 BLACK으로 통일
+    const borderColor = '#000000' // BLACK
+    const glowColor = 'rgba(0, 0, 0, 0.5)' // BLACK glow
     
     // hex 색상을 rgba로 변환하는 헬퍼 함수
     const hexToRgba = (hex, alpha) => {
@@ -225,10 +238,11 @@ function VideoCard({ video, simple = false, featured = false, hideBookmark = fal
     
     return (
       <div 
-        className="group bg-[#0f1629]/40 backdrop-blur-sm rounded-xl overflow-hidden transition-all duration-300 ease-out hover:-translate-y-3 hover:scale-[1.02] cursor-pointer"
+        className="group bg-[#0f1629]/40 backdrop-blur-sm rounded-xl overflow-visible transition-all duration-300 ease-out hover:-translate-y-3 hover:scale-[1.02] cursor-pointer w-full"
         style={{
           transform: active ? 'scale(1.02) translateY(-8px)' : 'none',
-          border: 'none'
+          border: 'none',
+          borderColor: 'transparent'
         }}
         onMouseEnter={(e) => {
           if (!active) {
@@ -251,11 +265,21 @@ function VideoCard({ video, simple = false, featured = false, hideBookmark = fal
         onClick={handleClick}
       >
         <div 
-          className="relative overflow-hidden thumbnail-container rounded-xl" 
+          ref={thumbnailRef}
+          className="relative overflow-hidden thumbnail-container rounded-xl border-solid" 
           style={{ 
             aspectRatio: '16/9',
-            border: `2px solid ${defaultBorderColor}`,
-            boxShadow: thumbnailBoxShadow
+            border: `${isMobile ? '1px' : '2px'} solid ${defaultBorderColor}`,
+            boxShadow: thumbnailBoxShadow,
+            width: '100%'
+          }}
+          onMouseEnter={(e) => {
+            if (!isMobile) {
+              e.currentTarget.style.borderWidth = '3px'
+            }
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderWidth = isMobile ? '1px' : '2px'
           }}
         >
           {thumbnailUrl ? (
@@ -264,8 +288,8 @@ function VideoCard({ video, simple = false, featured = false, hideBookmark = fal
               alt={video.title || 'Video'}
               className={`w-full h-full object-cover transition-transform duration-500 ease-out ${
                 active 
-                  ? 'scale-110' 
-                  : 'group-hover:scale-110'
+                  ? 'scale-105' 
+                  : 'group-hover:scale-105'
               }`}
               style={optimizedStyles}
               loading="lazy"
@@ -292,9 +316,9 @@ function VideoCard({ video, simple = false, featured = false, hideBookmark = fal
           
           {/* Rating badge (좌측 상단) */}
           {shouldShowRating && (
-            <div className="absolute top-4 left-4 flex items-center space-x-1 bg-black/70 backdrop-blur-sm px-3 py-1.5 rounded-full z-10">
-              <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-              <span className="text-white text-sm font-bold">{video.rating}</span>
+            <div className="absolute top-2 left-2 sm:top-4 sm:left-4 flex items-center space-x-1 bg-black/70 backdrop-blur-sm px-2 py-1 sm:px-3 sm:py-1.5 rounded-full z-10">
+              <Star className="w-3 h-3 sm:w-4 sm:h-4 fill-yellow-400 text-yellow-400" />
+              <span className="text-white text-xs sm:text-sm font-bold">{video.rating}</span>
             </div>
           )}
           
@@ -302,17 +326,17 @@ function VideoCard({ video, simple = false, featured = false, hideBookmark = fal
           <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent" />
           
           {/* Content overlay - 제목과 조회수만 표시 */}
-          <div className="absolute bottom-0 left-0 right-0 p-6 z-10">
+          <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4 md:p-6 z-10">
             {video.title && (
-              <h3 className="text-white font-bold text-lg leading-tight line-clamp-2 mb-2 drop-shadow-lg" style={{
+              <h3 className="text-white font-bold text-sm sm:text-base md:text-lg leading-tight line-clamp-2 mb-1 sm:mb-2 drop-shadow-lg" style={{
                 textShadow: '0 2px 8px rgba(0, 0, 0, 0.8)'
               }}>
                 {video.title}
               </h3>
             )}
             {video.views && (
-              <div className="flex items-center justify-end mt-2">
-                <span className="text-white text-sm font-medium drop-shadow-lg" style={{
+              <div className="flex items-center justify-end mt-1 sm:mt-2">
+                <span className="text-white text-xs sm:text-sm font-medium drop-shadow-lg" style={{
                   textShadow: '0 2px 4px rgba(0, 0, 0, 0.8)'
                 }}>
                   {video.views}

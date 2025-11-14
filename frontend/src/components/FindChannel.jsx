@@ -242,7 +242,7 @@ function FindChannel() {
               <div
                 key={card.id}
                 onClick={() => handleVideoClick(card)}
-                className="bg-[#1a1f3a]/80 backdrop-blur-lg rounded-lg border border-blue-900/30 shadow-xl overflow-hidden hover:border-purple-500/50 hover:-translate-y-3 hover:shadow-2xl transition-all duration-300 ease-in-out cursor-pointer"
+                className="bg-[#1a1f3a]/80 backdrop-blur-lg rounded-lg border border-black/50 shadow-xl overflow-hidden hover:border-black/70 hover:-translate-y-3 hover:shadow-2xl transition-all duration-300 ease-in-out cursor-pointer"
               >
                 {/* 이미지 */}
                 <div className="relative aspect-video overflow-hidden">
