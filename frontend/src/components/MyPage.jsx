@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { User, Settings, X, LogOut, Bookmark, Bell, Lock, Eye, EyeOff, Clock } from 'lucide-react'
 import MyPageLayout from './layouts/MyPageLayout'
@@ -52,27 +52,30 @@ function MyPage() {
   const [activeTab, setActiveTab] = useState('insight')
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const hasCheckedAuth = useRef(false)
   
-  // 로그인 체크 및 리다이렉트
+  // 로그인 체크 및 리다이렉트 (마운트 시에만 실행)
   useEffect(() => {
-    const checkLogin = () => {
-      const token = getToken()
-      const isLoggedIn = sessionStorage.getItem('isLoggedIn') === 'true' || 
-                        localStorage.getItem('isLoggedIn') === 'true'
-      
-      setIsCheckingAuth(false)
-      
-      if (!token && !isLoggedIn) {
-        // 로그인하지 않은 경우 로그인 페이지로 리다이렉트
-        navigate('/login', { 
-          state: { from: location.pathname },
-          replace: false // 히스토리 스택 유지
-        })
-      }
-    }
+    // 이미 체크를 완료했으면 실행하지 않음
+    if (hasCheckedAuth.current) return
     
-    checkLogin()
-  }, [navigate, location.pathname])
+    hasCheckedAuth.current = true
+    
+    const token = getToken()
+    const isLoggedIn = sessionStorage.getItem('isLoggedIn') === 'true' || 
+                      localStorage.getItem('isLoggedIn') === 'true'
+    
+    setIsCheckingAuth(false)
+    
+    if (!token && !isLoggedIn) {
+      // 로그인하지 않은 경우 로그인 페이지로 리다이렉트
+      navigate('/login', { 
+        state: { from: location.pathname },
+        replace: false // 히스토리 스택 유지
+      })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // 빈 배열로 마운트 시에만 실행 (navigate와 location은 안정적이므로 의존성 제외)
   
   // 사용자 정보는 MyPageLayout에서 관리
   const [bookmarks, setBookmarks] = useState([])
