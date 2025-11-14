@@ -4,7 +4,7 @@ import VideoCard from './VideoCard'
 
 /**
  * VideoCard 슬라이더 컴포넌트
- * 마우스 드래그 및 화살표 버튼으로 좌우 이동 가능
+ * 4열 1행 레이아웃, 마우스 호버 시 휠로 좌우 이동 가능
  */
 function VideoCardSlider({ videos, cardWidth = 320, gap = 24, hideBookmark = false }) {
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -17,13 +17,15 @@ function VideoCardSlider({ videos, cardWidth = 320, gap = 24, hideBookmark = fal
   const dragStateRef = useRef({ startX: 0, scrollLeft: 0, currentIndex: 0 })
 
   const cardStep = cardWidth + gap
+  const visibleCards = 4 // 한 번에 보여줄 카드 개수
 
   const slideNext = () => {
     if (isTransitioning || videos.length === 0) return
     setIsTransitioning(true)
     setCurrentIndex((prev) => {
+      const maxIndex = Math.max(0, videos.length - visibleCards)
       const nextIndex = prev + 1
-      return nextIndex >= videos.length ? 0 : nextIndex
+      return nextIndex > maxIndex ? maxIndex : nextIndex
     })
     setTimeout(() => setIsTransitioning(false), 500)
   }
@@ -33,7 +35,7 @@ function VideoCardSlider({ videos, cardWidth = 320, gap = 24, hideBookmark = fal
     setIsTransitioning(true)
     setCurrentIndex((prev) => {
       const prevIndex = prev - 1
-      return prevIndex < 0 ? videos.length - 1 : prevIndex
+      return prevIndex < 0 ? 0 : prevIndex
     })
     setTimeout(() => setIsTransitioning(false), 500)
   }
@@ -68,7 +70,8 @@ function VideoCardSlider({ videos, cardWidth = 320, gap = 24, hideBookmark = fal
       const rect = sliderRef.current.getBoundingClientRect()
       const x = e.clientX - rect.left
       const walk = (x - dragStateRef.current.startX) * 1.5
-      const newIndex = Math.max(0, Math.min(videos.length - 1, Math.round((dragStateRef.current.scrollLeft - walk) / cardStep)))
+      const maxIndex = Math.max(0, videos.length - visibleCards)
+      const newIndex = Math.max(0, Math.min(maxIndex, Math.round((dragStateRef.current.scrollLeft - walk) / cardStep)))
       
       if (newIndex !== dragStateRef.current.currentIndex) {
         setCurrentIndex(newIndex)
@@ -88,7 +91,30 @@ function VideoCardSlider({ videos, cardWidth = 320, gap = 24, hideBookmark = fal
       document.removeEventListener('mousemove', handleGlobalMouseMove)
       document.removeEventListener('mouseup', handleGlobalMouseUp)
     }
-  }, [isDragging, videos.length, cardStep])
+  }, [isDragging, videos.length, cardStep, visibleCards])
+
+  // 마우스 휠 이벤트 핸들러 (좌우 스크롤)
+  const handleWheel = (e) => {
+    if (!sliderRef.current) return
+    e.preventDefault()
+    
+    const delta = e.deltaY || e.deltaX
+    if (Math.abs(delta) < 10) return // 너무 작은 움직임은 무시
+    
+    if (isTransitioning) return
+    
+    setIsTransitioning(true)
+    
+    if (delta > 0) {
+      // 아래로 스크롤 = 오른쪽으로 이동
+      slideNext()
+    } else {
+      // 위로 스크롤 = 왼쪽으로 이동
+      slidePrev()
+    }
+    
+    setTimeout(() => setIsTransitioning(false), 500)
+  }
 
   // 터치 이벤트 지원
   const handleTouchStart = (e) => {
@@ -110,7 +136,8 @@ function VideoCardSlider({ videos, cardWidth = 320, gap = 24, hideBookmark = fal
     const rect = sliderRef.current.getBoundingClientRect()
     const x = e.touches[0].clientX - rect.left
     const walk = (x - dragStateRef.current.startX) * 1.5
-    const newIndex = Math.max(0, Math.min(videos.length - 1, Math.round((dragStateRef.current.scrollLeft - walk) / cardStep)))
+    const maxIndex = Math.max(0, videos.length - visibleCards)
+    const newIndex = Math.max(0, Math.min(maxIndex, Math.round((dragStateRef.current.scrollLeft - walk) / cardStep)))
     
     if (newIndex !== dragStateRef.current.currentIndex) {
       setCurrentIndex(newIndex)
@@ -129,43 +156,52 @@ function VideoCardSlider({ videos, cardWidth = 320, gap = 24, hideBookmark = fal
     return null
   }
 
+  const maxIndex = Math.max(0, videos.length - visibleCards)
+  const totalWidth = cardWidth * visibleCards + gap * (visibleCards - 1)
+  const paddingValue = `calc((100% - ${totalWidth}px) / 2)`
+
   return (
     <div className="relative overflow-hidden" ref={containerRef}>
       {/* 왼쪽 화살표 */}
-      <button
-        onClick={slidePrev}
-        className="absolute left-0 top-1/2 -translate-y-1/2 z-20 bg-black/70 hover:bg-black/90 rounded-full p-2 text-white transition-all"
-      >
-        <ChevronLeft className="w-6 h-6" />
-      </button>
+      {currentIndex > 0 && (
+        <button
+          onClick={slidePrev}
+          className="absolute left-0 top-1/2 -translate-y-1/2 z-20 bg-black/70 hover:bg-black/90 rounded-full p-2 text-white transition-all"
+        >
+          <ChevronLeft className="w-6 h-6" />
+        </button>
+      )}
 
       {/* 슬라이더 컨테이너 */}
       <div 
         ref={sliderRef}
         className="relative overflow-hidden cursor-grab active:cursor-grabbing select-none"
-        style={{ height: '280px', userSelect: 'none' }}
+        style={{ 
+          height: '280px', 
+          userSelect: 'none',
+          paddingLeft: paddingValue,
+          paddingRight: paddingValue
+        }}
         onMouseDown={handleMouseDown}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
+        onWheel={handleWheel}
       >
         <div
-          className="flex gap-6 absolute top-0"
+          className="flex"
           style={{
-            left: '50%',
-            transform: `translateX(calc(-50% - ${currentIndex * cardStep}px))`,
+            gap: `${gap}px`,
+            transform: `translateX(-${currentIndex * cardStep}px)`,
             transition: isTransitioning && !isDragging 
               ? 'transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)' 
               : 'none',
             willChange: 'transform'
           }}
         >
-          {/* 무한루프를 위한 카드 복제 */}
-          {[...videos, ...videos, ...videos].map((video, index) => {
-            const actualIndex = index % videos.length
-            const isActive = actualIndex === currentIndex && 
-              index >= videos.length && 
-              index < videos.length * 2
+          {/* 카드 렌더링 (4열 1행) */}
+          {videos.map((video, index) => {
+            const isVisible = index >= currentIndex && index < currentIndex + visibleCards
             
             return (
               <div 
@@ -173,7 +209,7 @@ function VideoCardSlider({ videos, cardWidth = 320, gap = 24, hideBookmark = fal
                 className="flex-shrink-0 transition-all duration-300 hover:z-10"
                 style={{ width: `${cardWidth}px` }}
               >
-                <VideoCard video={video} featured hideBookmark={hideBookmark} active={isActive} />
+                <VideoCard video={video} featured hideBookmark={hideBookmark} active={isVisible} />
               </div>
             )
           })}
@@ -181,12 +217,14 @@ function VideoCardSlider({ videos, cardWidth = 320, gap = 24, hideBookmark = fal
       </div>
 
       {/* 오른쪽 화살표 */}
-      <button
-        onClick={slideNext}
-        className="absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-black/70 hover:bg-black/90 rounded-full p-2 text-white transition-all"
-      >
-        <ChevronRight className="w-6 h-6" />
-      </button>
+      {currentIndex < maxIndex && (
+        <button
+          onClick={slideNext}
+          className="absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-black/70 hover:bg-black/90 rounded-full p-2 text-white transition-all"
+        >
+          <ChevronRight className="w-6 h-6" />
+        </button>
+      )}
     </div>
   )
 }
