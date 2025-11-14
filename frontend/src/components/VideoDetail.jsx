@@ -17,8 +17,8 @@ function VideoDetail() {
   const [similarVideos, setSimilarVideos] = useState([])
   const [comments, setComments] = useState([])
   const [error, setError] = useState(null)
-  const [recommendedScrollPosition, setRecommendedScrollPosition] = useState(0)
-  const [activeCardIndex, setActiveCardIndex] = useState(0)
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const [isTransitioning, setIsTransitioning] = useState(false)
 
   const bookmarked = video ? isBookmarked(video.id || video.video_id) : false
 
@@ -182,131 +182,31 @@ function VideoDetail() {
     return `${Math.floor(diffDays / 365)}년 전`
   }
 
-  const scrollRecommended = (direction) => {
-    const container = document.getElementById('recommended-videos-container')
-    if (!container) return
-    
-    // 카드 너비 (320px) + gap (24px = gap-6)
-    const cardWidth = 320
-    const gap = 24
-    const cardStep = cardWidth + gap
-    
-    const currentScroll = container.scrollLeft
-    const containerWidth = container.clientWidth
-    const maxScroll = container.scrollWidth - containerWidth
-    
-    // 현재 스크롤 위치를 기준으로 다음/이전 카드 위치 계산
-    let newPosition
-    if (direction === 'left') {
-      // 이전 카드로 이동 (현재 위치에서 가장 가까운 이전 카드 위치)
-      const currentCardIndex = Math.round(currentScroll / cardStep)
-      const targetCardIndex = Math.max(0, currentCardIndex - 1)
-      newPosition = targetCardIndex * cardStep
-    } else {
-      // 다음 카드로 이동 (현재 위치에서 가장 가까운 다음 카드 위치)
-      const currentCardIndex = Math.round(currentScroll / cardStep)
-      const targetCardIndex = currentCardIndex + 1
-      const targetPosition = targetCardIndex * cardStep
-      // 최대 스크롤 위치를 넘지 않도록 제한
-      newPosition = Math.min(targetPosition, maxScroll)
-    }
-    
-    // 부드러운 페이징 애니메이션
-    container.scrollTo({ 
-      left: newPosition, 
-      behavior: 'smooth' 
+  const cardWidth = 320
+  const gap = 24
+  const cardStep = cardWidth + gap
+
+  const slideNext = () => {
+    if (isTransitioning || similarVideos.length === 0) return
+    setIsTransitioning(true)
+    setCurrentIndex((prev) => {
+      const nextIndex = prev + 1
+      // 무한루프: 마지막 카드 다음은 첫 번째로
+      return nextIndex >= similarVideos.length ? 0 : nextIndex
     })
-    
-    // 애니메이션 중 스크롤 위치 추적
-    const updatePosition = () => {
-      setRecommendedScrollPosition(container.scrollLeft)
-      if (Math.abs(container.scrollLeft - newPosition) > 1) {
-        requestAnimationFrame(updatePosition)
-      } else {
-        setRecommendedScrollPosition(newPosition)
-      }
-    }
-    requestAnimationFrame(updatePosition)
+    setTimeout(() => setIsTransitioning(false), 500)
   }
 
-  // 스크롤 위치 추적 및 화살표 버튼 상태 업데이트
-  useEffect(() => {
-    const container = document.getElementById('recommended-videos-container')
-    if (!container) return
-
-    let isScrolling = false
-    let scrollTimeout = null
-
-    const updateScrollPosition = () => {
-      const scrollLeft = container.scrollLeft
-      setRecommendedScrollPosition(scrollLeft)
-      
-      // 현재 보이는 카드 인덱스 계산
-      const cardWidth = 320
-      const gap = 24
-      const cardStep = cardWidth + gap
-      const currentCardIndex = Math.round(scrollLeft / cardStep)
-      setActiveCardIndex(currentCardIndex)
-    }
-
-    // 초기 위치 설정
-    updateScrollPosition()
-    
-    // 사용자 직접 스크롤 방지 (마우스 휠, 터치 스크롤)
-    const preventScroll = (e) => {
-      e.preventDefault()
-      e.stopPropagation()
-    }
-
-    // 스크롤 이벤트 리스너 (화살표 버튼으로 스크롤할 때만 발생)
-    const handleScroll = () => {
-      updateScrollPosition()
-      
-      // 스크롤이 끝난 후 정확한 위치로 스냅 (페이징 효과)
-      if (scrollTimeout) {
-        clearTimeout(scrollTimeout)
-      }
-      
-      isScrolling = true
-      scrollTimeout = setTimeout(() => {
-        isScrolling = false
-        const cardWidth = 320
-        const gap = 24
-        const cardStep = cardWidth + gap
-        const currentScroll = container.scrollLeft
-        const containerWidth = container.clientWidth
-        const maxScroll = container.scrollWidth - containerWidth
-        
-        // 가장 가까운 카드 위치로 스냅
-        const currentCardIndex = Math.round(currentScroll / cardStep)
-        const snapPosition = Math.min(currentCardIndex * cardStep, maxScroll)
-        
-        if (Math.abs(currentScroll - snapPosition) > 5) {
-          container.scrollTo({ 
-            left: snapPosition, 
-            behavior: 'smooth' 
-          })
-        }
-      }, 150) // 스크롤이 끝난 후 150ms 후에 스냅
-    }
-
-    container.addEventListener('scroll', handleScroll)
-    
-    // 마우스 휠 이벤트 방지
-    container.addEventListener('wheel', preventScroll, { passive: false })
-    
-    // 터치 스크롤 이벤트 방지
-    container.addEventListener('touchmove', preventScroll, { passive: false })
-    
-    return () => {
-      container.removeEventListener('scroll', handleScroll)
-      container.removeEventListener('wheel', preventScroll)
-      container.removeEventListener('touchmove', preventScroll)
-      if (scrollTimeout) {
-        clearTimeout(scrollTimeout)
-      }
-    }
-  }, [similarVideos.length])
+  const slidePrev = () => {
+    if (isTransitioning || similarVideos.length === 0) return
+    setIsTransitioning(true)
+    setCurrentIndex((prev) => {
+      const prevIndex = prev - 1
+      // 무한루프: 첫 번째 카드 이전은 마지막으로
+      return prevIndex < 0 ? similarVideos.length - 1 : prevIndex
+    })
+    setTimeout(() => setIsTransitioning(false), 500)
+  }
 
   if (loading) {
     return (
@@ -546,63 +446,57 @@ function VideoDetail() {
           </div>
         </div>
 
-        {/* 추천 영상 섹션 */}
+        {/* 추천 영상 섹션 - 무한루프 슬라이더 */}
         {similarVideos.length > 0 && (
           <div>
             <h2 className="text-2xl font-bold text-white mb-6">이런 영상은 어떠세요?</h2>
-            <div className="relative">
+            <div className="relative overflow-hidden">
               {/* 왼쪽 화살표 */}
-              {(() => {
-                const container = document.getElementById('recommended-videos-container')
-                const canScrollLeft = container && recommendedScrollPosition > 10
-                return canScrollLeft ? (
-                  <button
-                    onClick={() => scrollRecommended('left')}
-                    className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-black/70 hover:bg-black/90 rounded-full p-2 text-white transition-all"
-                  >
-                    <ChevronLeft className="w-6 h-6" />
-                  </button>
-                ) : null
-              })()}
+              <button
+                onClick={slidePrev}
+                className="absolute left-0 top-1/2 -translate-y-1/2 z-20 bg-black/70 hover:bg-black/90 rounded-full p-2 text-white transition-all"
+              >
+                <ChevronLeft className="w-6 h-6" />
+              </button>
 
               {/* 비디오 카드 컨테이너 */}
-              <div
-                id="recommended-videos-container"
-                className="flex gap-6 overflow-x-scroll overflow-y-hidden pb-4 scrollbar-hide"
-                style={{ 
-                  scrollbarWidth: 'none', 
-                  msOverflowStyle: 'none',
-                  WebkitOverflowScrolling: 'auto',
-                  scrollSnapType: 'x mandatory',
-                  scrollBehavior: 'smooth'
-                }}
-              >
-                {similarVideos.map((v, index) => (
-                  <div 
-                    key={v.id || v.video_id} 
-                    className="flex-shrink-0 w-[320px] transition-all duration-300 hover:z-10"
-                    style={{ scrollSnapAlign: 'start' }}
-                  >
-                    <VideoCard video={v} featured hideBookmark active={index === activeCardIndex} />
-                  </div>
-                ))}
+              <div className="relative overflow-hidden" style={{ height: '280px' }}>
+                <div
+                  className="flex gap-6 absolute top-0"
+                  style={{
+                    left: '50%',
+                    transform: `translateX(calc(-50% - ${currentIndex * cardStep}px))`,
+                    transition: isTransitioning ? 'transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)' : 'none',
+                    willChange: 'transform'
+                  }}
+                >
+                  {/* 무한루프를 위한 카드 복제: 앞쪽, 중간, 뒤쪽 */}
+                  {[...similarVideos, ...similarVideos, ...similarVideos].map((v, index) => {
+                    const actualIndex = index % similarVideos.length
+                    // 중간 그룹의 현재 인덱스 카드만 활성화
+                    const isActive = actualIndex === currentIndex && 
+                      index >= similarVideos.length && 
+                      index < similarVideos.length * 2
+                    
+                    return (
+                      <div 
+                        key={`${v.id || v.video_id}-${index}`}
+                        className="flex-shrink-0 w-[320px] transition-all duration-300 hover:z-10"
+                      >
+                        <VideoCard video={v} featured hideBookmark active={isActive} />
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
 
               {/* 오른쪽 화살표 */}
-              {(() => {
-                const container = document.getElementById('recommended-videos-container')
-                const canScrollRight = container && 
-                  container.scrollWidth > container.clientWidth &&
-                  recommendedScrollPosition < (container.scrollWidth - container.clientWidth - 10)
-                return canScrollRight ? (
-                  <button
-                    onClick={() => scrollRecommended('right')}
-                    className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-black/70 hover:bg-black/90 rounded-full p-2 text-white transition-all"
-                  >
-                    <ChevronRight className="w-6 h-6" />
-                  </button>
-                ) : null
-              })()}
+              <button
+                onClick={slideNext}
+                className="absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-black/70 hover:bg-black/90 rounded-full p-2 text-white transition-all"
+              >
+                <ChevronRight className="w-6 h-6" />
+              </button>
             </div>
           </div>
         )}
