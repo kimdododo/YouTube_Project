@@ -63,7 +63,7 @@ function MyPage() {
   const [editName, setEditName] = useState('')
   const [editEmail, setEditEmail] = useState('')
   
-  // 사용자 정보 로드 (한 번만 실행)
+  // 사용자 정보 로드 (한 번만 실행) - 실제 API 데이터 사용
   const hasLoadedUserInfo = useRef(false)
   useEffect(() => {
     if (hasLoadedUserInfo.current) return
@@ -78,19 +78,36 @@ function MyPage() {
       try {
         const userInfo = await getCurrentUser()
         if (userInfo) {
-          const newUserName = userInfo.username || localStorage.getItem('userName') || ''
-          const newUserEmail = userInfo.email || localStorage.getItem('userEmail') || ''
+          // API에서 가져온 실제 데이터 사용
+          const newUserName = userInfo.username || ''
+          const newUserEmail = userInfo.email || ''
+          
+          console.log('[MyPage] User info loaded:', { username: newUserName, email: newUserEmail })
+          
           setUserName(newUserName)
           setUserEmail(newUserEmail)
+          
+          // localStorage에도 저장 (캐싱용)
           if (userInfo.username) {
             localStorage.setItem('userName', userInfo.username)
           }
           if (userInfo.email) {
             localStorage.setItem('userEmail', userInfo.email)
           }
+        } else {
+          // API에서 데이터를 가져오지 못한 경우 localStorage에서 로드
+          const storedName = localStorage.getItem('userName') || ''
+          const storedEmail = localStorage.getItem('userEmail') || ''
+          setUserName(storedName)
+          setUserEmail(storedEmail)
         }
       } catch (error) {
         console.error('[MyPage] Failed to load user info:', error)
+        // 에러 발생 시 localStorage에서 로드
+        const storedName = localStorage.getItem('userName') || ''
+        const storedEmail = localStorage.getItem('userEmail') || ''
+        setUserName(storedName)
+        setUserEmail(storedEmail)
       } finally {
         hasLoadedUserInfo.current = true
       }
@@ -420,14 +437,19 @@ function MyPage() {
 
     // 키워드 클라우드 생성: 백엔드 API 호출 (word2vec 기반 유사 키워드 추천)
     // 백엔드에서 유사 키워드 Top-K + 점수를 받아서 UI만 렌더링
-    if (normalizedKeywords.length > 0) {
-      setIsLoadingKeywordEmbeddings(true)
-      
-      // 백엔드 API 호출: 사용자 키워드 기반 유사 키워드 추천
-      getMyKeywords(10) // Top-10 키워드 요청
-        .then((keywordsData) => {
+    // 사용자가 선택한 키워드가 있든 없든 word2vec 모델로 키워드 추천 받기
+    setIsLoadingKeywordEmbeddings(true)
+    
+    // 백엔드 API 호출: 사용자 키워드 기반 word2vec 유사 키워드 추천
+    getMyKeywords(10) // Top-10 키워드 요청
+      .then((keywordsData) => {
+        console.log('[MyPage] Word2vec keywords loaded:', {
+          keywordCount: keywordsData?.length || 0,
+          keywords: keywordsData
+        })
           // keywordsData: [{word: "카페투어", score: 0.91}, ...]
           if (!keywordsData || keywordsData.length === 0) {
+            console.log('[MyPage] No keywords from word2vec model')
             setKeywordCloud([])
             setIsLoadingKeywordEmbeddings(false)
             return
@@ -520,9 +542,6 @@ function MyPage() {
           setKeywordCloud([])
           setIsLoadingKeywordEmbeddings(false)
         })
-    } else {
-      setKeywordCloud([])
-    }
 
     localStorage.setItem('travelPreferences', JSON.stringify(normalizedPreferences))
     localStorage.setItem('travelKeywords', JSON.stringify(normalizedKeywords))
@@ -562,47 +581,67 @@ function MyPage() {
     }
   }, [])
 
-  useEffect(() => {
-    const loadFromLocalStorage = async () => {
-      try {
-        const storedPrefs = JSON.parse(localStorage.getItem('travelPreferences') || '[]')
-        const storedKeywords = JSON.parse(localStorage.getItem('travelKeywords') || '[]')
-        if ((storedPrefs && storedPrefs.length) || (storedKeywords && storedKeywords.length)) {
-          await applyPreferenceState(storedPrefs, storedKeywords)
-        } else {
-          await applyPreferenceState([], [])
-        }
-      } catch {
-        await applyPreferenceState([], [])
-      }
-    }
-    loadFromLocalStorage()
-  }, [])
-
+  // 여행 취향 및 키워드 로드 - API 데이터 우선 사용
   useEffect(() => {
     const loadPreferences = async () => {
       const token = getToken()
       if (!token) {
         setPreferencesError('로그인이 필요합니다.')
+        // 토큰이 없으면 localStorage에서만 로드
+        try {
+          const storedPrefs = JSON.parse(localStorage.getItem('travelPreferences') || '[]')
+          const storedKeywords = JSON.parse(localStorage.getItem('travelKeywords') || '[]')
+          await applyPreferenceState(storedPrefs, storedKeywords)
+        } catch (e) {
+          console.error('[MyPage] Failed to load from localStorage:', e)
+        }
         return
       }
+      
       setIsLoadingPreferences(true)
       setPreferencesError('')
       
       try {
+        // API에서 실제 데이터 가져오기
         const result = await fetchTravelPreferences()
         const preferences = result.preference_ids || result.preferences || []
         const keywords = result.keywords || []
-        await applyPreferenceState(preferences, keywords)
+        
+        console.log('[MyPage] Travel preferences loaded from API:', { 
+          preferences, 
+          keywords,
+          preferenceCount: preferences.length,
+          keywordCount: keywords.length
+        })
+        
+        // API 데이터가 있으면 사용, 없으면 localStorage에서 로드
+        if (preferences.length > 0 || keywords.length > 0) {
+          await applyPreferenceState(preferences, keywords)
+          // localStorage에도 저장 (캐싱용)
+          localStorage.setItem('travelPreferences', JSON.stringify(preferences))
+          localStorage.setItem('travelKeywords', JSON.stringify(keywords))
+        } else {
+          // API에서 데이터가 없으면 localStorage에서 로드 시도
+          const storedPrefs = JSON.parse(localStorage.getItem('travelPreferences') || '[]')
+          const storedKeywords = JSON.parse(localStorage.getItem('travelKeywords') || '[]')
+          if (storedPrefs.length > 0 || storedKeywords.length > 0) {
+            console.log('[MyPage] Using localStorage data as fallback')
+            await applyPreferenceState(storedPrefs, storedKeywords)
+          } else {
+            await applyPreferenceState([], [])
+          }
+        }
+        
         setPreferencesError('')
       } catch (error) {
         console.error('[MyPage] Failed to load travel preferences:', error)
         setPreferencesError(error?.message || '여행 취향을 불러오지 못했습니다.')
-        // 에러가 발생해도 localStorage에서 로드 시도
+        // 에러 발생 시 localStorage에서 로드 시도
         try {
           const storedPrefs = JSON.parse(localStorage.getItem('travelPreferences') || '[]')
           const storedKeywords = JSON.parse(localStorage.getItem('travelKeywords') || '[]')
           if (storedPrefs.length > 0 || storedKeywords.length > 0) {
+            console.log('[MyPage] Using localStorage data after API error')
             await applyPreferenceState(storedPrefs, storedKeywords)
           }
         } catch (e) {
@@ -612,6 +651,7 @@ function MyPage() {
         setIsLoadingPreferences(false)
       }
     }
+    
     loadPreferences()
   }, [])
 
