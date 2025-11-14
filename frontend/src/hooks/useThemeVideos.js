@@ -34,7 +34,7 @@ function useThemeVideos() {
       hashtag: '#혼자여행',
       description: '혼자만의 여유를 사랑하는 분들을 위한 추천이에요.',
       route: '/theme/solo',
-      keywords: ['혼자', '솔로', '혼여', '1인', 'solo', 'alone', 'single']
+      keywords: ['혼자', '솔로', '혼여', '1인', '혼자서', '혼행', '솔로여행', '혼자여행', 'solo', 'alone', 'single', 'solo travel', '혼자만', '혼자로', '자유여행', '혼자만의시간', '혼자만의여행', '조용한여행', '혼자걷기', '도시혼행', '자연혼행', '혼자카페투어', '혼자맛집', '솔로트립', '나홀로여행', '혼행루트']
     },
     budget: {
       id: 'budget',
@@ -42,7 +42,7 @@ function useThemeVideos() {
       hashtag: '#가성비여행',
       description: '실속 있게 즐기는 알짜배기 여행이에요.',
       route: '/theme/budget',
-      keywords: ['가성비', '저렴', '알뜰', '실속', 'budget', 'cheap', 'affordable']
+      keywords: ['가성비', '저렴', '알뜰', '실속', '싸게', '저렴한', '가성비', '알뜰여행', '저예산', 'budget', 'cheap', 'affordable', 'economy', 'low cost', '저렴하게', '실속있게', '알뜰하게', '저비용', '초저가', '반값여행', '10만원여행', '1박2일저렴', '할인여행', '특가여행', '여행비절약', '예산절약', '가성비식당', '가성비호텔', '무지출여행']
     },
     aesthetic: {
       id: 'aesthetic',
@@ -50,7 +50,7 @@ function useThemeVideos() {
       hashtag: '#감성여행',
       description: '마음을 쉬게 하는 감성 가득한 여행이에요.',
       route: '/theme/aesthetic',
-      keywords: ['감성', '힐링', '휴양', '여유', 'aesthetic', 'healing', 'relaxation']
+      keywords: ['감성', '힐링', '휴양', '여유', '감성적', '힐링여행', '휴양지', '여유로운', '마음쉼', 'aesthetic', 'healing', 'relaxation', 'peaceful', 'calm', 'serene', '감성여행', '힐링', '휴식', '여유', '하이엔드', '감성스팟', '분위기맛집', '감성숙소', '감성카페거리', '노을스팟', '하늘맛집', '바다감성', '감성포토존', '위로여행', '휴식여행', '리트릿여행']
     },
     vlog: {
       id: 'vlog',
@@ -58,7 +58,7 @@ function useThemeVideos() {
       hashtag: '#브이로그',
       description: '일상의 여행을 담은 브이로그 영상이에요.',
       route: '/theme/vlog',
-      keywords: ['브이로그', 'vlog', '일상', '여행일기']
+      keywords: ['브이로그', 'vlog', '일상', '여행일기', 'v로그', '브이', '일상여행', '여행브이로그', 'daily', 'daily vlog', 'travel vlog', '여행일상', '일상기록', '여행브이', '브이로그여행', 'vlog여행루트', '기록브이로그', 'POV여행', 'asmr여행', '리얼여행기록', '하루브이로그', '여행준비vlog', '짐싸기vlog']
     },
     domestic: {
       id: 'domestic',
@@ -66,7 +66,7 @@ function useThemeVideos() {
       hashtag: '#국내여행',
       description: '우리나라 곳곳을 탐험하는 국내 여행이에요.',
       route: '/theme/domestic',
-      keywords: ['국내', '한국', 'domestic', 'korea']
+      keywords: ['국내', '한국', '서울', '부산', '제주', '경주', '전주', '강릉', '속초', '여수', '부산여행', '제주여행', '서울여행', 'domestic', 'korea', 'korean', 'south korea', '국내여행', '한국여행', '국내', '인천', '대구', '광주', '울산', '통영', '남해', '거제', '강원도', '충청도', '전라도', '국내핫플', '국내여행추천', '국내당일치기', '동네여행', '한옥마을', '해변산책', '시장투어']
     },
     global: {
       id: 'global',
@@ -74,7 +74,7 @@ function useThemeVideos() {
       hashtag: '#해외여행',
       description: '세계 각국을 여행하는 해외 여행이에요.',
       route: '/theme/global',
-      keywords: ['해외', '해외여행', 'global', 'overseas', 'abroad']
+      keywords: ['해외', '해외여행', '일본', '중국', '태국', '베트남', '유럽', '미국', '영국', '프랑스', '이탈리아', '스페인', '독일', 'global', 'overseas', 'abroad', 'international', 'foreign', '해외', '여행', '해외여행', '대만', '홍콩', '싱가포르', '필리핀', '발리', '하와이', 'LA', '뉴욕', '메콩', '방콕핫플', '자유여행해외', '해외핫플', '해외레스토랑', '해외로컬', '환전팁', '해외교통', '해외맛집투어']
     },
     oneday: {
       id: 'oneday',
@@ -82,7 +82,7 @@ function useThemeVideos() {
       hashtag: '#당일치기',
       description: '짧고 알찬 당일치기 여행이에요.',
       route: '/theme/oneday',
-      keywords: ['당일치기', '당일', 'oneday', 'day trip']
+      keywords: ['당일치기', '당일', '당일여행', '하루여행', '짧은여행', 'oneday', 'day trip', 'one day', 'daytrip', '당일', '하루', '짧은', '당일치기여행', '반나절여행', '딱하루', '시간절약', '근교핫플', '서울근교', '부산근교', '대구근교', '수도권당일', '빠른코스', '당일핫플', '하루코스추천', '짧은코스']
     },
     food: {
       id: 'food',
@@ -90,7 +90,7 @@ function useThemeVideos() {
       hashtag: '#맛집투어',
       description: '현지 맛집을 찾아 떠나는 맛집 투어예요.',
       route: '/theme/food',
-      keywords: ['맛집', '음식', '식당', 'food', 'restaurant', 'cafe']
+      keywords: ['맛집', '음식', '식당', '먹방', '맛집투어', '음식여행', '먹거리', '로컬맛집', '현지음식', 'food', 'restaurant', 'cafe', 'cuisine', 'local food', 'eating', 'food tour', '맛집', '음식', '먹방', '맛집투어', '로컬맛집추천', '스트리트푸드', '전통시장', '미슐랭', '맛집지도', '혼밥가능', '푸드트립', '먹킷리스트', '먹투어', '디저트맛집', '카레맛집', '면요리맛집', '야시장음식']
     },
     stay: {
       id: 'stay',
@@ -98,7 +98,7 @@ function useThemeVideos() {
       hashtag: '#숙소리뷰',
       description: '다양한 숙소를 리뷰하는 영상이에요.',
       route: '/theme/stay',
-      keywords: ['숙소', '호텔', '리조트', 'stay', 'hotel', 'resort']
+      keywords: ['숙소', '호텔', '리조트', '펜션', '게스트하우스', '에어비앤비', '숙박', '호텔리뷰', '숙소리뷰', 'stay', 'hotel', 'resort', 'accommodation', 'lodging', 'airbnb', 'guesthouse', '숙소', '호텔', '리조트', '펜션', '스파호텔', '오션뷰', '한옥숙소', '프리미엄숙소', '수영장숙소', '룸투어', '룸컨디션', '숙소혜택', '조식리뷰', '가성비호텔', '특급호텔', '럭셔리리조트', '프라이빗숙소']
     },
     camping: {
       id: 'camping',
@@ -106,7 +106,7 @@ function useThemeVideos() {
       hashtag: '#캠핑',
       description: '자연 속에서 즐기는 캠핑 여행이에요.',
       route: '/theme/camping',
-      keywords: ['캠핑', 'camping', '야영', '텐트']
+      keywords: ['캠핑', '야영', '텐트', '캠핑장', '오토캠핑', '글램핑', '캠핑여행', 'camping', 'tent', 'outdoor', 'glamping', 'auto camping', '캠핑', '야영', '텐트', '캠핑장', '차박캠핑', '노지캠핑', '백패킹', '감성캠핑', '미니멀캠핑', '캠핑장비추천', '캠핑요리', '캠핑테이블', '텐트추천', '숲캠핑', '바닷가캠핑', '호수캠핑']
     },
     cafe: {
       id: 'cafe',
@@ -114,7 +114,7 @@ function useThemeVideos() {
       hashtag: '#카페투어',
       description: '예쁜 카페를 찾아 떠나는 투어예요.',
       route: '/theme/cafe',
-      keywords: ['카페', 'cafe', '커피', '디저트']
+      keywords: ['카페', '커피', '디저트', '카페투어', '커피숍', '브런치', '카페여행', '예쁜카페', 'cafe', 'coffee', 'dessert', 'brunch', 'coffee shop', '카페', '커피', '디저트', '카페투어', '루프탑카페', '오션뷰카페', '감성카페', '브런치카페', '디저트카페', '포토존카페', '뷰맛집카페', '힐링카페', '예쁜카페추천', '서울카페', '제주카페', '부산카페', '강릉카페']
     }
   }
 
