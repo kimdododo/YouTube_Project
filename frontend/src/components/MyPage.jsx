@@ -809,18 +809,7 @@ function MyPage() {
   // 디버깅: activeTab 확인
   console.log('[MyPage] Rendering with activeTab:', activeTab)
 
-  // 로그인 체크 중이면 로딩 표시
-  if (isCheckingAuth) {
-    return (
-      <MyPageLayout activeTab={activeTab} setActiveTab={setActiveTab}>
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-white/60">로딩 중...</div>
-        </div>
-      </MyPageLayout>
-    )
-  }
-
-  // settingsCards를 useMemo로 메모이제이션하여 userEmail 참조 보장
+  // settingsCards를 useMemo로 메모이제이션 (조건부 return 전에 정의하여 훅 호출 순서 보장)
   const memoizedSettingsCards = useMemo(() => [
     {
       id: 'profile',
@@ -914,6 +903,17 @@ function MyPage() {
       ]
     }
   ], [userEmail, travelPreferenceSummary, travelKeywordSummary, openPasswordModal, openPreferenceModal, openKeywordModal, handleLogout])
+
+  // 로그인 체크 중이면 로딩 표시 (모든 훅 호출 후)
+  if (isCheckingAuth) {
+    return (
+      <MyPageLayout activeTab={activeTab} setActiveTab={setActiveTab}>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-white/60">로딩 중...</div>
+        </div>
+      </MyPageLayout>
+    )
+  }
 
   return (
     <MyPageLayout activeTab={activeTab} setActiveTab={setActiveTab}>
