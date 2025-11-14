@@ -806,7 +806,22 @@ function MyPage() {
     )
   }
 
-  const settingsCards = [
+  // 디버깅: activeTab 확인
+  console.log('[MyPage] Rendering with activeTab:', activeTab)
+
+  // 로그인 체크 중이면 로딩 표시
+  if (isCheckingAuth) {
+    return (
+      <MyPageLayout activeTab={activeTab} setActiveTab={setActiveTab}>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-white/60">로딩 중...</div>
+        </div>
+      </MyPageLayout>
+    )
+  }
+
+  // settingsCards를 useMemo로 메모이제이션하여 userEmail 참조 보장
+  const memoizedSettingsCards = useMemo(() => [
     {
       id: 'profile',
       icon: <Settings className="w-5 h-5 text-white" />,
@@ -814,7 +829,7 @@ function MyPage() {
       items: [
         {
           label: '이메일',
-          value: userEmail
+          value: userEmail || ''
         },
         {
           label: '비밀번호 변경',
@@ -898,21 +913,7 @@ function MyPage() {
         }
       ]
     }
-  ]
-
-  // 디버깅: activeTab 확인
-  console.log('[MyPage] Rendering with activeTab:', activeTab)
-
-  // 로그인 체크 중이면 로딩 표시
-  if (isCheckingAuth) {
-    return (
-      <MyPageLayout activeTab={activeTab} setActiveTab={setActiveTab}>
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-white/60">로딩 중...</div>
-        </div>
-      </MyPageLayout>
-    )
-  }
+  ], [userEmail, travelPreferenceSummary, travelKeywordSummary, openPasswordModal, openPreferenceModal, openKeywordModal, handleLogout])
 
   return (
     <MyPageLayout activeTab={activeTab} setActiveTab={setActiveTab}>
@@ -1457,7 +1458,7 @@ function MyPage() {
 
         {activeTab === 'settings' && (
           <div className="space-y-4">
-            {settingsCards.map((card) => (
+            {memoizedSettingsCards.map((card) => (
               <div
                 key={card.id}
                 className="bg-[#0f1629]/80 rounded-2xl p-4"
