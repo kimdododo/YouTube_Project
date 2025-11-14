@@ -69,7 +69,16 @@ function MainRecommendationSection({ videos, loading, error, onRetry }) {
       */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 lg:gap-6">
         {displayVideos.map((video) => (
-          <VideoCard key={video.id || video.video_id} video={video} featured />
+          <VideoCard 
+            key={video.id || video.video_id} 
+            video={video} 
+            featured 
+            themeColors={{
+              borderColor: '#000000',
+              textColor: '#000000',
+              glowColor: 'rgba(0, 0, 0, 0.5)'
+            }}
+          />
         ))}
       </div>
     </div>
