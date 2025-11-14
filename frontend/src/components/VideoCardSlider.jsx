@@ -163,11 +163,14 @@ function VideoCardSlider({ videos, cardWidth = 320, gap = 24, hideBookmark = fal
   // 테마 색상이 없으면 기본 색상 사용
   const borderColor = themeColors?.borderColor || '#60A5FA'
   const glowColor = themeColors?.glowColor || 'rgba(96, 165, 250, 0.5)'
+  
+  // 화살표 버튼 표시 조건: 비디오가 4개 이상이면 항상 표시
+  const showArrows = videos.length > visibleCards
 
   return (
     <div className="relative overflow-hidden" ref={containerRef}>
       {/* 왼쪽 화살표 */}
-      {currentIndex > 0 && (
+      {showArrows && currentIndex > 0 && (
         <button
           onClick={slidePrev}
           className="absolute left-0 top-1/2 -translate-y-1/2 z-20 bg-black/70 hover:bg-black/90 rounded-full p-2 text-white transition-all"
@@ -227,7 +230,7 @@ function VideoCardSlider({ videos, cardWidth = 320, gap = 24, hideBookmark = fal
       </div>
 
       {/* 오른쪽 화살표 */}
-      {currentIndex < maxIndex && (
+      {showArrows && currentIndex < maxIndex && (
         <button
           onClick={slideNext}
           className="absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-black/70 hover:bg-black/90 rounded-full p-2 text-white transition-all"

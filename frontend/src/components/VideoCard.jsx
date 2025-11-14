@@ -210,15 +210,14 @@ function VideoCard({ video, simple = false, featured = false, hideBookmark = fal
     }
     
     const defaultBorderColor = active ? borderColor : hexToRgba(borderColor, 0.5)
-    const defaultBoxShadow = active 
-      ? `0 4px 20px rgba(0, 0, 0, 0.3), 0 0 20px ${glowColor}, 0 0 40px ${glowColor}80, inset 0 0 10px ${glowColor}40`
-      : `0 4px 12px rgba(0, 0, 0, 0.2), 0 0 10px ${glowColor}40`
+    const thumbnailBoxShadow = active 
+      ? `0 0 20px ${glowColor}, 0 0 40px ${glowColor}80`
+      : `0 0 10px ${glowColor}40`
     
     return (
       <div 
         className="group bg-[#0f1629]/40 backdrop-blur-sm rounded-xl overflow-hidden transition-all duration-300 ease-out hover:-translate-y-3 hover:scale-[1.02] cursor-pointer"
         style={{
-          boxShadow: defaultBoxShadow,
           transform: active ? 'scale(1.02) translateY(-8px)' : 'none'
         }}
         onMouseEnter={(e) => {
@@ -226,8 +225,8 @@ function VideoCard({ video, simple = false, featured = false, hideBookmark = fal
             const thumbnailDiv = e.currentTarget.querySelector('.thumbnail-container')
             if (thumbnailDiv) {
               thumbnailDiv.style.borderColor = borderColor
+              thumbnailDiv.style.boxShadow = `0 0 15px ${glowColor}, 0 0 30px ${glowColor}80`
             }
-            e.currentTarget.style.boxShadow = `0 6px 24px rgba(0, 0, 0, 0.4), 0 0 15px ${glowColor}, 0 0 30px ${glowColor}80, inset 0 0 10px ${glowColor}40`
           }
         }}
         onMouseLeave={(e) => {
@@ -235,8 +234,8 @@ function VideoCard({ video, simple = false, featured = false, hideBookmark = fal
             const thumbnailDiv = e.currentTarget.querySelector('.thumbnail-container')
             if (thumbnailDiv) {
               thumbnailDiv.style.borderColor = hexToRgba(borderColor, 0.5)
+              thumbnailDiv.style.boxShadow = `0 0 10px ${glowColor}40`
             }
-            e.currentTarget.style.boxShadow = `0 4px 12px rgba(0, 0, 0, 0.2), 0 0 10px ${glowColor}40`
           }
         }}
         onClick={handleClick}
@@ -246,7 +245,7 @@ function VideoCard({ video, simple = false, featured = false, hideBookmark = fal
           style={{ 
             aspectRatio: '16/9',
             border: `2px solid ${defaultBorderColor}`,
-            boxShadow: `0 0 10px ${glowColor}40`
+            boxShadow: thumbnailBoxShadow
           }}
         >
           {thumbnailUrl ? (
