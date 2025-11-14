@@ -411,3 +411,31 @@ export const getMyKeywords = async (topK = 7) => {
   }
 }
 
+/**
+ * 사용자 프로필 업데이트 (이름 변경)
+ * @param {string} username - 새 사용자명
+ * @returns {Promise<Object>} 업데이트된 사용자 정보
+ */
+export const updateUserProfile = async (username) => {
+  const headers = {
+    'Content-Type': 'application/json',
+    ...authHeaders()
+  }
+
+  const response = await fetch(`${API_BASE_URL}/auth/me`, {
+    method: 'PUT',
+    headers,
+    body: JSON.stringify({
+      username: username
+    })
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ detail: response.statusText }))
+    throw new Error(errorData.detail || '프로필 업데이트에 실패했습니다.')
+  }
+
+  const result = await response.json()
+  return result.data || result
+}
+

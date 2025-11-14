@@ -11,6 +11,39 @@ function ThemeRecommendationSection({ themes, userName = '' }) {
     return null
   }
 
+  // 키워드별 색상 매핑
+  const getKeywordColor = (keyword) => {
+    const keywordLower = (keyword || '').toLowerCase()
+    
+    if (keywordLower.includes('가성비') || keywordLower.includes('budget')) {
+      return {
+        borderColor: '#60A5FA', // 밝은 파란색
+        textColor: '#60A5FA',
+        glowColor: 'rgba(96, 165, 250, 0.5)'
+      }
+    }
+    if (keywordLower.includes('혼자') || keywordLower.includes('solo')) {
+      return {
+        borderColor: '#A78BFA', // 밝은 보라색
+        textColor: '#A78BFA',
+        glowColor: 'rgba(167, 139, 250, 0.5)'
+      }
+    }
+    if (keywordLower.includes('감성') || keywordLower.includes('aesthetic')) {
+      return {
+        borderColor: '#FCD34D', // 황금색/노란색
+        textColor: '#FCD34D',
+        glowColor: 'rgba(252, 211, 77, 0.5)'
+      }
+    }
+    // 기본 색상
+    return {
+      borderColor: '#60A5FA',
+      textColor: '#60A5FA',
+      glowColor: 'rgba(96, 165, 250, 0.5)'
+    }
+  }
+
   return (
     <div className="mb-16">
       {/* 섹션 헤더 */}
@@ -45,17 +78,33 @@ function ThemeRecommendationSection({ themes, userName = '' }) {
             {/* 카테고리 헤더 */}
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1">
-                <h3 
-                  className="font-bold text-white mb-2"
-                  style={{
-                    fontSize: '20px',
-                    lineHeight: '28px',
-                    fontFamily: 'Arial, sans-serif',
-                    color: '#FFFFFF'
-                  }}
-                >
-                  {theme.hashtag || `#${theme.name}`}
-                </h3>
+                {(() => {
+                  const keywordText = theme.hashtag || `#${theme.name}`
+                  const colors = getKeywordColor(keywordText)
+                  
+                  return (
+                    <div
+                      className="inline-block px-4 py-2 rounded-lg mb-2"
+                      style={{
+                        border: `1px solid ${colors.borderColor}`,
+                        boxShadow: `0 0 10px ${colors.glowColor}, inset 0 0 10px ${colors.glowColor}`,
+                        background: 'transparent'
+                      }}
+                    >
+                      <h3 
+                        className="font-bold"
+                        style={{
+                          fontSize: '20px',
+                          lineHeight: '28px',
+                          fontFamily: 'Arial, sans-serif',
+                          color: colors.textColor
+                        }}
+                      >
+                        {keywordText}
+                      </h3>
+                    </div>
+                  )
+                })()}
                 <p 
                   className="text-white/70"
                   style={{
@@ -120,7 +169,7 @@ function ThemeRecommendationSection({ themes, userName = '' }) {
                   }
                 `}</style>
                 <div className="flex gap-4 min-w-max">
-                  {theme.videos.slice(0, 4).map((video) => (
+                  {theme.videos.map((video) => (
                     <div key={video.id || video.video_id} className="flex-shrink-0 w-[280px] sm:w-[320px]">
                       <VideoCard video={video} featured />
                     </div>

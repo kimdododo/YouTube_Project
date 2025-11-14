@@ -4,7 +4,7 @@ import { User, Settings, X, LogOut, Bookmark, Bell, Lock, Eye, EyeOff, Clock } f
 import { useBookmark } from '../contexts/BookmarkContext'
 import MyPageLayout from './layouts/MyPageLayout'
 import { getRecommendedVideos, fetchVideoKeywords } from '../api/videos'
-import { changePassword, saveTravelPreferences, fetchTravelPreferences, getToken, logout as clearAuth, getCurrentUser, getMyKeywords } from '../api/auth'
+import { changePassword, saveTravelPreferences, fetchTravelPreferences, getToken, logout as clearAuth, getCurrentUser, getMyKeywords, updateUserProfile } from '../api/auth'
 import VideoKeywordVisualization from './VideoKeywordCard'
 import {
   Chart as ChartJS,
@@ -690,12 +690,38 @@ function MyPage() {
     setIsEditModalOpen(true)
   }
 
-  const handleSave = () => {
-    setUserName(editName)
-    setUserEmail(editEmail)
-    localStorage.setItem('userName', editName)
-    localStorage.setItem('userEmail', editEmail)
-    setIsEditModalOpen(false)
+  const handleSave = async () => {
+    try {
+      // API를 통해 실제 서버에 이름 업데이트
+      const updatedUser = await updateUserProfile(editName)
+      
+      if (updatedUser) {
+        // 업데이트 성공 시 상태 및 localStorage 업데이트
+        setUserName(updatedUser.username || editName)
+        setUserEmail(updatedUser.email || editEmail)
+        localStorage.setItem('userName', updatedUser.username || editName)
+        localStorage.setItem('userEmail', updatedUser.email || editEmail)
+        setIsEditModalOpen(false)
+        console.log('[MyPage] 프로필 업데이트 성공:', updatedUser)
+      } else {
+        // API 응답이 없으면 로컬만 업데이트 (폴백)
+        setUserName(editName)
+        setUserEmail(editEmail)
+        localStorage.setItem('userName', editName)
+        localStorage.setItem('userEmail', editEmail)
+        setIsEditModalOpen(false)
+      }
+    } catch (error) {
+      console.error('[MyPage] 프로필 업데이트 실패:', error)
+      // 에러 발생 시에도 로컬은 업데이트 (사용자 경험 개선)
+      setUserName(editName)
+      setUserEmail(editEmail)
+      localStorage.setItem('userName', editName)
+      localStorage.setItem('userEmail', editEmail)
+      setIsEditModalOpen(false)
+      // TODO: 에러 메시지를 사용자에게 표시할 수 있도록 수정
+      alert('프로필 업데이트에 실패했습니다. 잠시 후 다시 시도해주세요.')
+    }
   }
 
   const handleCancel = () => {

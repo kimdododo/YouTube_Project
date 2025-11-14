@@ -263,3 +263,36 @@ def check_email_exists(db: Session, email: str) -> bool:
         return False
     user = get_by_email(db, email.strip())
     return user is not None
+
+
+def update_user_profile(db: Session, user_id: int, username: str = None) -> Optional[User]:
+    """
+    사용자 프로필 업데이트 (이름 변경)
+    
+    Args:
+        db: 데이터베이스 세션
+        user_id: 사용자 ID
+        username: 새 사용자명 (선택적)
+    
+    Returns:
+        업데이트된 User 객체 또는 None
+    """
+    try:
+        user = get_by_id(db, user_id)
+        if not user:
+            return None
+        
+        # 사용자명 업데이트
+        if username is not None:
+            if not username.strip():
+                raise ValueError("사용자명은 필수입니다.")
+            user.username = username.strip()
+        
+        db.commit()
+        db.refresh(user)
+        return user
+    except Exception as e:
+        db.rollback()
+        print(f"[ERROR] Failed to update user profile for user {user_id}: {e}")
+        print(f"[ERROR] Traceback: {traceback.format_exc()}")
+        raise

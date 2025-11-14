@@ -47,7 +47,7 @@ function useThemeVideos() {
 
         // 실제 비디오 데이터 가져오기 (임시로 전체 비디오에서 필터링)
         try {
-          const allVideos = await getDiversifiedVideos(100, 1)
+          const allVideos = await getDiversifiedVideos(300, 1) // 더 많은 영상 가져오기 (가로 스크롤용)
           
           // 키워드 기반으로 테마별 비디오 필터링
           mockThemes.forEach((theme) => {
@@ -67,7 +67,8 @@ function useThemeVideos() {
                   title.includes(kw) || description.includes(kw) || keyword.includes(kw)
                 )
               })
-              .slice(0, 10) // 각 테마당 최대 10개
+              // 각 테마당 최대 30개로 증가 (가로 스크롤에 많은 영상 표시)
+              .slice(0, 30)
           })
 
           setThemes(mockThemes)

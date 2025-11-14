@@ -39,3 +39,7 @@ class PasswordChangeRequest(BaseModel):
         max_length=72,
         description="새 비밀번호 (영문, 숫자, 특수문자 중 2종류 이상 조합, 최소 10자)"
     )
+
+
+class UserUpdate(BaseModel):
+    username: str = Field(..., min_length=3, max_length=64, description="사용자명")

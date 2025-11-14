@@ -8,6 +8,7 @@ from app.core.database import get_db
 from app.schemas.user import (
     UserCreate, 
     UserOut, 
+    UserUpdate,
     PasswordChangeRequest,
     EmailVerificationRequest,
     EmailVerificationResponse,
@@ -23,6 +24,7 @@ try:
         get_by_email,
         get_by_id, 
         update_password,
+        update_user_profile,
         verify_user_email
     )
 except ImportError as e:
@@ -562,6 +564,29 @@ def get_current_user(
     except Exception as e:
         print(f"[ERROR] Error getting current user: {str(e)}")
         raise HTTPException(status_code=500, detail=f"사용자 정보 조회 중 오류가 발생했습니다: {str(e)}")
+
+
+@router.put("/me", response_model=UserOut)
+def update_current_user(
+    payload: UserUpdate,
+    current_user_id_str: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """
+    현재 로그인한 사용자 프로필 업데이트 (이름 변경)
+    """
+    try:
+        current_user_id = int(current_user_id_str)
+        user = update_user_profile(db, current_user_id, username=payload.username)
+        if not user:
+            raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
+        return UserOut.model_validate(user).model_dump()
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        print(f"[ERROR] Error updating user profile: {str(e)}")
+        print(f"[ERROR] Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"프로필 업데이트 중 오류가 발생했습니다: {str(e)}")
 
 
 @router.get("/preferences", response_model=TravelPreferenceResponse)

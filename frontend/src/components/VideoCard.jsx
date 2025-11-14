@@ -24,6 +24,39 @@ function VideoCard({ video, simple = false, featured = false }) {
   const categoryLabel = video.category ? String(video.category).replace(/^channel:\s*/i, '') : null
   const optimizedStyles = getOptimizedImageStyles()
 
+  // 키워드별 색상 매핑
+  const getKeywordColor = (keyword) => {
+    if (!keyword) return null
+    const keywordLower = String(keyword).toLowerCase()
+    
+    if (keywordLower.includes('가성비') || keywordLower.includes('budget')) {
+      return {
+        borderColor: '#60A5FA', // 밝은 파란색
+        textColor: '#60A5FA',
+        glowColor: 'rgba(96, 165, 250, 0.5)'
+      }
+    }
+    if (keywordLower.includes('혼자') || keywordLower.includes('solo')) {
+      return {
+        borderColor: '#A78BFA', // 밝은 보라색
+        textColor: '#A78BFA',
+        glowColor: 'rgba(167, 139, 250, 0.5)'
+      }
+    }
+    if (keywordLower.includes('감성') || keywordLower.includes('aesthetic')) {
+      return {
+        borderColor: '#FCD34D', // 황금색/노란색
+        textColor: '#FCD34D',
+        glowColor: 'rgba(252, 211, 77, 0.5)'
+      }
+    }
+    return null
+  }
+
+  // 비디오 키워드 추출 (keyword 필드 또는 category에서)
+  const videoKeyword = video.keyword || video.category || null
+  const keywordColor = getKeywordColor(videoKeyword)
+
   const handleClick = () => {
     const videoId = video.id || video.video_id
     if (videoId) {
@@ -161,11 +194,30 @@ function VideoCard({ video, simple = false, featured = false }) {
           {/* Content overlay */}
           <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black via-black/90 to-transparent">
             <div className="flex items-center justify-between mb-3">
-                          {categoryLabel && (
-                <span className="px-3 py-1.5 bg-blue-600/90 backdrop-blur-sm text-white text-xs font-semibold rounded">
-                              {categoryLabel}
-                </span>
-              )}
+              <div className="flex items-center gap-2">
+                {keywordColor && videoKeyword && (
+                  <div
+                    className="px-3 py-1.5 rounded-lg"
+                    style={{
+                      border: `1px solid ${keywordColor.borderColor}`,
+                      boxShadow: `0 0 10px ${keywordColor.glowColor}`,
+                      background: 'transparent'
+                    }}
+                  >
+                    <span 
+                      className="text-xs font-semibold"
+                      style={{ color: keywordColor.textColor }}
+                    >
+                      #{videoKeyword}
+                    </span>
+                  </div>
+                )}
+                {categoryLabel && !keywordColor && (
+                  <span className="px-3 py-1.5 bg-blue-600/90 backdrop-blur-sm text-white text-xs font-semibold rounded">
+                    {categoryLabel}
+                  </span>
+                )}
+              </div>
               {video.views && (
                 <span className="text-white/90 text-xs font-medium">{video.views}</span>
               )}

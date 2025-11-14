@@ -1,7 +1,20 @@
-import { Star, ArrowUp, ArrowDown, Minus } from 'lucide-react'
+import { Star, ArrowUp, ArrowDown, Minus, Bookmark } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { useBookmark } from '../contexts/BookmarkContext'
 import { handleImageError, optimizeThumbnailUrl, getOptimizedImageStyles, handleImageLoadQuality } from '../utils/imageUtils'
 
 function TrendRankingCard({ rank, video, change }) {
+  const navigate = useNavigate()
+  const { isBookmarked, toggleBookmark } = useBookmark()
+  
+  const videoId = video.id || video.video_id
+  const bookmarked = isBookmarked(videoId)
+
+  const handleBookmarkClick = (e) => {
+    e.stopPropagation() // 카드 클릭 이벤트 방지
+    toggleBookmark(video)
+  }
+
   // 썸네일 URL 최적화
   const rawThumbnailUrl = video.thumbnail_url || video.thumbnail || null
   const thumbnailUrl = video.id 
@@ -11,9 +24,16 @@ function TrendRankingCard({ rank, video, change }) {
   const optimizedStyles = getOptimizedImageStyles()
 
   const handleClick = () => {
-    const youtubeUrl = video.youtube_url || (video.id ? `https://www.youtube.com/watch?v=${video.id}` : null)
-    if (youtubeUrl) {
-      window.open(youtubeUrl, '_blank', 'noopener,noreferrer')
+    const videoId = video.id || video.video_id
+    if (videoId) {
+      // 비디오 상세 페이지로 이동
+      navigate(`/video/${videoId}`)
+    } else {
+      // videoId가 없으면 YouTube로 이동
+      const youtubeUrl = video.youtube_url || (video.id ? `https://www.youtube.com/watch?v=${video.id}` : null)
+      if (youtubeUrl) {
+        window.open(youtubeUrl, '_blank', 'noopener,noreferrer')
+      }
     }
   }
 
@@ -103,11 +123,24 @@ function TrendRankingCard({ rank, video, change }) {
             
             {/* 평점 배지 */}
             {shouldShowRating && (
-              <div className="absolute top-1.5 right-1.5 flex items-center space-x-1 bg-black/80 backdrop-blur-sm px-2 py-1 rounded-full">
+              <div className="absolute top-1.5 right-1.5 flex items-center space-x-1 bg-black/80 backdrop-blur-sm px-2 py-1 rounded-full z-10">
                 <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
                 <span className="text-white text-sm font-bold">{video.rating}</span>
               </div>
             )}
+            
+            {/* 북마크 버튼 (좌측 상단) */}
+            <button
+              onClick={handleBookmarkClick}
+              className={`absolute top-1.5 left-1.5 p-1.5 rounded-full backdrop-blur-sm transition-all z-10 ${
+                bookmarked
+                  ? 'bg-blue-600/90 text-white'
+                  : 'bg-black/70 text-white/70 hover:bg-black/90 hover:text-white'
+              }`}
+              title={bookmarked ? '북마크 제거' : '북마크 추가'}
+            >
+              <Bookmark className={`w-3 h-3 ${bookmarked ? 'fill-current' : ''}`} />
+            </button>
           </div>
         </div>
 
