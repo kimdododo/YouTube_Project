@@ -175,7 +175,15 @@ function useThemeVideos() {
 
         // 실제 비디오 데이터 가져오기 (임시로 전체 비디오에서 필터링)
         try {
+          console.log('[useThemeVideos] Fetching videos from API...')
           const allVideos = await getDiversifiedVideos(1000, 1) // 더 많은 영상 가져오기 (가로 스크롤용)
+          console.log(`[useThemeVideos] Fetched ${allVideos.length} videos from API`)
+          
+          if (!allVideos || allVideos.length === 0) {
+            console.warn('[useThemeVideos] No videos returned from API, setting empty videos for themes')
+            setThemes(userThemes.map(theme => ({ ...theme, videos: [] })))
+            return
+          }
           
           // 이미 할당된 비디오 ID를 추적하여 중복 방지
           const assignedVideoIds = new Set()
@@ -185,7 +193,7 @@ function useThemeVideos() {
             const keywords = theme.keywords || []
             
             // 아직 할당되지 않은 비디오만 필터링
-            const filteredVideos = allVideos
+            let filteredVideos = allVideos
               .filter((video) => {
                 // 이미 다른 테마에 할당된 비디오는 제외
                 const videoId = video.id || video.video_id
@@ -197,16 +205,38 @@ function useThemeVideos() {
                 const description = (video.description || '').toLowerCase()
                 const keyword = (video.keyword || '').toLowerCase()
                 const category = (video.category || '').toLowerCase()
+                const region = (video.region || '').toLowerCase()
                 
-                return keywords.some((kw) => 
-                  title.includes(kw.toLowerCase()) || 
-                  description.includes(kw.toLowerCase()) || 
-                  keyword.includes(kw.toLowerCase()) ||
-                  category.includes(kw.toLowerCase())
-                )
+                // 키워드 매칭 (더 관대한 매칭)
+                return keywords.some((kw) => {
+                  const kwLower = kw.toLowerCase()
+                  return (
+                    title.includes(kwLower) || 
+                    description.includes(kwLower) || 
+                    keyword.includes(kwLower) ||
+                    category.includes(kwLower) ||
+                    region.includes(kwLower)
+                  )
+                })
               })
-              // 각 테마당 최대 50개로 증가 (가로 스크롤에 많은 영상 표시)
-              .slice(0, 50)
+            
+            // 매칭된 비디오가 부족하면 추가 비디오 할당 (fallback)
+            if (filteredVideos.length < 20) {
+              const remainingVideos = allVideos.filter((video) => {
+                const videoId = video.id || video.video_id
+                return !assignedVideoIds.has(videoId)
+              })
+              
+              // 부족한 만큼 추가 (최대 50개까지)
+              const needed = Math.min(50 - filteredVideos.length, remainingVideos.length)
+              const additionalVideos = remainingVideos.slice(0, needed)
+              filteredVideos = [...filteredVideos, ...additionalVideos]
+              
+              console.log(`[useThemeVideos] Theme "${theme.name}": Found ${filteredVideos.length - additionalVideos.length} matching videos, added ${additionalVideos.length} fallback videos`)
+            }
+            
+            // 각 테마당 최대 50개로 제한
+            filteredVideos = filteredVideos.slice(0, 50)
             
             // 할당된 비디오 ID를 추적에 추가
             filteredVideos.forEach(video => {
@@ -217,6 +247,7 @@ function useThemeVideos() {
             })
             
             theme.videos = filteredVideos
+            console.log(`[useThemeVideos] Theme "${theme.name}": Assigned ${filteredVideos.length} videos`)
           })
 
           setThemes(userThemes)
