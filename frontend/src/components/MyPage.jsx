@@ -54,6 +54,49 @@ function MyPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const hasCheckedAuth = useRef(false)
   
+  // 사용자 정보 상태
+  const [userName, setUserName] = useState(localStorage.getItem('userName') || '')
+  const [userEmail, setUserEmail] = useState(localStorage.getItem('userEmail') || '')
+  const [editName, setEditName] = useState('')
+  const [editEmail, setEditEmail] = useState('')
+  
+  // 사용자 정보 로드 (한 번만 실행)
+  const hasLoadedUserInfo = useRef(false)
+  useEffect(() => {
+    if (hasLoadedUserInfo.current) return
+    
+    const loadUserInfo = async () => {
+      const token = getToken()
+      if (!token) {
+        hasLoadedUserInfo.current = true
+        return
+      }
+      
+      try {
+        const userInfo = await getCurrentUser()
+        if (userInfo) {
+          const newUserName = userInfo.username || localStorage.getItem('userName') || ''
+          const newUserEmail = userInfo.email || localStorage.getItem('userEmail') || ''
+          setUserName(newUserName)
+          setUserEmail(newUserEmail)
+          if (userInfo.username) {
+            localStorage.setItem('userName', userInfo.username)
+          }
+          if (userInfo.email) {
+            localStorage.setItem('userEmail', userInfo.email)
+          }
+        }
+      } catch (error) {
+        console.error('[MyPage] Failed to load user info:', error)
+      } finally {
+        hasLoadedUserInfo.current = true
+      }
+    }
+    
+    loadUserInfo()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // 마운트 시에만 실행
+  
   // 로그인 체크 및 리다이렉트 (마운트 시에만 실행)
   useEffect(() => {
     // 이미 체크를 완료했으면 실행하지 않음
@@ -137,17 +180,6 @@ function MyPage() {
   const [isLoadingPreferences, setIsLoadingPreferences] = useState(false)
   const [userInfoError, setUserInfoError] = useState('')
   const [preferencesError, setPreferencesError] = useState('')
-  
-  // 로그인 체크 중이면 로딩 표시
-  if (isCheckingAuth) {
-    return (
-      <MyPageLayout activeTab={activeTab} setActiveTab={setActiveTab}>
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-white/60">로딩 중...</div>
-        </div>
-      </MyPageLayout>
-    )
-  }
 
   // 여행 취향 기반 콘텐츠 선호도 데이터 계산
   useEffect(() => {
@@ -870,6 +902,17 @@ function MyPage() {
 
   // 디버깅: activeTab 확인
   console.log('[MyPage] Rendering with activeTab:', activeTab)
+
+  // 로그인 체크 중이면 로딩 표시
+  if (isCheckingAuth) {
+    return (
+      <MyPageLayout activeTab={activeTab} setActiveTab={setActiveTab}>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-white/60">로딩 중...</div>
+        </div>
+      </MyPageLayout>
+    )
+  }
 
   return (
     <MyPageLayout activeTab={activeTab} setActiveTab={setActiveTab}>
