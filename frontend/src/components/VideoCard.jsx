@@ -143,7 +143,7 @@ function VideoCard({ video, simple = false, featured = false, hideBookmark = fal
     const glowColor = themeColors?.glowColor || 'rgba(96, 165, 250, 0.5)'
     
     // hex 색상을 rgba로 변환하는 헬퍼 함수
-    const hexToRgba = (hex: string, alpha: number) => {
+    const hexToRgba = (hex, alpha) => {
       const r = parseInt(hex.slice(1, 3), 16)
       const g = parseInt(hex.slice(3, 5), 16)
       const b = parseInt(hex.slice(5, 7), 16)
