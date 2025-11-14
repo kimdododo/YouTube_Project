@@ -152,8 +152,8 @@ function VideoCard({ video, simple = false, featured = false, hideBookmark = fal
     
     const defaultBorderColor = active ? borderColor : hexToRgba(borderColor, 0.5)
     const defaultBoxShadow = active 
-      ? `0 0 20px ${glowColor}, 0 0 40px ${glowColor}80, inset 0 0 10px ${glowColor}40`
-      : `0 0 10px ${glowColor}40`
+      ? `0 4px 20px rgba(0, 0, 0, 0.3), 0 0 20px ${glowColor}, 0 0 40px ${glowColor}80, inset 0 0 10px ${glowColor}40`
+      : `0 4px 12px rgba(0, 0, 0, 0.2), 0 0 10px ${glowColor}40`
     
     return (
       <div 
@@ -166,13 +166,13 @@ function VideoCard({ video, simple = false, featured = false, hideBookmark = fal
         onMouseEnter={(e) => {
           if (!active) {
             e.currentTarget.style.borderColor = borderColor
-            e.currentTarget.style.boxShadow = `0 0 15px ${glowColor}, 0 0 30px ${glowColor}80, inset 0 0 10px ${glowColor}40`
+            e.currentTarget.style.boxShadow = `0 6px 24px rgba(0, 0, 0, 0.4), 0 0 15px ${glowColor}, 0 0 30px ${glowColor}80, inset 0 0 10px ${glowColor}40`
           }
         }}
         onMouseLeave={(e) => {
           if (!active) {
             e.currentTarget.style.borderColor = hexToRgba(borderColor, 0.5)
-            e.currentTarget.style.boxShadow = `0 0 10px ${glowColor}40`
+            e.currentTarget.style.boxShadow = `0 4px 12px rgba(0, 0, 0, 0.2), 0 0 10px ${glowColor}40`
           }
         }}
         onClick={handleClick}

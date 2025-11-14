@@ -16,6 +16,44 @@ function ThemeRecommendationSection({ themes, userName = '' }) {
   const getKeywordColor = (keyword) => {
     const keywordLower = (keyword || '').toLowerCase()
     
+    // 구체적인 해시태그 먼저 체크
+    if (keywordLower.includes('감성여행') || keywordLower.includes('#감성여행')) {
+      return {
+        borderColor: '#FCD34D', // 황금색/노란색
+        textColor: '#FCD34D',
+        glowColor: 'rgba(252, 211, 77, 0.5)'
+      }
+    }
+    if (keywordLower.includes('국내여행') || keywordLower.includes('#국내여행')) {
+      return {
+        borderColor: '#10B981', // 초록색
+        textColor: '#10B981',
+        glowColor: 'rgba(16, 185, 129, 0.5)'
+      }
+    }
+    if (keywordLower.includes('맛집투어') || keywordLower.includes('#맛집투어')) {
+      return {
+        borderColor: '#F97316', // 주황색
+        textColor: '#F97316',
+        glowColor: 'rgba(249, 115, 22, 0.5)'
+      }
+    }
+    if (keywordLower.includes('해외여행') || keywordLower.includes('#해외여행')) {
+      return {
+        borderColor: '#06B6D4', // 청록색/시안색
+        textColor: '#06B6D4',
+        glowColor: 'rgba(6, 182, 212, 0.5)'
+      }
+    }
+    if (keywordLower.includes('당일치기') || keywordLower.includes('#당일치기')) {
+      return {
+        borderColor: '#EC4899', // 분홍색/핑크색
+        textColor: '#EC4899',
+        glowColor: 'rgba(236, 72, 153, 0.5)'
+      }
+    }
+    
+    // 기존 키워드들
     if (keywordLower.includes('가성비') || keywordLower.includes('budget')) {
       return {
         borderColor: '#60A5FA', // 밝은 파란색
@@ -87,8 +125,7 @@ function ThemeRecommendationSection({ themes, userName = '' }) {
                     <div
                       className="inline-block px-4 py-2 rounded-lg mb-2"
                       style={{
-                        border: `1px solid ${colors.borderColor}`,
-                        boxShadow: `0 0 10px ${colors.glowColor}, inset 0 0 10px ${colors.glowColor}`,
+                        border: 'none',
                         background: 'transparent'
                       }}
                     >
