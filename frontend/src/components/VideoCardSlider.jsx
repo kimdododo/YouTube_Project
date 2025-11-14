@@ -6,8 +6,18 @@ import VideoCard from './VideoCard'
  * VideoCard 슬라이더 컴포넌트
  * 4열 1행 레이아웃, 마우스 호버 시 휠로 좌우 이동 가능
  */
-function VideoCardSlider({ videos, cardWidth = 320, gap = 24, hideBookmark = false, themeColors = null }) {
-  const [currentIndex, setCurrentIndex] = useState(0)
+function VideoCardSlider({ videos, cardWidth = 320, cardHeight = null, gap = 24, hideBookmark = false, themeColors = null }) {
+  const cardStep = cardWidth + gap
+  const visibleCards = 4 // 한 번에 보여줄 카드 개수
+  
+  // 무한 루프를 위한 초기 인덱스 (중간 지점으로 설정)
+  const getInitialIndex = () => {
+    if (!videos || videos.length === 0) return 0
+    const cloneCount = Math.max(visibleCards * 2, 8)
+    return Math.floor(cloneCount / 2) * videos.length
+  }
+  
+  const [currentIndex, setCurrentIndex] = useState(getInitialIndex)
   const [isTransitioning, setIsTransitioning] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const [startX, setStartX] = useState(0)
@@ -16,16 +26,18 @@ function VideoCardSlider({ videos, cardWidth = 320, gap = 24, hideBookmark = fal
   const sliderRef = useRef(null)
   const dragStateRef = useRef({ startX: 0, scrollLeft: 0, currentIndex: 0 })
 
-  const cardStep = cardWidth + gap
-  const visibleCards = 4 // 한 번에 보여줄 카드 개수
+  // 무한 루프를 위한 실제 인덱스 계산
+  const getRealIndex = (index) => {
+    if (videos.length === 0) return 0
+    return ((index % videos.length) + videos.length) % videos.length
+  }
 
   const slideNext = () => {
     if (isTransitioning || videos.length === 0) return
     setIsTransitioning(true)
     setCurrentIndex((prev) => {
-      const maxIndex = Math.max(0, videos.length - visibleCards)
-      const nextIndex = prev + 1
-      return nextIndex > maxIndex ? maxIndex : nextIndex
+      // 무한 루프: 다음 인덱스로 이동
+      return prev + 1
     })
     setTimeout(() => setIsTransitioning(false), 500)
   }
@@ -34,11 +46,20 @@ function VideoCardSlider({ videos, cardWidth = 320, gap = 24, hideBookmark = fal
     if (isTransitioning || videos.length === 0) return
     setIsTransitioning(true)
     setCurrentIndex((prev) => {
-      const prevIndex = prev - 1
-      return prevIndex < 0 ? 0 : prevIndex
+      // 무한 루프: 이전 인덱스로 이동
+      return prev - 1
     })
     setTimeout(() => setIsTransitioning(false), 500)
   }
+
+  // videos가 변경되면 초기 인덱스로 리셋
+  useEffect(() => {
+    if (videos && videos.length > 0) {
+      const initialIndex = getInitialIndex()
+      setCurrentIndex(initialIndex)
+      dragStateRef.current.currentIndex = initialIndex
+    }
+  }, [videos])
 
   // 현재 인덱스를 ref에 동기화
   useEffect(() => {
@@ -70,8 +91,8 @@ function VideoCardSlider({ videos, cardWidth = 320, gap = 24, hideBookmark = fal
       const rect = sliderRef.current.getBoundingClientRect()
       const x = e.clientX - rect.left
       const walk = (x - dragStateRef.current.startX) * 1.5
-      const maxIndex = Math.max(0, videos.length - visibleCards)
-      const newIndex = Math.max(0, Math.min(maxIndex, Math.round((dragStateRef.current.scrollLeft - walk) / cardStep)))
+      // 무한 루프를 위해 인덱스 제한 없음
+      const newIndex = Math.round((dragStateRef.current.scrollLeft - walk) / cardStep)
       
       if (newIndex !== dragStateRef.current.currentIndex) {
         setCurrentIndex(newIndex)
@@ -136,8 +157,8 @@ function VideoCardSlider({ videos, cardWidth = 320, gap = 24, hideBookmark = fal
     const rect = sliderRef.current.getBoundingClientRect()
     const x = e.touches[0].clientX - rect.left
     const walk = (x - dragStateRef.current.startX) * 1.5
-    const maxIndex = Math.max(0, videos.length - visibleCards)
-    const newIndex = Math.max(0, Math.min(maxIndex, Math.round((dragStateRef.current.scrollLeft - walk) / cardStep)))
+    // 무한 루프를 위해 인덱스 제한 없음
+    const newIndex = Math.round((dragStateRef.current.scrollLeft - walk) / cardStep)
     
     if (newIndex !== dragStateRef.current.currentIndex) {
       setCurrentIndex(newIndex)
@@ -156,34 +177,34 @@ function VideoCardSlider({ videos, cardWidth = 320, gap = 24, hideBookmark = fal
     return null
   }
 
-  const maxIndex = Math.max(0, videos.length - visibleCards)
   const totalWidth = cardWidth * visibleCards + gap * (visibleCards - 1)
   const paddingValue = `calc((100% - ${totalWidth}px) / 2)`
   
-  // 테마 색상이 없으면 기본 색상 사용
-  const borderColor = themeColors?.borderColor || '#60A5FA'
-  const glowColor = themeColors?.glowColor || 'rgba(96, 165, 250, 0.5)'
+  // 테마 색상을 검은색으로 통일
+  const borderColor = '#000000' // BLACK
+  const glowColor = 'rgba(0, 0, 0, 0.5)' // BLACK glow
   
   // 화살표 버튼 표시 조건: 비디오가 4개 이상이면 항상 표시
   const showArrows = videos.length > visibleCards
-  const canGoPrev = currentIndex > 0
-  const canGoNext = currentIndex < maxIndex
+  // 무한 루프이므로 항상 활성화
+  const canGoPrev = true
+  const canGoNext = true
+  
+  // 무한 루프를 위한 실제 표시 인덱스 계산
+  const displayIndex = getRealIndex(currentIndex)
 
   return (
     <div className="relative overflow-hidden" ref={containerRef}>
-      {/* 왼쪽 화살표 - 항상 표시하되 비활성화 상태 표시 */}
+      {/* 왼쪽 화살표 - 무한 루프이므로 항상 활성화 */}
       {showArrows && (
         <button
           onClick={slidePrev}
-          disabled={!canGoPrev || isTransitioning}
-          className={`absolute left-2 top-1/2 -translate-y-1/2 z-20 rounded-full p-3 text-white transition-all ${
-            canGoPrev 
-              ? 'bg-black/80 hover:bg-black/95 cursor-pointer shadow-lg hover:shadow-xl' 
-              : 'bg-black/30 cursor-not-allowed opacity-50'
-          }`}
+          disabled={isTransitioning}
+          className="absolute left-2 top-1/2 -translate-y-1/2 z-20 rounded-full p-3 text-white transition-all bg-black/80 hover:bg-black/95 cursor-pointer shadow-lg hover:shadow-xl"
           style={{
             transform: 'translateY(-50%)',
-            transition: 'all 0.3s ease'
+            transition: 'all 0.3s ease',
+            opacity: isTransitioning ? 0.7 : 1
           }}
         >
           <ChevronLeft className="w-6 h-6 sm:w-7 sm:h-7" />
@@ -195,7 +216,7 @@ function VideoCardSlider({ videos, cardWidth = 320, gap = 24, hideBookmark = fal
         ref={sliderRef}
         className="relative overflow-hidden cursor-grab active:cursor-grabbing select-none rounded-lg"
         style={{ 
-          height: '280px', 
+          height: cardHeight ? `${cardHeight + 20}px` : '280px', 
           userSelect: 'none',
           paddingLeft: paddingValue,
           paddingRight: paddingValue,
@@ -221,42 +242,51 @@ function VideoCardSlider({ videos, cardWidth = 320, gap = 24, hideBookmark = fal
             willChange: 'transform'
           }}
         >
-          {/* 카드 렌더링 (4열 1행) */}
-          {videos.map((video, index) => {
-            const isVisible = index >= currentIndex && index < currentIndex + visibleCards
+          {/* 카드 렌더링 (무한 루프를 위해 충분한 수의 카드 복제) */}
+          {(() => {
+            // 무한 루프를 위해 카드를 여러 번 복제
+            const cloneCount = Math.max(visibleCards * 2, 8) // 최소 8개씩 복제
+            const totalCards = videos.length * cloneCount
+            const startOffset = Math.floor(cloneCount / 2) * videos.length
             
-            return (
-              <div 
-                key={`${video.id || video.video_id}-${index}`}
-                className="flex-shrink-0 transition-all duration-300 hover:z-10"
-                style={{ width: `${cardWidth}px` }}
-              >
-                <VideoCard 
-                  video={video} 
-                  featured 
-                  hideBookmark={hideBookmark} 
-                  active={isVisible}
-                  themeColors={themeColors}
-                />
-              </div>
-            )
-          })}
+            return Array.from({ length: totalCards }, (_, i) => {
+              const videoIndex = i % videos.length
+              const video = videos[videoIndex]
+              const actualIndex = i - startOffset
+              const isVisible = actualIndex >= currentIndex && actualIndex < currentIndex + visibleCards
+              
+              return (
+                <div 
+                  key={`${video.id || video.video_id}-${i}`}
+                  className="flex-shrink-0 transition-all duration-300 hover:z-10"
+                  style={{ width: `${cardWidth}px` }}
+                >
+                  <VideoCard 
+                    video={video} 
+                    featured 
+                    hideBookmark={hideBookmark} 
+                    active={isVisible}
+                    themeColors={themeColors}
+                    cardWidth={cardWidth}
+                    cardHeight={cardHeight}
+                  />
+                </div>
+              )
+            })
+          })()}
         </div>
       </div>
 
-      {/* 오른쪽 화살표 - 항상 표시하되 비활성화 상태 표시 */}
+      {/* 오른쪽 화살표 - 무한 루프이므로 항상 활성화 */}
       {showArrows && (
         <button
           onClick={slideNext}
-          disabled={!canGoNext || isTransitioning}
-          className={`absolute right-2 top-1/2 -translate-y-1/2 z-20 rounded-full p-3 text-white transition-all ${
-            canGoNext 
-              ? 'bg-black/80 hover:bg-black/95 cursor-pointer shadow-lg hover:shadow-xl' 
-              : 'bg-black/30 cursor-not-allowed opacity-50'
-          }`}
+          disabled={isTransitioning}
+          className="absolute right-2 top-1/2 -translate-y-1/2 z-20 rounded-full p-3 text-white transition-all bg-black/80 hover:bg-black/95 cursor-pointer shadow-lg hover:shadow-xl"
           style={{
             transform: 'translateY(-50%)',
-            transition: 'all 0.3s ease'
+            transition: 'all 0.3s ease',
+            opacity: isTransitioning ? 0.7 : 1
           }}
         >
           <ChevronRight className="w-6 h-6 sm:w-7 sm:h-7" />

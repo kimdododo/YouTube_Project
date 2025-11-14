@@ -186,7 +186,8 @@ function ThemeRecommendationSection({ themes, userName = '' }) {
             {theme.videos && theme.videos.length > 0 ? (
               <VideoCardSlider 
                 videos={theme.videos} 
-                cardWidth={320} 
+                cardWidth={317.5}
+                cardHeight={175.5}
                 gap={24}
                 hideBookmark={true}
                 themeColors={(() => {

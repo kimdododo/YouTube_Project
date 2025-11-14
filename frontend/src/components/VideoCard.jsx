@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useBookmark } from '../contexts/BookmarkContext'
 import { handleImageError, optimizeThumbnailUrl, getOptimizedImageStyles, handleImageLoadQuality } from '../utils/imageUtils'
 
-function VideoCard({ video, simple = false, featured = false, hideBookmark = false, active = false, themeColors = null }) {
+function VideoCard({ video, simple = false, featured = false, hideBookmark = false, active = false, themeColors = null, cardWidth = null, cardHeight = null }) {
   const navigate = useNavigate()
   const { isBookmarked, toggleBookmark } = useBookmark()
   const thumbnailRef = useRef(null)
@@ -268,10 +268,15 @@ function VideoCard({ video, simple = false, featured = false, hideBookmark = fal
           ref={thumbnailRef}
           className="relative overflow-hidden thumbnail-container rounded-xl border-solid" 
           style={{ 
-            aspectRatio: '16/9',
+            ...(cardWidth && cardHeight ? {
+              width: `${cardWidth}px`,
+              height: `${cardHeight}px`
+            } : {
+              aspectRatio: '16/9',
+              width: '100%'
+            }),
             border: `${isMobile ? '1px' : '2px'} solid ${defaultBorderColor}`,
-            boxShadow: thumbnailBoxShadow,
-            width: '100%'
+            boxShadow: thumbnailBoxShadow
           }}
           onMouseEnter={(e) => {
             if (!isMobile) {
