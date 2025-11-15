@@ -373,6 +373,13 @@ function VideoDetail() {
                 <button className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white font-bold text-base py-3 px-4 rounded-lg transition-all duration-200 text-left mb-3">
                   긍정 댓글 {analysisResult.positive || 0}%
                 </button>
+                {/* 진행 바 */}
+                <div className="w-full h-2 bg-gray-700 rounded-full mb-3 overflow-hidden">
+                  <div 
+                    className="h-full bg-gradient-to-r from-blue-600 to-blue-500 rounded-full transition-all duration-500"
+                    style={{ width: `${analysisResult.positive || 0}%` }}
+                  />
+                </div>
                 {/* 긍정 피드백 목록 */}
                 {analysisResult.positivePoints && analysisResult.positivePoints.length > 0 ? (
                   <div className="space-y-1.5 flex-1">
@@ -392,6 +399,13 @@ function VideoDetail() {
                 <button className="w-full bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 text-white font-bold text-base py-3 px-4 rounded-lg transition-all duration-200 text-left mb-3">
                   부정 댓글 {analysisResult.negative || 0}%
                 </button>
+                {/* 진행 바 */}
+                <div className="w-full h-2 bg-gray-700 rounded-full mb-3 overflow-hidden">
+                  <div 
+                    className="h-full bg-gradient-to-r from-red-600 to-red-500 rounded-full transition-all duration-500"
+                    style={{ width: `${analysisResult.negative || 0}%` }}
+                  />
+                </div>
                 {/* 부정 피드백 목록 */}
                 {analysisResult.negativePoints && analysisResult.negativePoints.length > 0 ? (
                   <div className="space-y-1.5 flex-1">
