@@ -367,7 +367,7 @@ function VideoDetail() {
             <h2 className="text-2xl font-bold text-white mb-6">댓글 분석</h2>
             
             {/* 1행: 긍정 댓글, 부정 댓글, 3줄 요약 (3열 그리드) */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               {/* 긍정 댓글 바 */}
               <div className="bg-[#1a1f3a]/80 backdrop-blur-sm rounded-lg p-4 border border-blue-900/30 flex flex-col">
                 <button className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white font-bold text-base py-3 px-4 rounded-lg transition-all duration-200 text-left mb-3">
