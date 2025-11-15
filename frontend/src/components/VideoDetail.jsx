@@ -317,11 +317,18 @@ function VideoDetail() {
             {/* 업로더 정보 */}
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center text-white font-bold">
-                {(video.channel_id || video.keyword || '?')[0].toUpperCase()}
+                {(() => {
+                  const channelName = (video.channel_id || video.keyword || video.region || '?')
+                    .toString()
+                    .replace(/^channel:\s*/i, '')
+                  return channelName[0].toUpperCase()
+                })()}
               </div>
               <div>
                 <div className="text-white font-medium">
-                  {(video.keyword || video.region || '여행러버').replace(/^channel:\s*/i, '')}
+                  {(video.channel_id || video.keyword || video.region || '여행러버')
+                    .toString()
+                    .replace(/^channel:\s*/i, '')}
                 </div>
                 <div className="text-white/60 text-sm">
                   {formatDate(video.published_at)} · 조회수 {formatViews(video.view_count)}
