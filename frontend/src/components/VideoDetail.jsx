@@ -366,23 +366,13 @@ function VideoDetail() {
           <div className="mb-12">
             <h2 className="text-2xl font-bold text-white mb-6">댓글 분석</h2>
             
-            {/* 왼쪽 섹션: 모든 요소 포함 */}
-            <div className="space-y-4">
+            {/* 상단: 긍정/부정 댓글 바 (2열 그리드) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               {/* 긍정 댓글 바 */}
               <div className="bg-[#1a1f3a]/80 backdrop-blur-sm rounded-lg p-6 border border-blue-900/30">
                 <button className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white font-bold text-lg py-4 px-6 rounded-lg transition-all duration-200 text-left">
                   긍정 댓글 {analysisResult.positive || 0}%
                 </button>
-                {/* 긍정 키워드 목록 */}
-                {analysisResult.positivePoints && analysisResult.positivePoints.length > 0 && (
-                  <div className="mt-4 space-y-2">
-                    {analysisResult.positivePoints.map((point, idx) => (
-                      <div key={idx} className="text-white text-sm">
-                        {point}
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
 
               {/* 부정 댓글 바 */}
@@ -390,32 +380,55 @@ function VideoDetail() {
                 <button className="w-full bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 text-white font-bold text-lg py-4 px-6 rounded-lg transition-all duration-200 text-left">
                   부정 댓글 {analysisResult.negative || 0}%
                 </button>
-                {/* 부정 키워드 목록 */}
-                {analysisResult.negativePoints && analysisResult.negativePoints.length > 0 && (
-                  <div className="mt-4 space-y-2">
+              </div>
+            </div>
+
+            {/* 중간: 긍정/부정 피드백 카테고리 (2열 그리드) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              {/* 긍정 피드백 카테고리 */}
+              <div className="bg-[#1a1f3a]/80 backdrop-blur-sm rounded-lg p-6 border border-blue-900/30">
+                {analysisResult.positivePoints && analysisResult.positivePoints.length > 0 ? (
+                  <div className="space-y-2">
+                    {analysisResult.positivePoints.map((point, idx) => (
+                      <div key={idx} className="text-white text-sm">
+                        {point}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-white/60 text-sm">긍정 피드백이 없습니다.</div>
+                )}
+              </div>
+
+              {/* 부정 피드백 카테고리 */}
+              <div className="bg-[#1a1f3a]/80 backdrop-blur-sm rounded-lg p-6 border border-red-900/30">
+                {analysisResult.negativePoints && analysisResult.negativePoints.length > 0 ? (
+                  <div className="space-y-2">
                     {analysisResult.negativePoints.map((point, idx) => (
                       <div key={idx} className="text-white text-sm">
                         {point}
                       </div>
                     ))}
                   </div>
+                ) : (
+                  <div className="text-white/60 text-sm">부정 피드백이 없습니다.</div>
                 )}
               </div>
+            </div>
 
-              {/* 댓글 3줄 요약 */}
-              <div className="bg-[#1a1f3a]/80 backdrop-blur-sm rounded-lg p-6 border border-blue-900/30">
-                <h3 className="text-white font-bold text-lg mb-4">댓글 3줄 요약</h3>
-                <div className="space-y-3">
-                  {analysisResult.summary && analysisResult.summary.length > 0 ? (
-                    analysisResult.summary.map((item, idx) => (
-                      <p key={idx} className="text-white/90 text-sm leading-relaxed">
-                        {item}
-                      </p>
-                    ))
-                  ) : (
-                    <p className="text-white/60 text-sm">요약 정보가 없습니다.</p>
-                  )}
-                </div>
+            {/* 하단: 댓글 3줄 요약 (전체 너비) */}
+            <div className="bg-[#1a1f3a]/80 backdrop-blur-sm rounded-lg p-6 border border-blue-900/30">
+              <h3 className="text-white font-bold text-lg mb-4">댓글 3줄 요약</h3>
+              <div className="space-y-3">
+                {analysisResult.summary && analysisResult.summary.length > 0 ? (
+                  analysisResult.summary.map((item, idx) => (
+                    <p key={idx} className="text-white/90 text-sm leading-relaxed">
+                      {item}
+                    </p>
+                  ))
+                ) : (
+                  <p className="text-white/60 text-sm">요약 정보가 없습니다.</p>
+                )}
               </div>
             </div>
           </div>
@@ -436,7 +449,7 @@ function VideoDetail() {
               </button>
 
               {/* 비디오 카드 컨테이너 */}
-              <div className="relative overflow-hidden px-12" style={{ height: '280px' }}>
+              <div className="relative overflow-hidden px-12" style={{ height: '480px' }}>
                 <div
                   className="flex gap-6 absolute top-0"
                   style={{
@@ -449,19 +462,57 @@ function VideoDetail() {
                   {/* 무한루프를 위한 카드 복제: 앞쪽, 중간, 뒤쪽 */}
                   {[...similarVideos, ...similarVideos, ...similarVideos].map((v, index) => {
                     const actualIndex = index % similarVideos.length
-                    // 현재 보이는 범위의 카드들 활성화
-                    const isInVisibleRange = actualIndex >= currentIndex && 
-                      actualIndex < currentIndex + visibleCards &&
-                      index >= similarVideos.length && 
-                      index < similarVideos.length * 2
+                    const videoId = v.id || v.video_id
+                    const thumbnailUrl = optimizeThumbnailUrl(v.thumbnail_url, videoId, v.is_shorts || false)
+                    const category = v.category || v.keyword || v.region || '여행'
+                    const rating = v.rating || 5
+                    const description = v.description || '여행의 감동을 잘 전달하는 영상이에요.'
                     
                     return (
                       <div 
-                        key={`${v.id || v.video_id}-${index}`}
-                        className="flex-shrink-0 transition-all duration-300 hover:z-10"
+                        key={`${videoId}-${index}`}
+                        onClick={() => navigate(`/video/${videoId}`)}
+                        className="flex-shrink-0 transition-all duration-300 hover:z-10 cursor-pointer group"
                         style={{ width: `${cardWidth}px` }}
                       >
-                        <VideoCard video={v} featured hideBookmark active={isInVisibleRange} />
+                        <div className="bg-[#0f1629]/40 backdrop-blur-sm rounded-xl overflow-hidden border border-black/50 hover:border-black/70 transition-all duration-300 ease-out hover:-translate-y-2 hover:shadow-2xl h-full flex flex-col" style={{ height: '460px' }}>
+                          {/* 카테고리 */}
+                          <div className="px-4 pt-4 pb-2">
+                            <span className="text-blue-400 text-xs font-medium">{category}</span>
+                          </div>
+                          
+                          {/* 썸네일 */}
+                          <div className="relative overflow-hidden flex-shrink-0" style={{ aspectRatio: '16/9' }}>
+                            {thumbnailUrl ? (
+                              <img
+                                src={thumbnailUrl}
+                                alt={v.title || 'Video'}
+                                className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
+                              />
+                            ) : (
+                              <div className="w-full h-full bg-gradient-to-br from-blue-900/80 to-purple-900/80 flex items-center justify-center">
+                                <span className="text-white/40 text-sm">썸네일 없음</span>
+                              </div>
+                            )}
+                            {/* 평점 배지 */}
+                            <div className="absolute top-2 right-2 flex items-center space-x-1 bg-black/70 backdrop-blur-sm px-2 py-1 rounded-full z-10">
+                              <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                              <span className="text-white text-xs font-bold">{rating}</span>
+                            </div>
+                            {/* 그라데이션 오버레이 */}
+                            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
+                          </div>
+                          
+                          {/* 제목과 설명 */}
+                          <div className="px-4 py-4 flex-1 flex flex-col">
+                            <h3 className="text-white font-bold text-base leading-tight line-clamp-2 mb-3">
+                              {v.title || '제목 없음'}
+                            </h3>
+                            <p className="text-white/70 text-sm leading-relaxed line-clamp-3">
+                              {description.length > 120 ? `${description.substring(0, 120)}...` : description}
+                            </p>
+                          </div>
+                        </div>
                       </div>
                     )
                   })}
