@@ -319,18 +319,19 @@ function VideoDetail() {
               <div>
                 <div className="text-white font-medium">
                   {(() => {
-                    // 채널 ID가 YouTube ID 형식(UCNhofiqfw5nl-NeDJkXtPvw 같은)이면 keyword나 region 사용
+                    // 채널명 우선순위: channel_name > keyword > region > channel_id (YouTube ID가 아닌 경우만)
                     const channelId = video.channel_id || ''
                     const isYouTubeId = /^UC[a-zA-Z0-9_-]{22}$/.test(channelId)
                     
+                    // YouTube ID 형식이면 절대 사용하지 않음
                     if (isYouTubeId) {
-                      // YouTube ID 형식이면 keyword나 region 사용
-                      return (video.keyword || video.region || video.channel_name || '여행러버')
+                      // channel_name, keyword, region 중 하나 사용
+                      return (video.channel_name || video.keyword || video.region || '여행러버')
                         .toString()
                         .replace(/^channel:\s*/i, '')
                     } else {
-                      // 이미 채널명이면 그대로 사용
-                      return (video.channel_id || video.keyword || video.region || video.channel_name || '여행러버')
+                      // YouTube ID가 아니면 channel_id도 채널명으로 사용 가능
+                      return (video.channel_name || video.keyword || video.region || video.channel_id || '여행러버')
                         .toString()
                         .replace(/^channel:\s*/i, '')
                     }
