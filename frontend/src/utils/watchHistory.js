@@ -7,6 +7,39 @@ const WATCH_HISTORY_KEY = 'watchHistory'
 const MAX_HISTORY_SIZE = 100 // 최대 100개의 시청 기록 저장
 
 /**
+ * 시청 기록 조회 (내부 함수)
+ * @param {number} limit - 반환할 최대 개수 (기본값: 전체)
+ * @returns {Array} 시청 기록 배열
+ */
+const getWatchHistoryInternal = (limit = null) => {
+  try {
+    const historyJson = localStorage.getItem(WATCH_HISTORY_KEY)
+    if (!historyJson) {
+      return []
+    }
+    
+    const history = JSON.parse(historyJson)
+    
+    // 최신순으로 정렬 (watchedAt 기준)
+    const sortedHistory = history.sort((a, b) => {
+      const dateA = new Date(a.watchedAt || 0)
+      const dateB = new Date(b.watchedAt || 0)
+      return dateB - dateA
+    })
+    
+    // limit이 지정된 경우 제한
+    if (limit && limit > 0) {
+      return sortedHistory.slice(0, limit)
+    }
+    
+    return sortedHistory
+  } catch (error) {
+    console.error('[watchHistory] Failed to get watch history:', error)
+    return []
+  }
+}
+
+/**
  * 시청 기록에 영상 추가
  * @param {Object} video - 영상 정보 객체
  */
@@ -24,7 +57,7 @@ export const addToWatchHistory = (video) => {
     }
 
     // 기존 시청 기록 가져오기
-    const existingHistory = getWatchHistory()
+    const existingHistory = getWatchHistoryInternal()
     
     // 중복 제거: 같은 영상이 이미 있으면 제거
     const filteredHistory = existingHistory.filter(item => item.id !== videoId)
@@ -68,31 +101,7 @@ export const addToWatchHistory = (video) => {
  * @returns {Array} 시청 기록 배열
  */
 export const getWatchHistory = (limit = null) => {
-  try {
-    const historyJson = localStorage.getItem(WATCH_HISTORY_KEY)
-    if (!historyJson) {
-      return []
-    }
-    
-    const history = JSON.parse(historyJson)
-    
-    // 최신순으로 정렬 (watchedAt 기준)
-    const sortedHistory = history.sort((a, b) => {
-      const dateA = new Date(a.watchedAt || 0)
-      const dateB = new Date(b.watchedAt || 0)
-      return dateB - dateA
-    })
-    
-    // limit이 지정된 경우 제한
-    if (limit && limit > 0) {
-      return sortedHistory.slice(0, limit)
-    }
-    
-    return sortedHistory
-  } catch (error) {
-    console.error('[watchHistory] Failed to get watch history:', error)
-    return []
-  }
+  return getWatchHistoryInternal(limit)
 }
 
 /**
@@ -101,7 +110,7 @@ export const getWatchHistory = (limit = null) => {
  */
 export const removeFromWatchHistory = (videoId) => {
   try {
-    const history = getWatchHistory()
+    const history = getWatchHistoryInternal()
     const filteredHistory = history.filter(item => item.id !== videoId)
     localStorage.setItem(WATCH_HISTORY_KEY, JSON.stringify(filteredHistory))
     console.log('[watchHistory] Removed from watch history:', videoId)
