@@ -369,55 +369,55 @@ function VideoDetail() {
             {/* 1행: 긍정 댓글, 부정 댓글, 3줄 요약 (3열 그리드) */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* 긍정 댓글 바 */}
-              <div className="bg-[#1a1f3a]/80 backdrop-blur-sm rounded-lg p-6 border border-blue-900/30 flex flex-col">
-                <button className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white font-bold text-lg py-4 px-6 rounded-lg transition-all duration-200 text-left mb-4">
+              <div className="bg-[#1a1f3a]/80 backdrop-blur-sm rounded-lg p-4 border border-blue-900/30 flex flex-col">
+                <button className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white font-bold text-base py-3 px-4 rounded-lg transition-all duration-200 text-left mb-3">
                   긍정 댓글 {analysisResult.positive || 0}%
                 </button>
                 {/* 긍정 피드백 목록 */}
                 {analysisResult.positivePoints && analysisResult.positivePoints.length > 0 ? (
-                  <div className="space-y-2 flex-1">
+                  <div className="space-y-1.5 flex-1">
                     {analysisResult.positivePoints.map((point, idx) => (
-                      <div key={idx} className="text-white text-sm">
+                      <div key={idx} className="text-white text-xs">
                         {point}
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="text-white/60 text-sm">긍정 피드백이 없습니다.</div>
+                  <div className="text-white/60 text-xs">긍정 피드백이 없습니다.</div>
                 )}
               </div>
 
               {/* 부정 댓글 바 */}
-              <div className="bg-[#1a1f3a]/80 backdrop-blur-sm rounded-lg p-6 border border-red-900/30 flex flex-col">
-                <button className="w-full bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 text-white font-bold text-lg py-4 px-6 rounded-lg transition-all duration-200 text-left mb-4">
+              <div className="bg-[#1a1f3a]/80 backdrop-blur-sm rounded-lg p-4 border border-red-900/30 flex flex-col">
+                <button className="w-full bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 text-white font-bold text-base py-3 px-4 rounded-lg transition-all duration-200 text-left mb-3">
                   부정 댓글 {analysisResult.negative || 0}%
                 </button>
                 {/* 부정 피드백 목록 */}
                 {analysisResult.negativePoints && analysisResult.negativePoints.length > 0 ? (
-                  <div className="space-y-2 flex-1">
+                  <div className="space-y-1.5 flex-1">
                     {analysisResult.negativePoints.map((point, idx) => (
-                      <div key={idx} className="text-white text-sm">
+                      <div key={idx} className="text-white text-xs">
                         {point}
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="text-white/60 text-sm">부정 피드백이 없습니다.</div>
+                  <div className="text-white/60 text-xs">부정 피드백이 없습니다.</div>
                 )}
               </div>
 
               {/* 댓글 3줄 요약 */}
-              <div className="bg-[#1a1f3a]/80 backdrop-blur-sm rounded-lg p-6 border border-blue-900/30 flex flex-col">
-                <h3 className="text-white font-bold text-lg mb-4">댓글 3줄 요약</h3>
-                <div className="space-y-3 flex-1">
+              <div className="bg-[#1a1f3a]/80 backdrop-blur-sm rounded-lg p-4 border border-blue-900/30 flex flex-col">
+                <h3 className="text-white font-bold text-base mb-3">댓글 3줄 요약</h3>
+                <div className="space-y-2 flex-1">
                   {analysisResult.summary && analysisResult.summary.length > 0 ? (
                     analysisResult.summary.map((item, idx) => (
-                      <p key={idx} className="text-white/90 text-sm leading-relaxed">
+                      <p key={idx} className="text-white/90 text-xs leading-relaxed">
                         {item}
                       </p>
                     ))
                   ) : (
-                    <p className="text-white/60 text-sm">요약 정보가 없습니다.</p>
+                    <p className="text-white/60 text-xs">요약 정보가 없습니다.</p>
                   )}
                 </div>
               </div>
