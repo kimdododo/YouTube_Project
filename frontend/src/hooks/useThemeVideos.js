@@ -176,7 +176,8 @@ function useThemeVideos() {
         // 실제 비디오 데이터 가져오기 (임시로 전체 비디오에서 필터링)
         try {
           console.log('[useThemeVideos] Fetching videos from API...')
-          const allVideos = await getDiversifiedVideos(1000, 1) // 더 많은 영상 가져오기 (가로 스크롤용)
+          // 백엔드 API의 최대값이 500이므로 500으로 제한
+          const allVideos = await getDiversifiedVideos(500, 1) // 최대 500개까지 가져오기 (백엔드 제한)
           console.log(`[useThemeVideos] Fetched ${allVideos.length} videos from API`)
           
           if (!allVideos || allVideos.length === 0) {
