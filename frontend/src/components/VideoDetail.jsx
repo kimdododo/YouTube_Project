@@ -5,6 +5,7 @@ import { useBookmark } from '../contexts/BookmarkContext'
 import AppLayout from './layouts/AppLayout'
 import VideoCard from './VideoCard'
 import { optimizeThumbnailUrl } from '../utils/imageUtils'
+import { addToWatchHistory } from '../utils/watchHistory'
 
 const API_BASE_URL = import.meta.env?.VITE_API_URL || '/api'
 
@@ -48,12 +49,30 @@ function VideoDetail() {
       }
       const data = await response.json()
       setVideo(data)
+      
+      // 시청 기록에 추가
+      if (data && data.id) {
+        addToWatchHistory({
+          ...data,
+          views: data.view_count ? formatViews(data.view_count) : '0회',
+          category: data.keyword || data.region || '기타'
+        })
+      }
     } catch (err) {
       console.error('[VideoDetail] Failed to fetch video:', err)
       setError(err.message || '비디오를 불러오는데 실패했습니다.')
     } finally {
       setLoading(false)
     }
+  }
+  
+  // 조회수 포맷팅 헬퍼 함수
+  const formatViews = (count) => {
+    if (!count) return '0회'
+    if (count >= 10000) {
+      return `${(count / 10000).toFixed(1)}만회`
+    }
+    return `${count.toLocaleString()}회`
   }
 
   const fetchSimilarVideos = async () => {

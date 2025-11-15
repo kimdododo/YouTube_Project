@@ -30,10 +30,12 @@ function TravelTrends() {
     activity: ['액티비티', '스포츠', '레저', '등산', '스키', '다이빙', 'activity', 'sports', 'adventure', 'hiking']
   }
 
-  // 트렌드 비디오 데이터 가져오기
+  // 트렌드 비디오 데이터 가져오기 (period 변경 시에도 재호출)
   useEffect(() => {
-    fetchTrendVideos()
-  }, [])
+    if (activeTab === 'trending') {
+      fetchTrendVideos()
+    }
+  }, [activePeriod, activeTab])
 
   // 테마별 여행지 비디오 가져오기 (카테고리 변경 시)
   useEffect(() => {
@@ -71,20 +73,72 @@ function TravelTrends() {
   const fetchTrendVideos = async () => {
     try {
       setLoading(true)
-      // 1순위: 채널 다양화 엔드포인트 (카테고리 섹션 용도로 사용)
+      
+      // period에 따라 다른 limit 값 사용 (더 많은 데이터를 가져와서 필터링)
+      let limit = 100
+      if (activePeriod === 'daily') {
+        limit = 50 // 일간: 최근 50개
+      } else if (activePeriod === 'weekly') {
+        limit = 100 // 주간: 최근 100개
+      } else if (activePeriod === 'monthly') {
+        limit = 200 // 월간: 최근 200개
+      }
+      
+      // 1순위: 트렌드 API 호출 (period는 백엔드에서 지원하지 않으므로 클라이언트에서 필터링)
       try {
-        const diversifiedServer = await getDiversifiedVideos(90, 1)
-        const diversified = diversifyByChannel(diversifiedServer || [], 8, 1)
+        const trends = await getTrendVideos(limit)
+        
+        // period에 따라 필터링 (published_at 기준)
+        const now = new Date()
+        let filteredTrends = trends
+        
+        if (activePeriod === 'daily') {
+          // 최근 24시간
+          const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+          filteredTrends = trends.filter(video => {
+            if (!video.published_at) return false
+            const publishedDate = new Date(video.published_at)
+            return publishedDate >= oneDayAgo
+          })
+        } else if (activePeriod === 'weekly') {
+          // 최근 7일
+          const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+          filteredTrends = trends.filter(video => {
+            if (!video.published_at) return false
+            const publishedDate = new Date(video.published_at)
+            return publishedDate >= oneWeekAgo
+          })
+        } else if (activePeriod === 'monthly') {
+          // 최근 30일
+          const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+          filteredTrends = trends.filter(video => {
+            if (!video.published_at) return false
+            const publishedDate = new Date(video.published_at)
+            return publishedDate >= oneMonthAgo
+          })
+        }
+        
+        // 필터링된 결과가 부족하면 전체 결과 사용
+        if (filteredTrends.length < 8) {
+          filteredTrends = trends
+        }
+        
+        // 채널 다양화 적용
+        const diversified = diversifyByChannel(filteredTrends || [], 8, 1)
         setTrendVideos(diversified)
-      } catch (_) {
-        // 2순위: 기존 트렌드 API + 프론트 다양화
-        const trends = await getTrendVideos()
-        const diversified = diversifyByChannel(trends || [], 8, 1)
-        setTrendVideos(diversified)
+      } catch (error) {
+        console.error('Failed to fetch trend videos:', error)
+        // 2순위: 채널 다양화 엔드포인트로 폴백
+        try {
+          const diversifiedServer = await getDiversifiedVideos(90, 1)
+          const diversified = diversifyByChannel(diversifiedServer || [], 8, 1)
+          setTrendVideos(diversified)
+        } catch (_) {
+          setTrendVideos([])
+        }
       }
     } catch (error) {
       console.error('Failed to fetch trend videos:', error)
-      // API 실패 시 빈 배열 (더미 데이터 사용 안 함)
       setTrendVideos([])
     } finally {
       setLoading(false)

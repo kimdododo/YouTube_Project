@@ -313,17 +313,20 @@ export const getRecommendedVideos = async (query = null, useRerank = false, limi
 
 /**
  * 여행 트렌드 영상 목록 조회
+ * @param {number} limit - 반환할 비디오 수 (기본값: 100)
+ * @param {number} skip - 페이지네이션 오프셋 (기본값: 0)
  * @returns {Promise<Array>} 트렌드 영상 목록
  */
-export const getTrendVideos = async () => {
+export const getTrendVideos = async (limit = 100, skip = 0) => {
   try {
-    console.log('[videos.js] Fetching trend videos from:', `${API_BASE_URL}/videos/trends`)
+    const url = `${API_BASE_URL}/videos/trends?limit=${limit}&skip=${skip}`
+    console.log('[videos.js] Fetching trend videos from:', url)
     
     // 타임아웃 추가 (30초)
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 30000)
     
-    const response = await fetch(`${API_BASE_URL}/videos/trends`, {
+    const response = await fetch(url, {
       signal: controller.signal
     })
     
@@ -347,6 +350,8 @@ export const getTrendVideos = async () => {
         id: videoId,
         thumbnail_url: optimizeThumbnailUrl(video.thumbnail_url, videoId, isShorts), // 고화질 썸네일로 최적화
         title: video.title,
+        description: video.description,
+        published_at: video.published_at, // period 필터링을 위해 추가
         rating: video.rating || 5, // 기본값
         showRating: true,
         youtube_url: createYouTubeUrl(videoId), // YouTube URL 생성

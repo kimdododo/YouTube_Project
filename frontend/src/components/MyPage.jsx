@@ -4,6 +4,7 @@ import { User, Settings, X, LogOut, Bookmark, Bell, Lock, Eye, EyeOff, Clock } f
 import { useBookmark } from '../contexts/BookmarkContext'
 import MyPageLayout from './layouts/MyPageLayout'
 import { getRecommendedVideos } from '../api/videos'
+import { getWatchHistory, formatWatchTime } from '../utils/watchHistory'
 import { changePassword, saveTravelPreferences, fetchTravelPreferences, getToken, logout as clearAuth, getCurrentUser, getMyKeywords, updateUserProfile } from '../api/auth'
 import {
   Chart as ChartJS,
@@ -543,12 +544,14 @@ function MyPage() {
   // 로그인 상태 및 사용자 정보는 MyPageLayout에서 관리
 
   useEffect(() => {
-    const loadHistory = async () => {
+    const loadHistory = () => {
       setIsLoadingHistory(true)
       setHistoryError('')
       try {
-        const videos = await getRecommendedVideos(null, false, 6)
-        setWatchHistory(videos)
+        // localStorage에서 시청 기록 가져오기
+        const history = getWatchHistory(50) // 최대 50개
+        setWatchHistory(history)
+        console.log('[MyPage] Loaded watch history:', history.length, 'items')
       } catch (error) {
         console.error('[MyPage] Failed to load watch history:', error)
         setHistoryError(error?.message || '시청 기록을 가져오지 못했습니다.')
@@ -556,10 +559,10 @@ function MyPage() {
         setIsLoadingHistory(false)
       }
     }
-    if (activeTab === 'history' && watchHistory.length === 0 && !isLoadingHistory) {
+    if (activeTab === 'history' && !isLoadingHistory) {
       loadHistory()
     }
-  }, [activeTab, isLoadingHistory, watchHistory.length])
+  }, [activeTab])
 
   // 북마크는 BookmarkContext에서 자동으로 관리되므로 별도 로드 불필요
 
@@ -1194,12 +1197,18 @@ function MyPage() {
                 // YouTube URL 생성 (유효성 검사 포함)
                 const videoId = video.id || video.video_id
                 const isValidVideoId = videoId && typeof videoId === 'string' && videoId.length >= 10 && videoId.length <= 12
-                const youtubeUrl = video.youtube_url || (isValidVideoId ? `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}` : null)
+                
+                const handleVideoClick = () => {
+                  if (videoId) {
+                    navigate(`/video/${videoId}`)
+                  }
+                }
                 
                 return (
                 <div
                   key={video.id || index}
-                  className="block bg-[#0f1629]/60 backdrop-blur-lg rounded-2xl p-4 transition-colors"
+                  onClick={handleVideoClick}
+                  className="block bg-[#0f1629]/60 backdrop-blur-lg rounded-2xl p-4 transition-colors cursor-pointer hover:bg-[#0f1629]/80"
                   style={{ border: '2px solid #39489A' }}
                 >
                   <div className="flex flex-col md:flex-row gap-4">
@@ -1283,7 +1292,7 @@ function MyPage() {
                         <div className="flex items-center gap-3 text-xs text-white/50">
                           {video.category && <span>{video.category}</span>}
                           <span>•</span>
-                          <span>{index === 0 ? '방금 시청' : index === 1 ? '1시간 전' : `${index + 1}시간 전`}</span>
+                          <span>{video.watchedAt ? formatWatchTime(video.watchedAt) : '알 수 없음'}</span>
                         </div>
                       </div>
                     </div>
