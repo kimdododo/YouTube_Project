@@ -1,24 +1,55 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Star } from 'lucide-react'
+import { Search, Star, Clock, X } from 'lucide-react'
 import AppLayout from './layouts/AppLayout'
 import { getAllVideos, getDiversifiedVideos, getTrendVideos, getRecommendedVideos, getMostLikedVideos } from '../api/videos'
 import { searchChannels } from '../api/channels'
 import { handleImageError } from '../utils/imageUtils'
+import { addToSearchHistory, getSearchHistory, removeFromSearchHistory } from '../utils/searchHistory'
 
 function FindChannel() {
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
   const [channelCards, setChannelCards] = useState([])
   const [loading, setLoading] = useState(true)
+  const [searchHistory, setSearchHistory] = useState([])
+  const [showHistory, setShowHistory] = useState(false)
+  const searchInputRef = useRef(null)
+  const searchContainerRef = useRef(null)
 
   // 로그인 상태 체크는 AppLayout에서 처리
+
+  // 검색 기록 로드
+  useEffect(() => {
+    const history = getSearchHistory(null, 10) // 최근 10개만
+    setSearchHistory(history)
+  }, [])
+
+  // 검색 기록 표시/숨김 제어
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target)) {
+        setShowHistory(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [])
 
   // 실제 데이터 가져오기
   useEffect(() => {
     if (searchQuery.trim()) {
       // 검색어가 있으면 검색 API 호출
       fetchSearchResults()
+      // 검색 기록에 추가
+      addToSearchHistory(searchQuery.trim())
+      // 검색 기록 목록 업데이트
+      const history = getSearchHistory(null, 10)
+      setSearchHistory(history)
+      setShowHistory(false)
     } else {
       // 검색어가 없으면 기본 목록 조회
       fetchVideos()
@@ -196,6 +227,34 @@ function FindChannel() {
     }
   }
 
+  const handleSearchHistoryClick = (query) => {
+    setSearchQuery(query)
+    setShowHistory(false)
+    searchInputRef.current?.focus()
+  }
+
+  const handleDeleteHistory = (e, query) => {
+    e.stopPropagation()
+    removeFromSearchHistory(query)
+    const history = getSearchHistory(null, 10)
+    setSearchHistory(history)
+  }
+
+  const handleSearchFocus = () => {
+    if (searchHistory.length > 0) {
+      setShowHistory(true)
+    }
+  }
+
+  const handleSearchChange = (e) => {
+    setSearchQuery(e.target.value)
+    if (e.target.value.trim() === '' && searchHistory.length > 0) {
+      setShowHistory(true)
+    } else if (e.target.value.trim() !== '') {
+      setShowHistory(false)
+    }
+  }
+
   return (
     <AppLayout>
       {/* Main Content */}
@@ -204,7 +263,7 @@ function FindChannel() {
         <section className="mb-16">
           <div className="mb-6">
             <h2 className="text-2xl font-bold text-white mb-2">
-              채널 찾기 (AI 한줄평)
+              여행 찾기
             </h2>
             <p className="text-blue-200">
               AI가 분석한 각 채널의 특징과 추천 포인트를 한눈에 확인하세요.
@@ -212,16 +271,43 @@ function FindChannel() {
           </div>
 
           {/* 검색 바 */}
-          <div className="mb-8">
+          <div className="mb-8" ref={searchContainerRef}>
             <div className="relative">
-              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
               <input
+                ref={searchInputRef}
                 type="text"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Q 채널명, 여행지, 키워드로 검색하세요...."
+                onChange={handleSearchChange}
+                onFocus={handleSearchFocus}
+                placeholder="채널명, 여행지, 키워드로 검색하세요."
                 className="w-full pl-12 pr-4 py-3 bg-[#1a1f3a]/80 border border-blue-900/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
               />
+              
+              {/* 검색 기록 드롭다운 */}
+              {showHistory && searchHistory.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-[#1a1f3a]/95 backdrop-blur-lg border border-blue-900/30 rounded-lg shadow-2xl z-50 max-h-80 overflow-y-auto">
+                  {searchHistory.map((item, index) => (
+                    <div
+                      key={`${item.query}-${index}`}
+                      onClick={() => handleSearchHistoryClick(item.query)}
+                      className="flex items-center justify-between px-4 py-3 hover:bg-blue-900/20 cursor-pointer transition-colors border-b border-blue-900/10 last:border-b-0"
+                    >
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <Clock className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                        <span className="text-white text-sm truncate">{item.query}</span>
+                      </div>
+                      <button
+                        onClick={(e) => handleDeleteHistory(e, item.query)}
+                        className="ml-2 p-1 hover:bg-red-900/30 rounded transition-colors flex-shrink-0"
+                        title="삭제"
+                      >
+                        <X className="w-4 h-4 text-gray-400 hover:text-red-400" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
