@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Body
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
@@ -14,6 +14,7 @@ from app.schemas.user import (
     EmailVerificationResponse,
     ResendCodeRequest
 )
+from app.schemas.search_history import SearchHistoryCreate, SearchHistoryListResponse
 from app.schemas.user_preference import TravelPreferenceCreate, TravelPreferenceResponse
 # CRUD 함수 import (lazy import로 변경하여 모듈 로딩 문제 방지)
 try:
@@ -44,6 +45,7 @@ from app.crud.user_preference import (
     get_user_keywords,
     delete_user_keywords,
 )
+from app.crud import search_history as crud_search_history
 from app.core.security import verify_password
 from app.models.login_history import LoginHistory
 from app.utils.ml_client import get_embeddings_batch
@@ -1001,5 +1003,113 @@ def resend_verification_code(
         print(f"[ERROR] Error resending verification code: {str(e)}")
         print(f"[ERROR] Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"인증코드 재전송 처리 중 오류가 발생했습니다: {str(e)}")
+
+
+# 검색 기록 API
+@router.post("/search-history")
+def save_search_history(
+    payload: SearchHistoryCreate = Body(...),
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """
+    검색 기록 저장
+    """
+    try:
+        user_id_int = int(user_id)
+        crud_search_history.create_search_history(db, user_id_int, payload.query.strip())
+        return {"success": True, "message": "검색 기록이 저장되었습니다."}
+    except ValueError:
+        raise HTTPException(status_code=400, detail="잘못된 사용자 ID입니다.")
+    except Exception as e:
+        db.rollback()
+        print(f"[ERROR] Error saving search history: {str(e)}")
+        print(f"[ERROR] Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"검색 기록 저장 중 오류가 발생했습니다: {str(e)}")
+
+
+@router.get("/search-history", response_model=SearchHistoryListResponse)
+def get_search_history_list(
+    limit: int = Query(20, ge=1, le=50),
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """
+    검색 기록 조회 (최신순)
+    """
+    try:
+        user_id_int = int(user_id)
+        history = crud_search_history.get_search_history(db, user_id_int, limit)
+        return SearchHistoryListResponse(
+            success=True,
+            history=[
+                {
+                    "query": item.query,
+                    "searched_at": item.searched_at.isoformat() if item.searched_at else None
+                }
+                for item in history
+            ]
+        )
+    except ValueError:
+        raise HTTPException(status_code=400, detail="잘못된 사용자 ID입니다.")
+    except Exception as e:
+        print(f"[ERROR] Error getting search history: {str(e)}")
+        print(f"[ERROR] Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"검색 기록 조회 중 오류가 발생했습니다: {str(e)}")
+
+
+@router.delete("/search-history")
+def delete_search_history_item(
+    query: str,
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """
+    특정 검색 기록 삭제
+    """
+    try:
+        if not query or not query.strip():
+            raise HTTPException(status_code=400, detail="검색어를 입력해주세요.")
+        
+        user_id_int = int(user_id)
+        deleted = crud_search_history.delete_search_history(db, user_id_int, query.strip())
+        if deleted:
+            return {"success": True, "message": "검색 기록이 삭제되었습니다."}
+        else:
+            raise HTTPException(status_code=404, detail="검색 기록을 찾을 수 없습니다.")
+    except HTTPException:
+        raise
+    except ValueError:
+        raise HTTPException(status_code=400, detail="잘못된 사용자 ID입니다.")
+    except Exception as e:
+        db.rollback()
+        print(f"[ERROR] Error deleting search history: {str(e)}")
+        print(f"[ERROR] Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"검색 기록 삭제 중 오류가 발생했습니다: {str(e)}")
+
+
+@router.delete("/search-history/all")
+def clear_all_search_history(
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """
+    모든 검색 기록 삭제
+    """
+    try:
+        user_id_int = int(user_id)
+        deleted_count = crud_search_history.clear_search_history(db, user_id_int)
+        return {
+            "success": True,
+            "message": f"{deleted_count}개의 검색 기록이 삭제되었습니다.",
+            "deleted_count": deleted_count
+        }
+    except ValueError:
+        raise HTTPException(status_code=400, detail="잘못된 사용자 ID입니다.")
+    except Exception as e:
+        db.rollback()
+        print(f"[ERROR] Error clearing search history: {str(e)}")
+        print(f"[ERROR] Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"검색 기록 삭제 중 오류가 발생했습니다: {str(e)}")
 
 

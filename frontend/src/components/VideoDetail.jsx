@@ -316,19 +316,25 @@ function VideoDetail() {
 
             {/* 업로더 정보 */}
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center text-white font-bold">
-                {(() => {
-                  const channelName = (video.channel_id || video.keyword || video.region || '?')
-                    .toString()
-                    .replace(/^channel:\s*/i, '')
-                  return channelName[0].toUpperCase()
-                })()}
-              </div>
               <div>
                 <div className="text-white font-medium">
-                  {(video.channel_id || video.keyword || video.region || '여행러버')
-                    .toString()
-                    .replace(/^channel:\s*/i, '')}
+                  {(() => {
+                    // 채널 ID가 YouTube ID 형식(UCNhofiqfw5nl-NeDJkXtPvw 같은)이면 keyword나 region 사용
+                    const channelId = video.channel_id || ''
+                    const isYouTubeId = /^UC[a-zA-Z0-9_-]{22}$/.test(channelId)
+                    
+                    if (isYouTubeId) {
+                      // YouTube ID 형식이면 keyword나 region 사용
+                      return (video.keyword || video.region || video.channel_name || '여행러버')
+                        .toString()
+                        .replace(/^channel:\s*/i, '')
+                    } else {
+                      // 이미 채널명이면 그대로 사용
+                      return (video.channel_id || video.keyword || video.region || video.channel_name || '여행러버')
+                        .toString()
+                        .replace(/^channel:\s*/i, '')
+                    }
+                  })()}
                 </div>
                 <div className="text-white/60 text-sm">
                   {formatDate(video.published_at)} · 조회수 {formatViews(video.view_count)}
@@ -380,13 +386,6 @@ function VideoDetail() {
                 <button className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white font-bold text-base py-3 px-4 rounded-lg transition-all duration-200 text-left mb-3">
                   긍정 댓글 {analysisResult.positive || 0}%
                 </button>
-                {/* 진행 바 */}
-                <div className="w-full h-2 bg-gray-700 rounded-full mb-3 overflow-hidden">
-                  <div 
-                    className="h-full bg-gradient-to-r from-blue-600 to-blue-500 rounded-full transition-all duration-500"
-                    style={{ width: `${analysisResult.positive || 0}%` }}
-                  />
-                </div>
                 {/* 긍정 피드백 목록 */}
                 {analysisResult.positivePoints && analysisResult.positivePoints.length > 0 ? (
                   <div className="space-y-1.5 flex-1">
@@ -406,13 +405,6 @@ function VideoDetail() {
                 <button className="w-full bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 text-white font-bold text-base py-3 px-4 rounded-lg transition-all duration-200 text-left mb-3">
                   부정 댓글 {analysisResult.negative || 0}%
                 </button>
-                {/* 진행 바 */}
-                <div className="w-full h-2 bg-gray-700 rounded-full mb-3 overflow-hidden">
-                  <div 
-                    className="h-full bg-gradient-to-r from-red-600 to-red-500 rounded-full transition-all duration-500"
-                    style={{ width: `${analysisResult.negative || 0}%` }}
-                  />
-                </div>
                 {/* 부정 피드백 목록 */}
                 {analysisResult.negativePoints && analysisResult.negativePoints.length > 0 ? (
                   <div className="space-y-1.5 flex-1">
@@ -476,7 +468,8 @@ function VideoDetail() {
                     const actualIndex = index % similarVideos.length
                     const videoId = v.id || v.video_id
                     const thumbnailUrl = optimizeThumbnailUrl(v.thumbnail_url, videoId, v.is_shorts || false)
-                    const category = v.category || v.keyword || v.region || '여행'
+                    const categoryRaw = v.category || v.keyword || v.region || '여행'
+                    const category = categoryRaw.toString().replace(/^channel:\s*/i, '')
                     const rating = v.rating || 5
                     const description = v.description || '여행의 감동을 잘 전달하는 영상이에요.'
                     

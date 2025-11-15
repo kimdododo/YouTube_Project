@@ -5,7 +5,7 @@ import AppLayout from './layouts/AppLayout'
 import { getAllVideos, getDiversifiedVideos, getTrendVideos, getRecommendedVideos, getMostLikedVideos } from '../api/videos'
 import { searchChannels } from '../api/channels'
 import { handleImageError } from '../utils/imageUtils'
-import { addToSearchHistory, getSearchHistory, removeFromSearchHistory } from '../utils/searchHistory'
+import { saveSearchHistory, getSearchHistory, deleteSearchHistory } from '../api/searchHistory'
 
 function FindChannel() {
   const navigate = useNavigate()
@@ -21,8 +21,11 @@ function FindChannel() {
 
   // 검색 기록 로드
   useEffect(() => {
-    const history = getSearchHistory(null, 10) // 최근 10개만
-    setSearchHistory(history)
+    const loadHistory = async () => {
+      const history = await getSearchHistory(10) // 최근 10개만
+      setSearchHistory(history)
+    }
+    loadHistory()
   }, [])
 
   // 검색 기록 표시/숨김 제어
@@ -44,11 +47,13 @@ function FindChannel() {
     if (searchQuery.trim()) {
       // 검색어가 있으면 검색 API 호출
       fetchSearchResults()
-      // 검색 기록에 추가
-      addToSearchHistory(searchQuery.trim())
-      // 검색 기록 목록 업데이트
-      const history = getSearchHistory(null, 10)
-      setSearchHistory(history)
+      // 검색 기록에 추가 (비동기, 에러가 발생해도 검색은 계속 진행)
+      saveSearchHistory(searchQuery.trim()).then(() => {
+        // 검색 기록 목록 업데이트
+        getSearchHistory(10).then(history => {
+          setSearchHistory(history)
+        })
+      })
       setShowHistory(false)
     } else {
       // 검색어가 없으면 기본 목록 조회
@@ -56,50 +61,90 @@ function FindChannel() {
     }
   }, [searchQuery])
 
-  // 검색 결과 가져오기 (채널 검색 후 해당 채널의 비디오 가져오기)
+  // 검색 결과 가져오기 (비디오 제목/키워드 검색 + 채널 검색)
   const fetchSearchResults = async () => {
     try {
       setLoading(true)
-      // 브라우저에서는 항상 프록시 경로(/api) 사용
-      // Docker 서비스 이름(backend:8000)은 브라우저에서 직접 사용할 수 없음
       const apiBase = '/api'
+      const query = searchQuery.trim()
       
-      // 1. 채널 검색
-      const channels = await searchChannels(searchQuery.trim(), 50, true)
-      
-      if (channels.length === 0) {
-        setChannelCards([])
-        setLoading(false)
-        return
+      // 1. 비디오 검색 (제목, 키워드, 설명으로 검색)
+      let videoSearchResults = []
+      try {
+        const videoSearchResponse = await fetch(`${apiBase}/v1/search/videos?q=${encodeURIComponent(query)}&limit=50&page=1`)
+        if (videoSearchResponse.ok) {
+          const videoSearchData = await videoSearchResponse.json()
+          const items = videoSearchData.items || videoSearchData.data?.items || []
+          videoSearchResults = items.map(video => {
+            const videoId = video.id || video.video_id
+            const isShorts = video.is_shorts || false
+            return {
+              id: videoId,
+              thumbnail_url: video.thumbnail_url,
+              title: video.title,
+              description: video.description,
+              channel: video.channel_id || video.keyword || video.region || 'Unknown',
+              channel_id: video.channel_id,
+              views: video.view_count || 0,
+              youtube_url: videoId ? `https://www.youtube.com/watch?v=${videoId}` : null,
+              is_shorts: isShorts,
+              rating: video.rating || 5
+            }
+          })
+        }
+      } catch (err) {
+        console.warn('[FindChannel] Video search failed:', err)
       }
       
-      // 2. 검색된 채널들의 비디오 가져오기 (각 채널당 최대 3개)
-      const videoPromises = channels.slice(0, 20).map(async (channel) => {
-        try {
-          const response = await fetch(`${apiBase}/videos?channel_id=${encodeURIComponent(channel.channel_id)}&limit=3`)
-          if (!response.ok) return []
-          const data = await response.json()
-          const videos = data.videos || data
-          return videos.map(video => ({
-            ...video,
-            channel_id: channel.channel_id,
-            channel: channel.name
-          }))
-        } catch {
-          return []
+      // 2. 채널 검색 (채널명으로 검색)
+      let channelVideoResults = []
+      try {
+        const channels = await searchChannels(query, 20, true)
+        
+        if (channels.length > 0) {
+          // 검색된 채널들의 비디오 가져오기 (각 채널당 최대 3개)
+          const videoPromises = channels.slice(0, 10).map(async (channel) => {
+            try {
+              const response = await fetch(`${apiBase}/videos?channel_id=${encodeURIComponent(channel.channel_id)}&limit=3`)
+              if (!response.ok) return []
+              const data = await response.json()
+              const videos = data.videos || data
+              return videos.map(video => ({
+                ...video,
+                channel_id: channel.channel_id,
+                channel: channel.name
+              }))
+            } catch {
+              return []
+            }
+          })
+          
+          const videoResults = await Promise.allSettled(videoPromises)
+          videoResults.forEach(result => {
+            if (result.status === 'fulfilled' && Array.isArray(result.value)) {
+              channelVideoResults.push(...result.value)
+            }
+          })
         }
-      })
+      } catch (err) {
+        console.warn('[FindChannel] Channel search failed:', err)
+      }
       
-      const videoResults = await Promise.allSettled(videoPromises)
-      const allVideos = []
-      videoResults.forEach(result => {
-        if (result.status === 'fulfilled' && Array.isArray(result.value)) {
-          allVideos.push(...result.value)
+      // 3. 두 결과 합치기 (중복 제거)
+      const allVideos = [...videoSearchResults, ...channelVideoResults]
+      const uniqueVideos = []
+      const seenIds = new Set()
+      
+      for (const video of allVideos) {
+        const videoId = video.id || video.video_id
+        if (videoId && !seenIds.has(videoId)) {
+          seenIds.add(videoId)
+          uniqueVideos.push(video)
         }
-      })
+      }
       
-      // 3. 비디오 형식 변환
-      const formattedVideos = allVideos.map(video => {
+      // 4. 비디오 형식 변환
+      const formattedVideos = uniqueVideos.map(video => {
         const videoId = video.id || video.video_id
         const isShorts = video.is_shorts || false
         return {
@@ -107,15 +152,16 @@ function FindChannel() {
           thumbnail_url: video.thumbnail_url,
           title: video.title,
           description: video.description,
-          channel: video.channel || 'Unknown',
+          channel: (video.channel || 'Unknown').toString().replace(/^channel:\s*/i, ''),
           channel_id: video.channel_id,
-          views: video.view_count || 0,
+          views: video.view_count || video.views || 0,
           youtube_url: videoId ? `https://www.youtube.com/watch?v=${videoId}` : null,
-          is_shorts: isShorts
+          is_shorts: isShorts,
+          rating: video.rating || 5
         }
       })
       
-      // 4. 채널 다양화 적용
+      // 5. 채널 다양화 적용
       setChannelCards(diversifyByChannel(formattedVideos, 18, 1))
       setLoading(false)
     } catch (error) {
@@ -233,10 +279,10 @@ function FindChannel() {
     searchInputRef.current?.focus()
   }
 
-  const handleDeleteHistory = (e, query) => {
+  const handleDeleteHistory = async (e, query) => {
     e.stopPropagation()
-    removeFromSearchHistory(query)
-    const history = getSearchHistory(null, 10)
+    await deleteSearchHistory(query)
+    const history = await getSearchHistory(10)
     setSearchHistory(history)
   }
 
@@ -266,7 +312,7 @@ function FindChannel() {
               여행 찾기
             </h2>
             <p className="text-blue-200">
-              AI가 분석한 각 채널의 특징과 추천 포인트를 한눈에 확인하세요.
+              여행 관련 영상을 검색하고 찾아보세요.
             </p>
           </div>
 
