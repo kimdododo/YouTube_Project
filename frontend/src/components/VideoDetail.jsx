@@ -30,6 +30,18 @@ function VideoDetail() {
     }
   }
 
+  // 조회수 포맷팅 헬퍼 함수 (먼저 선언)
+  const formatViews = (count) => {
+    if (!count) return '0회'
+    if (count >= 1000000) {
+      return `${(count / 1000000).toFixed(1)}M`
+    }
+    if (count >= 10000) {
+      return `${(count / 10000).toFixed(1)}만회`
+    }
+    return `${count.toLocaleString()}회`
+  }
+
   useEffect(() => {
     if (videoId) {
       fetchVideoDetail()
@@ -64,15 +76,6 @@ function VideoDetail() {
     } finally {
       setLoading(false)
     }
-  }
-  
-  // 조회수 포맷팅 헬퍼 함수
-  const formatViews = (count) => {
-    if (!count) return '0회'
-    if (count >= 10000) {
-      return `${(count / 10000).toFixed(1)}만회`
-    }
-    return `${count.toLocaleString()}회`
   }
 
   const fetchSimilarVideos = async () => {
@@ -158,17 +161,6 @@ function VideoDetail() {
       totalComments: 0,
       analyzedComments: 0
     }
-  }
-
-  const formatViews = (count) => {
-    if (!count) return '0회'
-    if (count >= 1000000) {
-      return `${(count / 1000000).toFixed(1)}M`
-    }
-    if (count >= 10000) {
-      return `${(count / 10000).toFixed(1)}만회`
-    }
-    return `${count.toLocaleString()}회`
   }
 
   const formatDate = (dateString) => {
