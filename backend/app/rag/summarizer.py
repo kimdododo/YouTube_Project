@@ -43,7 +43,7 @@ def create_summary_chain() -> LLMChain:
     llm = ChatOpenAI(
         model=llm_model,
         temperature=float(os.getenv("LLM_TEMPERATURE", "0.7")),
-        max_tokens=int(os.getenv("LLM_MAX_TOKENS", "50")),
+        max_tokens=int(os.getenv("LLM_MAX_TOKENS", "160")),
         api_key=openai_api_key  # strip 이미 적용됨
     )
 
@@ -60,10 +60,4 @@ def generate_summary_from_context(context: str) -> str:
     chain = create_summary_chain()
     result = chain.run(context=context)
 
-    summary = result.strip()
-
-    # 25자 제한 강제
-    if len(summary) > 25:
-        summary = summary[:25].rstrip()
-
-    return summary
+    return result.strip()
