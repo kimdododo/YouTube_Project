@@ -12,7 +12,8 @@ _embedding_model = None
 
 def get_embedding_model() -> HuggingFaceEmbeddings:
     """
-    BGE-M3 임베딩 모델 로드 (싱글톤 패턴)
+    임베딩 모델 로드 (싱글톤 패턴)
+    기본값: BAAI/bge-small-en (약 140MB)
     
     Returns:
         HuggingFaceEmbeddings 인스턴스
@@ -20,17 +21,20 @@ def get_embedding_model() -> HuggingFaceEmbeddings:
     global _embedding_model
     
     if _embedding_model is None:
-        print("[RAG] Loading BGE-M3 embedding model...")
+        model_name = os.getenv("EMBEDDING_MODEL_NAME", "BAAI/bge-small-en")
+        device = os.getenv("EMBEDDING_MODEL_DEVICE", "cpu")
+        
+        print(f"[RAG] Loading embedding model: {model_name} (device={device})")
         _embedding_model = HuggingFaceEmbeddings(
-            model_name="BAAI/bge-m3",
+            model_name=model_name,
             model_kwargs={
-                "device": "cpu"  # GPU가 있으면 "cuda"로 변경 가능
+                "device": device  # GPU가 있으면 "cuda"로 변경 가능
             },
             encode_kwargs={
                 "normalize_embeddings": True  # 정규화
             }
         )
-        print("[RAG] BGE-M3 embedding model loaded successfully")
+        print("[RAG] Embedding model loaded successfully")
     
     return _embedding_model
 
