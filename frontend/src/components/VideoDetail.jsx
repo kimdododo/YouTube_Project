@@ -25,6 +25,18 @@ function VideoDetail() {
   const [aiSummary, setAiSummary] = useState('')
   const [aiSummaryError, setAiSummaryError] = useState('')
   const [isLoadingSummary, setIsLoadingSummary] = useState(false)
+  const getDescriptionPreview = (text) => {
+    if (!text) return ''
+    const hasNewLine = text.includes('\n')
+    if (text.length > 200) {
+      return `${text.substring(0, 200)}...`
+    }
+    if (hasNewLine) {
+      const firstLine = text.split('\n')[0] || ''
+      return firstLine.length < text.length ? `${firstLine}...` : firstLine
+    }
+    return text
+  }
 
   const bookmarked = video ? isBookmarked(video.id || video.video_id) : false
 
@@ -374,11 +386,17 @@ function VideoDetail() {
             {video.description && (
               <div className="space-y-2">
                 <p className="text-white/90 leading-relaxed">
-                  {showFullDescription || video.description.length <= 200
-                    ? video.description
-                    : `${video.description.substring(0, 200)}...`}
+                  {(() => {
+                    if (!video.description) return ''
+                    const hasNewLine = video.description.includes('\n')
+                    const shouldClip = video.description.length > 200 || hasNewLine
+                    if (!shouldClip || showFullDescription) {
+                      return video.description
+                    }
+                    return getDescriptionPreview(video.description)
+                  })()}
                 </p>
-                {video.description.length > 200 && (
+                {(video.description.length > 200 || video.description.includes('\n')) && (
                   <button
                     onClick={() => setShowFullDescription(!showFullDescription)}
                     className="text-blue-400 hover:text-blue-300 text-sm font-medium transition-colors"
