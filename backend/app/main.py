@@ -4,7 +4,7 @@ FastAPI 메인 애플리케이션
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import video, channel
-from app.api.routes import recommend, auth, search
+from app.api.routes import recommend, auth, search, summary
 from app.core.errors import attach_error_handlers
 from app.core.database import get_db
 from fastapi import APIRouter, Depends
@@ -53,11 +53,13 @@ api_v1.include_router(channel.router)
 api_v1.include_router(recommend.router)
 api_v1.include_router(auth.router, prefix="/auth")  # /api/v1/auth
 api_v1.include_router(search.router)
+api_v1.include_router(summary.router)  # /api/v1/videos/{id}/summary/one-line
 app.include_router(api_v1)
 
 # Backward-compat routes for existing frontend (/api/...)
 app.include_router(video.router)
 app.include_router(channel.router)
+app.include_router(summary.router)  # /api/videos/{id}/summary/one-line
 # 인증 라우터도 backward-compat 경로 추가 (/api/auth)
 app.include_router(auth.router, prefix="/api/auth")
 
