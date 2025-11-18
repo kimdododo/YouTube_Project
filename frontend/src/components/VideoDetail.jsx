@@ -427,7 +427,6 @@ function VideoDetail() {
                   disabled={isLoadingSummary}
                   className="text-xs text-white/70 hover:text-white transition-colors disabled:opacity-50"
                 >
-                  새로고침
                 </button>
               </div>
               {isLoadingSummary ? (
