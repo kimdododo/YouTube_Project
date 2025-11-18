@@ -11,6 +11,7 @@ from app.schemas.recommendation import UserPreferenceRequest, RecommendationResp
 from app.crud import video as crud_video
 from app.recommendations import ContentBasedRecommender
 from app.utils.ml_client import rerank_videos, analyze_sentiments_batch
+from app.services.comment_summary import generate_comment_summary
 
 router = APIRouter(prefix="/api/videos", tags=["videos"])
 # 채널 다양화 추천 (정적 경로 - 동적보다 먼저)
@@ -669,16 +670,15 @@ async def get_comments_sentiment(
                 if any(kw in text_lower for kw in ['빠름', '빠르']):
                     negative_points.add('속도 빠름')
         
-        # 7. 요약 생성
+        # 7. 허깅페이스 요약 모델로 한 줄 요약 생성
         summary = []
-        if positive_count > negative_count:
-            summary.append('전반적으로 높은 만족도를 보이고 있어요.')
-            summary.append('편집과 설명이 도움이 되었다는 피드백이 많아요.')
-            summary.append('광고 빈도에 대한 의견이 있지만 전반적으로 긍정적인 반응이에요.')
-        else:
-            summary.append('일부 개선이 필요한 부분이 있어요.')
-            summary.append('영상 길이와 속도에 대한 의견이 있어요.')
-            summary.append('전반적인 만족도는 보통 수준이에요.')
+        try:
+            summary = generate_comment_summary(comment_texts, max_sentences=3)
+        except Exception as summarize_error:
+            print(f"[WARN] Failed to generate HuggingFace comment summary: {summarize_error}")
+        
+        if not summary:
+            summary = _build_comment_summary_fallback(positive_count, negative_count)
         
         return {
             "positive": positive_percent,
@@ -773,15 +773,7 @@ def _fallback_sentiment_analysis(comment_texts: List[str]) -> dict:
         positive_percent = 92
         negative_percent = 8
     
-    summary = []
-    if positive_count > negative_count:
-        summary.append('전반적으로 높은 만족도를 보이고 있어요.')
-        summary.append('편집과 설명이 도움이 되었다는 피드백이 많아요.')
-        summary.append('광고 빈도에 대한 의견이 있지만 전반적으로 긍정적인 반응이에요.')
-    else:
-        summary.append('일부 개선이 필요한 부분이 있어요.')
-        summary.append('영상 길이와 속도에 대한 의견이 있어요.')
-        summary.append('전반적인 만족도는 보통 수준이에요.')
+    summary = _build_comment_summary_fallback(positive_count, negative_count)
     
     return {
         "positive": positive_percent,
@@ -796,3 +788,19 @@ def _fallback_sentiment_analysis(comment_texts: List[str]) -> dict:
         "totalComments": len(comment_texts),
         "analyzedComments": len(comment_texts)
     }
+
+
+def _build_comment_summary_fallback(positive_count: int, negative_count: int) -> List[str]:
+    """
+    HuggingFace 요약이 실패했을 때 사용하는 기본 요약 문장 생성
+    """
+    summary: List[str] = []
+    if positive_count >= negative_count:
+        summary.append("전반적으로 높은 만족도를 보이고 있어요.")
+        summary.append("영상 정보와 설명이 많은 시청자에게 도움이 되었다는 의견이 많아요.")
+        summary.append("현장 분위기와 연출도 긍정적인 평가를 받고 있어요.")
+    else:
+        summary.append("일부 시청자들은 개선이 필요하다고 느끼고 있어요.")
+        summary.append("영상 길이나 구성에 대한 아쉬움이 언급되고 있어요.")
+        summary.append("전반적인 만족도는 보통 수준이에요.")
+    return summary
