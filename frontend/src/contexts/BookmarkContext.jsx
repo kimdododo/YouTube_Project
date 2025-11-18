@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import { getToken } from '../api/auth'
 
 const BookmarkContext = createContext()
 
@@ -47,6 +48,14 @@ export const BookmarkProvider = ({ children }) => {
     )
   }, [bookmarks])
 
+  // 로그인 상태 확인
+  const checkLogin = useCallback(() => {
+    const token = getToken()
+    const isLoggedIn = sessionStorage.getItem('isLoggedIn') === 'true' || 
+                      localStorage.getItem('isLoggedIn') === 'true'
+    return !!(token || isLoggedIn)
+  }, [])
+
   // 북마크 토글
   const toggleBookmark = useCallback((video) => {
     if (!video) return
@@ -54,6 +63,17 @@ export const BookmarkProvider = ({ children }) => {
     const videoId = video.id || video.video_id
     if (!videoId) {
       console.warn('[BookmarkContext] Cannot bookmark: video ID is missing')
+      return
+    }
+
+    // 로그인 체크
+    const isLoggedIn = checkLogin()
+    if (!isLoggedIn) {
+      alert('북마크 기능을 사용하려면 로그인이 필요합니다.')
+      // 로그인 페이지로 리다이렉트
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login'
+      }
       return
     }
 
@@ -88,13 +108,23 @@ export const BookmarkProvider = ({ children }) => {
         return [...prev, newBookmark]
       }
     })
-  }, [])
+  }, [checkLogin])
 
   // 북마크 추가
   const addBookmark = useCallback((video) => {
     if (!video) return
     const videoId = video.id || video.video_id
     if (!videoId) return
+
+    // 로그인 체크
+    const isLoggedIn = checkLogin()
+    if (!isLoggedIn) {
+      alert('북마크 기능을 사용하려면 로그인이 필요합니다.')
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login'
+      }
+      return
+    }
 
     setBookmarks((prev) => {
       const exists = prev.some(
@@ -117,7 +147,7 @@ export const BookmarkProvider = ({ children }) => {
       }
       return [...prev, newBookmark]
     })
-  }, [])
+  }, [checkLogin])
 
   // 북마크 제거
   const removeBookmark = useCallback((videoId) => {

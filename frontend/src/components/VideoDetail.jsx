@@ -21,6 +21,7 @@ function VideoDetail() {
   const [error, setError] = useState(null)
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isTransitioning, setIsTransitioning] = useState(false)
+  const [showFullDescription, setShowFullDescription] = useState(false)
 
   const bookmarked = video ? isBookmarked(video.id || video.video_id) : false
 
@@ -48,6 +49,8 @@ function VideoDetail() {
       fetchSimilarVideos()
       fetchComments()
       fetchCommentSentiment()
+      // 비디오 변경 시 설명 확장 상태 초기화
+      setShowFullDescription(false)
     }
   }, [videoId])
 
@@ -345,11 +348,21 @@ function VideoDetail() {
 
             {/* 설명 */}
             {video.description && (
-              <p className="text-white/90 leading-relaxed">
-                {video.description.length > 200 
-                  ? `${video.description.substring(0, 200)}...` 
-                  : video.description}
-              </p>
+              <div className="space-y-2">
+                <p className="text-white/90 leading-relaxed">
+                  {showFullDescription || video.description.length <= 200
+                    ? video.description
+                    : `${video.description.substring(0, 200)}...`}
+                </p>
+                {video.description.length > 200 && (
+                  <button
+                    onClick={() => setShowFullDescription(!showFullDescription)}
+                    className="text-blue-400 hover:text-blue-300 text-sm font-medium transition-colors"
+                  >
+                    {showFullDescription ? '간략히' : '더보기'}
+                  </button>
+                )}
+              </div>
             )}
 
             {/* 해시태그 */}
@@ -384,7 +397,7 @@ function VideoDetail() {
             <div className="grid grid-cols-3 gap-4">
               {/* 긍정 댓글 바 */}
               <div className="bg-[#1a1f3a]/80 backdrop-blur-sm rounded-lg p-4 border border-blue-900/30 flex flex-col">
-                <button className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white font-bold text-base py-3 px-4 rounded-lg transition-all duration-200 text-left mb-3">
+                <button className="w-full bg-gradient-to-r from-blue-600 to-blue-500 text-white font-bold text-base py-3 px-4 rounded-lg text-left mb-3 cursor-default">
                   긍정 댓글 {analysisResult.positive || 0}%
                 </button>
                 {/* 긍정 피드백 목록 */}
@@ -403,7 +416,7 @@ function VideoDetail() {
 
               {/* 부정 댓글 바 */}
               <div className="bg-[#1a1f3a]/80 backdrop-blur-sm rounded-lg p-4 border border-red-900/30 flex flex-col">
-                <button className="w-full bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 text-white font-bold text-base py-3 px-4 rounded-lg transition-all duration-200 text-left mb-3">
+                <button className="w-full bg-gradient-to-r from-red-600 to-red-500 text-white font-bold text-base py-3 px-4 rounded-lg text-left mb-3 cursor-default">
                   부정 댓글 {analysisResult.negative || 0}%
                 </button>
                 {/* 부정 피드백 목록 */}

@@ -48,12 +48,26 @@ function FindChannel() {
       // 검색어가 있으면 검색 API 호출
       fetchSearchResults()
       // 검색 기록에 추가 (비동기, 에러가 발생해도 검색은 계속 진행)
-      saveSearchHistory(searchQuery.trim()).then(() => {
-        // 검색 기록 목록 업데이트
-        getSearchHistory(10).then(history => {
+      const query = searchQuery.trim()
+      saveSearchHistory(query)
+        .then(() => {
+          console.log('[FindChannel] Search history saved:', query)
+          // 검색 기록 목록 업데이트
+          return getSearchHistory(10)
+        })
+        .then(history => {
+          console.log('[FindChannel] Search history loaded:', history)
           setSearchHistory(history)
         })
-      })
+        .catch(error => {
+          console.error('[FindChannel] Failed to save/load search history:', error)
+          // 에러가 발생해도 localStorage에서 다시 시도
+          getSearchHistory(10).then(history => {
+            setSearchHistory(history)
+          }).catch(() => {
+            console.error('[FindChannel] Failed to load search history from localStorage')
+          })
+        })
       setShowHistory(false)
     } else {
       // 검색어가 없으면 기본 목록 조회
