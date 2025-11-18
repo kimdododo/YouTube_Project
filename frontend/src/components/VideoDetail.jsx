@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Star, ChevronLeft, ChevronRight, Bookmark } from 'lucide-react'
 import { useBookmark } from '../contexts/BookmarkContext'
@@ -8,6 +8,9 @@ import { optimizeThumbnailUrl } from '../utils/imageUtils'
 import { addToWatchHistory } from '../utils/watchHistory'
 
 const API_BASE_URL = import.meta.env?.VITE_API_URL || '/api'
+const SIMILAR_LIMIT = 12
+const COMMENT_LIMIT = 20
+const SECONDARY_FETCH_DELAY = 250
 
 function VideoDetail() {
   const { videoId } = useParams()
@@ -59,14 +62,41 @@ function VideoDetail() {
   }
 
   useEffect(() => {
-    if (videoId) {
-      fetchVideoDetail()
-      fetchSimilarVideos()
+    if (!videoId) return
+    fetchVideoDetail()
+    fetchSimilarVideos()
+    setShowFullDescription(false)
+  }, [videoId])
+
+  useEffect(() => {
+    if (!videoId) return
+    let idleId = null
+    let usedIdleCallback = false
+
+    const runSecondaryFetches = () => {
       fetchComments()
       fetchCommentSentiment()
       fetchAiSummary(videoId)
-      // 비디오 변경 시 설명 확장 상태 초기화
-      setShowFullDescription(false)
+    }
+
+    if (typeof window !== 'undefined') {
+      if ('requestIdleCallback' in window) {
+        usedIdleCallback = true
+        idleId = window.requestIdleCallback(runSecondaryFetches, { timeout: 1000 })
+      } else {
+        idleId = window.setTimeout(runSecondaryFetches, SECONDARY_FETCH_DELAY)
+      }
+    } else {
+      runSecondaryFetches()
+    }
+
+    return () => {
+      if (idleId === null) return
+      if (usedIdleCallback && typeof window !== 'undefined' && 'cancelIdleCallback' in window) {
+        window.cancelIdleCallback(idleId)
+      } else if (typeof window !== 'undefined') {
+        window.clearTimeout(idleId)
+      }
     }
   }, [videoId])
 
@@ -99,7 +129,7 @@ function VideoDetail() {
 
   const fetchSimilarVideos = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/videos/${videoId}/similar?limit=50`)
+      const response = await fetch(`${API_BASE_URL}/videos/${videoId}/similar?limit=${SIMILAR_LIMIT}`)
       if (response.ok) {
         const result = await response.json()
         const videos = result.videos || result
@@ -112,7 +142,7 @@ function VideoDetail() {
 
   const fetchComments = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/comments?video_id=${videoId}&limit=50`)
+      const response = await fetch(`${API_BASE_URL}/comments?video_id=${videoId}&limit=${COMMENT_LIMIT}`)
       if (response.ok) {
         const data = await response.json()
         setComments(Array.isArray(data) ? data : (data.comments || []))
@@ -134,7 +164,7 @@ function VideoDetail() {
 
   const fetchCommentSentiment = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/videos/${videoId}/comments/sentiment?limit=50`)
+      const response = await fetch(`${API_BASE_URL}/videos/${videoId}/comments/sentiment?limit=${COMMENT_LIMIT}`)
       if (response.ok) {
         const data = await response.json()
         setCommentAnalysis(data)
@@ -295,6 +325,14 @@ function VideoDetail() {
   const analysisResult = getCommentAnalysis()
   const thumbnailUrl = optimizeThumbnailUrl(video.thumbnail_url, video.id, video.is_shorts || false)
   const youtubeUrl = video.youtube_url || (video.id ? `https://www.youtube.com/watch?v=${video.id}` : null)
+
+  const sliderVideos = useMemo(() => {
+    if (!similarVideos || similarVideos.length === 0) return []
+    if (similarVideos.length <= visibleCards) return similarVideos
+    return [...similarVideos, ...similarVideos]
+  }, [similarVideos, visibleCards])
+
+  const renderedSimilarVideos = sliderVideos.length > 0 ? sliderVideos : similarVideos
 
   return (
     <AppLayout>
@@ -536,7 +574,7 @@ function VideoDetail() {
                   }}
                 >
                   {/* 무한루프를 위한 카드 복제: 앞쪽, 중간, 뒤쪽 */}
-                  {[...similarVideos, ...similarVideos, ...similarVideos].map((v, index) => {
+                  {renderedSimilarVideos.map((v, index) => {
                     const actualIndex = index % similarVideos.length
                     const videoId = v.id || v.video_id
                     const thumbnailUrl = optimizeThumbnailUrl(v.thumbnail_url, videoId, v.is_shorts || false)

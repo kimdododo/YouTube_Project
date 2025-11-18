@@ -43,7 +43,7 @@ def create_summary_chain() -> LLMChain:
     llm = ChatOpenAI(
         model=llm_model,
         temperature=float(os.getenv("LLM_TEMPERATURE", "0.7")),
-        max_tokens=int(os.getenv("LLM_MAX_TOKENS", "160")),
+        max_tokens=int(os.getenv("LLM_MAX_TOKENS", "200")),
         api_key=openai_api_key  # strip 이미 적용됨
     )
 
