@@ -22,6 +22,9 @@ function VideoDetail() {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isTransitioning, setIsTransitioning] = useState(false)
   const [showFullDescription, setShowFullDescription] = useState(false)
+  const [aiSummary, setAiSummary] = useState('')
+  const [aiSummaryError, setAiSummaryError] = useState('')
+  const [isLoadingSummary, setIsLoadingSummary] = useState(false)
 
   const bookmarked = video ? isBookmarked(video.id || video.video_id) : false
 
@@ -49,6 +52,7 @@ function VideoDetail() {
       fetchSimilarVideos()
       fetchComments()
       fetchCommentSentiment()
+      fetchAiSummary(videoId)
       // 비디오 변경 시 설명 확장 상태 초기화
       setShowFullDescription(false)
     }
@@ -131,6 +135,26 @@ function VideoDetail() {
       // 네트워크 에러 등은 조용히 처리
       console.log('[VideoDetail] Comment sentiment API unavailable:', err.message)
       setCommentAnalysis(null)
+    }
+  }
+
+  const fetchAiSummary = async (targetVideoId) => {
+    if (!targetVideoId) return
+    setIsLoadingSummary(true)
+    setAiSummaryError('')
+    setAiSummary('')
+    try {
+      const response = await fetch(`${API_BASE_URL}/videos/${targetVideoId}/summary/one-line`)
+      if (!response.ok) {
+        throw new Error('AI 요약을 불러올 수 없습니다.')
+      }
+      const data = await response.json()
+      setAiSummary(data.summary || '')
+    } catch (err) {
+      console.warn('[VideoDetail] Failed to fetch AI summary:', err)
+      setAiSummaryError('AI 요약을 불러오지 못했습니다.')
+    } finally {
+      setIsLoadingSummary(false)
     }
   }
 
@@ -378,12 +402,29 @@ function VideoDetail() {
 
             {/* AI 한줄평 */}
             <div className="bg-[#1a1f3a]/80 backdrop-blur-sm rounded-lg p-4 border border-blue-900/30">
-              <div className="text-blue-400 font-semibold mb-2">AI 한줄평</div>
-              <p className="text-white/90 text-sm">
-                {video.description 
-                  ? `${video.description.substring(0, 100)}... 현지 분위기와 숨은 명소를 잘 담아낸 영상이에요.`
-                  : '여행의 감동을 잘 전달하는 영상이에요.'}
-              </p>
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-blue-400 font-semibold">AI 한줄평</div>
+                <button
+                  onClick={() => fetchAiSummary(videoId)}
+                  disabled={isLoadingSummary}
+                  className="text-xs text-white/70 hover:text-white transition-colors disabled:opacity-50"
+                >
+                  새로고침
+                </button>
+              </div>
+              {isLoadingSummary ? (
+                <p className="text-white/70 text-sm animate-pulse">AI 요약을 생성하는 중...</p>
+              ) : aiSummary ? (
+                <p className="text-white/90 text-sm">{aiSummary}</p>
+              ) : aiSummaryError ? (
+                <p className="text-red-400 text-sm">{aiSummaryError}</p>
+              ) : (
+                <p className="text-white/70 text-sm">
+                  {video.description
+                    ? `${video.description.substring(0, 100)}...`
+                    : 'AI 요약을 준비 중입니다.'}
+                </p>
+              )}
             </div>
           </div>
         </div>
