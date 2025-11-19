@@ -7,7 +7,12 @@ import axios from 'axios';
 // 백엔드 API 기본 URL
 // Vite proxy 설정: /api로 시작하는 요청이 자동으로 백엔드로 프록시됨
 // baseURL을 '/api'로 설정하면 모든 요청이 /api로 시작됨
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+// FIX: 404 에러 방지를 위해 base URL이 /api로 끝나지 않으면 자동 추가
+let API_BASE_URL = import.meta.env?.VITE_API_URL || '/api';
+// base URL이 /api로 끝나지 않으면 /api를 추가
+if (!API_BASE_URL.endsWith('/api')) {
+  API_BASE_URL = API_BASE_URL.endsWith('/') ? `${API_BASE_URL}api` : `${API_BASE_URL}/api`;
+}
 
 // Axios 인스턴스 생성
 const apiClient = axios.create({

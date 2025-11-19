@@ -5,7 +5,12 @@
 import { optimizeThumbnailUrl } from '../utils/imageUtils'
 
 // Vite 환경 변수 우선 사용, 없으면 '/api' 프록시 사용
-const API_BASE_URL = import.meta.env?.VITE_API_URL || '/api'
+// FIX: 404 에러 방지를 위해 base URL이 /api로 끝나지 않으면 자동 추가
+let API_BASE_URL = import.meta.env?.VITE_API_URL || '/api'
+// base URL이 /api로 끝나지 않으면 /api를 추가
+if (!API_BASE_URL.endsWith('/api')) {
+  API_BASE_URL = API_BASE_URL.endsWith('/') ? `${API_BASE_URL}api` : `${API_BASE_URL}/api`
+}
 
 /**
  * YouTube 비디오 ID 유효성 검사
