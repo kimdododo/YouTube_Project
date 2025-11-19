@@ -55,8 +55,8 @@ JWT_ACCESS_MINUTES = int(os.getenv("JWT_ACCESS_MINUTES", "60").strip())
 # Redis
 REDIS_URL = os.getenv("REDIS_URL", "").strip()
 
-# Model Server
-MODEL_SERVER_URL = os.getenv("MODEL_SERVER_URL", "").strip()
+# Model Server (제거됨)
+# MODEL_SERVER_URL = os.getenv("MODEL_SERVER_URL", "").strip()
 
 # SMTP 설정 (이메일 발송)
 SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com").strip()

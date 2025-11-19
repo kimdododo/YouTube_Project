@@ -8,8 +8,8 @@ from typing import List, Optional
 from app.core.database import get_db
 from app.schemas.channel import ChannelResponse, ChannelListResponse
 from app.crud import channel as crud_channel
-from app.utils.ml_client import get_embedding, get_embeddings_batch
-from app.utils.similarity import compute_similarities
+# ML API 서버 제거됨 - 임베딩 기능 비활성화
+# from app.utils.similarity import compute_similarities
 
 router = APIRouter(prefix="/api/channels", tags=["channels"])
 
@@ -123,57 +123,10 @@ async def search_channels(
         # 기본 검색: 모든 채널 조회
         channels = crud_channel.get_channels(db, skip=0, limit=limit * 3)  # 더 많이 가져와서 필터링
         
+        # ML API 서버 제거됨 - 임베딩 검색 기능 비활성화
         if use_embedding:
-            try:
-                # 1. 검색 쿼리 임베딩 변환
-                query_embedding = await get_embedding(q)
-                if not query_embedding:
-                    # ML API 실패 시 키워드 검색으로 폴백
-                    use_embedding = False
-                    print(f"[WARN] ML API embedding failed, falling back to keyword search")
-                
-                if query_embedding:
-                    # 2. 채널명 임베딩 변환 (description은 DB에서 조회하지 않으므로 채널명만 사용)
-                    channel_texts = []
-                    for ch in channels:
-                        # 채널명 사용
-                        text = ch.get('name', '') or ch.get('channel_id', '')
-                        channel_texts.append(text)
-                    
-                    # 배치로 임베딩 변환
-                    channel_embeddings = await get_embeddings_batch(channel_texts)
-                    
-                    if channel_embeddings and len(channel_embeddings) == len(channels):
-                        # 3. 유사도 계산
-                        similarities = compute_similarities(query_embedding, channel_embeddings)
-                        
-                        # 4. 유사도와 채널 정보 결합
-                        scored_channels = [
-                            {
-                                **ch,
-                                'similarity_score': sim
-                            }
-                            for ch, sim in zip(channels, similarities)
-                        ]
-                        
-                        # 5. 유사도 순으로 정렬 (0.3 이상만)
-                        scored_channels = [
-                            ch for ch in scored_channels 
-                            if ch.get('similarity_score', 0) >= 0.3
-                        ]
-                        scored_channels.sort(key=lambda x: x.get('similarity_score', 0), reverse=True)
-                        
-                        # 6. 상위 limit개만 반환
-                        channels = scored_channels[:limit]
-                        
-                        print(f"[DEBUG] Embedding search found {len(channels)} channels for query '{q}'")
-                    else:
-                        use_embedding = False
-                        print(f"[WARN] Channel embedding batch failed, falling back to keyword search")
-                        
-            except Exception as e:
-                print(f"[WARN] Embedding search error: {e}, falling back to keyword search")
-                use_embedding = False
+            print(f"[WARN] Embedding search disabled (ML API server removed), using keyword search")
+            use_embedding = False
         
         # 키워드 검색 (폴백 또는 use_embedding=False)
         if not use_embedding:

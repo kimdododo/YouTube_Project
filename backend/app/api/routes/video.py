@@ -10,7 +10,7 @@ from app.schemas.video import VideoCreate, VideoResponse, VideoListResponse
 from app.schemas.recommendation import UserPreferenceRequest, RecommendationResponse
 from app.crud import video as crud_video
 from app.recommendations import ContentBasedRecommender
-from app.utils.ml_client import rerank_videos, analyze_sentiments_batch
+# ML API 서버 제거됨 - 재랭킹 기능 비활성화
 from app.services.comment_summary import generate_comment_summary
 
 router = APIRouter(prefix="/api/videos", tags=["videos"])
@@ -145,40 +145,10 @@ async def get_recommended_videos(
                 print(f"[DEBUG] Error validating video {idx}: {str(ve)}")
                 continue
         
-        # 4. ML 재랭킹 적용 (query가 제공되고 use_rerank=True인 경우)
-        if use_rerank and query and video_responses:
-            try:
-                # 재랭킹용 후보 리스트 생성 (제목 + 키워드)
-                candidates = [
-                    {
-                        "id": vid.id,
-                        "text": f"{vid.title} {vid.keyword or ''} {vid.region or ''}".strip()
-                    }
-                    for vid in video_responses
-                ]
-                
-                # 재랭킹 실행
-                reranked = await rerank_videos(query, candidates)
-                
-                if reranked and len(reranked) == len(video_responses):
-                    # 재랭킹 결과를 점수 기준으로 정렬
-                    video_score_map = {item["id"]: item["score"] for item in reranked}
-                    
-                    # 비디오에 점수 추가 및 정렬
-                    for vid in video_responses:
-                        vid._rerank_score = video_score_map.get(vid.id, 0.0)
-                    
-                    # 재랭킹 점수 순으로 정렬
-                    video_responses.sort(key=lambda x: getattr(x, '_rerank_score', 0.0), reverse=True)
-                    
-                    # 상위 limit개만 선택
-                    video_responses = video_responses[:limit]
-                    
-                    print(f"[DEBUG] Reranked {len(video_responses)} videos for query '{query}'")
-                else:
-                    print(f"[WARN] Reranking failed, using original order")
-            except Exception as rerank_error:
-                    print(f"[WARN] Reranking error: {rerank_error}, using original order")
+        # 4. ML 재랭킹 기능 제거됨 (ML API 서버 미사용)
+        # use_rerank 파라미터는 무시되고 기본 조회수 기준 정렬만 사용됨
+        if use_rerank and query:
+            print(f"[DEBUG] ML reranking disabled - using default view_count order")
         
         # total은 실제 반환된 비디오 개수 사용 (성능 최적화)
         total = len(video_responses)
@@ -650,13 +620,10 @@ async def get_comments_sentiment(
                 "analyzedComments": 0
             }
         
-        # 4. ML API로 감정 분석 (배치 처리)
-        sentiment_scores = await analyze_sentiments_batch(comment_texts)
-        
-        if not sentiment_scores or len(sentiment_scores) != len(comment_texts):
-            # ML API 실패 시 폴백: 간단한 키워드 기반 분석
-            print("[WARN] ML API sentiment analysis failed, using fallback keyword-based analysis")
-            return _fallback_sentiment_analysis(comment_texts)
+        # 4. ML API 서버 제거됨 - 감정 분석 기능 비활성화
+        # 폴백: 키워드 기반 분석 사용
+        print("[WARN] ML API sentiment analysis disabled (ML API server removed), using fallback keyword-based analysis")
+        return _fallback_sentiment_analysis(comment_texts)
         
         # 5. 감정 점수 기반으로 긍정/부정 분류
         # 점수 0.0~1.0에서 0.6 이상을 긍정으로 간주

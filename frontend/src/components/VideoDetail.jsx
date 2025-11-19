@@ -292,6 +292,13 @@ function VideoDetail() {
     setTimeout(() => setIsTransitioning(false), 500)
   }
 
+  // useMemo는 모든 early return 이전에 호출되어야 함 (React 훅 규칙)
+  const sliderVideos = useMemo(() => {
+    if (!similarVideos || similarVideos.length === 0) return []
+    if (similarVideos.length <= visibleCards) return similarVideos
+    return [...similarVideos, ...similarVideos]
+  }, [similarVideos, visibleCards])
+
   if (loading) {
     return (
       <AppLayout>
@@ -325,12 +332,6 @@ function VideoDetail() {
   const analysisResult = getCommentAnalysis()
   const thumbnailUrl = optimizeThumbnailUrl(video.thumbnail_url, video.id, video.is_shorts || false)
   const youtubeUrl = video.youtube_url || (video.id ? `https://www.youtube.com/watch?v=${video.id}` : null)
-
-  const sliderVideos = useMemo(() => {
-    if (!similarVideos || similarVideos.length === 0) return []
-    if (similarVideos.length <= visibleCards) return similarVideos
-    return [...similarVideos, ...similarVideos]
-  }, [similarVideos, visibleCards])
 
   const renderedSimilarVideos = sliderVideos.length > 0 ? sliderVideos : similarVideos
 

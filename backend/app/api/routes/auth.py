@@ -48,7 +48,7 @@ from app.crud.user_preference import (
 from app.crud import search_history as crud_search_history
 from app.core.security import verify_password
 from app.models.login_history import LoginHistory
-from app.utils.ml_client import get_embeddings_batch
+# ML API 서버 제거됨 - 임베딩 기능 비활성화
 from typing import List
 import traceback
 import re
@@ -732,20 +732,10 @@ async def get_keyword_embeddings(
         # 키워드 ID를 한글 라벨로 변환
         texts = [keyword_labels.get(kw, kw) for kw in keywords]
         
-        # 배치로 임베딩 가져오기
-        embeddings = await get_embeddings_batch(texts)
-        
-        if embeddings is None:
-            # ML API 실패 시 빈 배열 반환 (프론트엔드에서 폴백 처리)
-            return ok({"embeddings": []}).model_dump()
-        
-        # 키워드와 임베딩을 매핑
-        result = [
-            {"keyword": kw, "embedding": emb}
-            for kw, emb in zip(keywords, embeddings)
-        ]
-        
-        return ok({"embeddings": result}).model_dump()
+        # ML API 서버 제거됨 - 임베딩 기능 비활성화
+        # 빈 배열 반환 (프론트엔드에서 폴백 처리)
+        print(f"[WARN] Keyword embeddings disabled (ML API server removed)")
+        return ok({"embeddings": []}).model_dump()
     except Exception as e:
         print(f"[ERROR] Error getting keyword embeddings: {str(e)}")
         print(f"[ERROR] Traceback: {traceback.format_exc()}")
