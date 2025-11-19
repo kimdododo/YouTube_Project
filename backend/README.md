@@ -28,6 +28,9 @@ DB_PORT=3307
 DB_USER=ytuser
 DB_PASSWORD=your_password_here
 DB_NAME=yt
+
+# 분리된 모델 서버 HTTP 엔드포인트
+MODEL_SERVER_URL=http://localhost:8200
 ```
 
 **참고**: 
@@ -42,7 +45,17 @@ cd backend
 pip install -r requirements.txt
 ```
 
-### 3. 서버 실행
+### 3. 모델 서버 실행 (선택)
+
+```bash
+cd model_server
+pip install -r requirements.txt
+uvicorn main:app --host 0.0.0.0 --port 8200
+```
+
+`MODEL_SERVER_URL` 환경 변수를 이 주소로 맞춘 뒤 백엔드에서 모델 기능을 호출할 수 있습니다.
+
+### 4. 서버 실행
 
 ```bash
 # 개발 모드

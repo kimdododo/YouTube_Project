@@ -3,8 +3,10 @@ Video Summary API 라우터
 RAG 기반 한줄 요약 엔드포인트
 """
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
 from pydantic import BaseModel
+
+from sqlalchemy.orm import Session
+
 from app.core.database import get_db
 from app.rag.pipeline import generate_one_line_summary
 
@@ -24,7 +26,7 @@ class OneLineSummaryResponse(BaseModel):
 @router.get("/{video_id}/summary/one-line", response_model=OneLineSummaryResponse)
 async def get_one_line_summary(
     video_id: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     RAG 기반 한줄 요약 조회/생성
@@ -33,13 +35,11 @@ async def get_one_line_summary(
     - 없으면 RAG 파이프라인으로 생성 후 반환
     """
     try:
-        # RAG 파이프라인 실행
         summary_text = await generate_one_line_summary(db, video_id)
-        
         return OneLineSummaryResponse(
             video_id=video_id,
             summary_type="one_line_rag",
-            summary=summary_text
+            summary=summary_text,
         )
     except ValueError as e:
         # 환경 변수 누락 등
