@@ -15,7 +15,7 @@ const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 10000, // 10초 타임아웃
+  timeout: 60000, // 60초 타임아웃 (백엔드 응답 지연 대응)
 });
 
 // 요청 인터셉터

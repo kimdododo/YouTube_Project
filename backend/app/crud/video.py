@@ -169,20 +169,20 @@ def get_diversified_videos(
     max_per_channel: int = 1
 ) -> List[Video]:
     """채널 다양화를 보장하여 영상 목록 조회 (4분 이상만)
-    간단한 전략: 상위 풀(최근 + 조회수 상위)에서 넉넉히 가져온 뒤
-    파이썬에서 채널별 최대 max_per_channel개씩 선별.
+    성능 최적화: func.rand() 대신 published_at DESC로 조회 후 Python에서 셔플
     """
-    # 넉넉한 후보군 크기 계산 (총량의 10배, 최대 500)
-    candidate_size = min(max(total * 10, total), 500)
+    # 후보군 크기 계산 (총량의 5배, 최대 200으로 감소)
+    candidate_size = min(max(total * 5, total), 200)
 
-    # 후보군 조회: 4분 이상(Shorts 제외). 순서는 무작위 샘플링을 우선시
+    # 후보군 조회: 4분 이상(Shorts 제외). 최신순으로 조회 후 Python에서 셔플
+    # func.rand()는 대용량 테이블에서 매우 느리므로 최신순 조회 후 셔플 사용
     candidates = db.query(Video).filter(
         Video.duration_sec >= 240
     ).order_by(
-        func.rand()  # MySQL 무작위 추출
+        desc(Video.published_at)  # 최신순으로 조회 (인덱스 활용)
     ).limit(candidate_size).all()
 
-    # 무작위성 보강 (DB 무작위 + 추가 셔플)
+    # Python에서 셔플 (DB rand()보다 훨씬 빠름)
     import random
     random.shuffle(candidates)
 

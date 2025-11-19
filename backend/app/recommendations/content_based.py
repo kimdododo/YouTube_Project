@@ -5,6 +5,7 @@
 import re
 from typing import List, Dict, Set, Optional
 from sqlalchemy.orm import Session
+from sqlalchemy import desc
 from app.models.video import Video
 from collections import Counter
 import math
@@ -189,6 +190,7 @@ class ContentBasedRecommender:
             return []
         
         # 2. 후보 영상 조회 (4분 이상, 시청하지 않은 영상)
+        # 성능 최적화: 모든 영상을 가져오지 않고 상위 1000개만 조회
         query = db.query(Video).filter(
             Video.duration_sec >= min_duration_sec
         )
@@ -196,7 +198,10 @@ class ContentBasedRecommender:
         if viewed_video_ids:
             query = query.filter(~Video.id.in_(viewed_video_ids))
         
-        candidate_videos = query.all()
+        # 조회수 기준 상위 1000개만 후보로 사용 (성능 최적화)
+        candidate_videos = query.order_by(
+            desc(Video.view_count)
+        ).limit(1000).all()
         
         if not candidate_videos:
             return []

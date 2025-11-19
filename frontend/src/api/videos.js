@@ -44,9 +44,9 @@ export const getMostLikedVideos = async (limit = 10) => {
   try {
     console.log('[videos.js] Fetching most liked videos from:', `${API_BASE_URL}/videos/most-liked?limit=${limit}`)
     
-    // 타임아웃 추가 (30초)
+    // 타임아웃 추가 (60초 - 백엔드 응답 지연 대응)
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 30000)
+    const timeoutId = setTimeout(() => controller.abort(), 60000)
     
     const response = await fetch(`${API_BASE_URL}/videos/most-liked?limit=${limit}`, {
       signal: controller.signal
@@ -259,9 +259,9 @@ export const getRecommendedVideos = async (query = null, useRerank = false, limi
     const url = `${API_BASE_URL}/videos/recommended${params.toString() ? '?' + params.toString() : ''}`
     console.log('[videos.js] Fetching recommended videos from:', url)
     
-    // 타임아웃 추가 (30초)
+    // 타임아웃 추가 (60초 - 백엔드 응답 지연 대응)
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 30000)
+    const timeoutId = setTimeout(() => controller.abort(), 60000)
     
     const response = await fetch(url, {
       signal: controller.signal
@@ -322,9 +322,9 @@ export const getTrendVideos = async (limit = 100, skip = 0) => {
     const url = `${API_BASE_URL}/videos/trends?limit=${limit}&skip=${skip}`
     console.log('[videos.js] Fetching trend videos from:', url)
     
-    // 타임아웃 추가 (30초)
+    // 타임아웃 추가 (60초 - 백엔드 응답 지연 대응)
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 30000)
+    const timeoutId = setTimeout(() => controller.abort(), 60000)
     
     const response = await fetch(url, {
       signal: controller.signal
@@ -379,7 +379,7 @@ export const getDiversifiedVideos = async (total = 20, maxPerChannel = 1) => {
     const url = `${API_BASE_URL}/videos/diversified?total=${total}&max_per_channel=${maxPerChannel}`
     console.log('[videos.js] Fetching diversified videos from:', url)
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 10000)
+    const timeoutId = setTimeout(() => controller.abort(), 60000) // 60초로 증가
     const response = await fetch(url, { signal: controller.signal })
     clearTimeout(timeoutId)
     if (!response.ok) {
