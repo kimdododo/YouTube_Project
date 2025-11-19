@@ -33,7 +33,8 @@ else:
 # 데이터베이스 설정
 DB_USER = os.getenv("DB_USER", "").strip()
 DB_PASSWORD = os.getenv("DB_PASSWORD", "").strip()
-DB_HOST = os.getenv("DB_HOST", "cloud-sql-proxy").strip()
+# Cloud Run에서는 /cloudsql/PROJECT_ID:REGION:INSTANCE_NAME 형식 필수
+DB_HOST = os.getenv("DB_HOST", "").strip()
 DB_PORT = os.getenv("DB_PORT", "3306").strip()
 DB_NAME = os.getenv("DB_NAME", "yt").strip()
 

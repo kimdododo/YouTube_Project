@@ -21,8 +21,10 @@ encoded_user = quote_plus(str(DB_USER))
 
 # Cloud SQL Unix 소켓 연결만 사용 (로컬 데이터베이스 미지원)
 # DB_HOST는 /cloudsql/PROJECT_ID:REGION:INSTANCE_NAME 형식이어야 함
-if not DB_HOST.startswith('/cloudsql/'):
-    raise ValueError(f"DB_HOST는 Cloud SQL Unix socket 경로(/cloudsql/...)여야 합니다. 현재 값: {DB_HOST}")
+if not DB_HOST:
+    raise ValueError("DB_HOST 환경 변수가 설정되지 않았습니다. Cloud SQL Unix socket 경로(/cloudsql/...)를 설정하세요.")
+if not isinstance(DB_HOST, str) or not DB_HOST.startswith('/cloudsql/'):
+    raise ValueError(f"DB_HOST는 Cloud SQL Unix socket 경로(/cloudsql/...)여야 합니다. 현재 값: {DB_HOST} (타입: {type(DB_HOST)})")
 
 # Unix 소켓 사용 (Cloud SQL)
 # PyMySQL에서 Unix 소켓을 사용하려면 host를 None으로 설정하고 unix_socket을 전달
