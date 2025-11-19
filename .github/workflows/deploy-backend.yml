@@ -48,7 +48,12 @@ jobs:
             echo "❌ DOCKER_PASSWORD secret is not set"
             exit 1
           fi
-          echo "✅ All secrets are set"
+          if [ -z "${{ secrets.REDIS_URL }}" ]; then
+            echo "⚠️ REDIS_URL secret is not set (Redis will use DB fallback)"
+          else
+            echo "✅ REDIS_URL is set"
+          fi
+          echo "✅ All required secrets are set"
           echo "📋 PROJECT_ID from secret: ${{ secrets.GCP_PROJECT_ID }}"
           echo "📋 PROJECT_ID from env: ${{ env.PROJECT_ID }}"
 
@@ -190,8 +195,10 @@ jobs:
               --max-instances 10 \
               --min-instances 1 \
               --add-cloudsql-instances ${{ env.PROJECT_ID }}:asia-northeast3:youtube \
+              --vpc-connector redis-connector \
+              --vpc-egress all-traffic \
               --service-account github-actions@${{ env.PROJECT_ID }}.iam.gserviceaccount.com \
-              --set-env-vars="DB_NAME=yt,DB_USER=yt,DB_PORT=3306,DB_HOST=/cloudsql/${{ env.PROJECT_ID }}:asia-northeast3:youtube,JWT_ALGO=HS256,JWT_ACCESS_MINUTES=60,SMTP_HOST=smtp.gmail.com,SMTP_PORT=587,SMTP_USERNAME=hyunggn68@gmail.com,SMTP_FROM_EMAIL=hyunggn68@gmail.com,SMTP_FROM_NAME=여유,EMAIL_VERIFICATION_CODE_EXPIRY_MINUTES=3,EMAIL_VERIFICATION_CODE_LENGTH=6,EMAIL_VERIFICATION_MAX_ATTEMPTS=5,LLM_MODEL=gpt-4o-mini,LLM_TEMPERATURE=0.7,LLM_MAX_TOKENS=50" \
+              --set-env-vars="DB_NAME=yt,DB_USER=yt,DB_PORT=3306,DB_HOST=/cloudsql/${{ env.PROJECT_ID }}:asia-northeast3:youtube,REDIS_URL=${{ secrets.REDIS_URL }},JWT_ALGO=HS256,JWT_ACCESS_MINUTES=60,SMTP_HOST=smtp.gmail.com,SMTP_PORT=587,SMTP_USERNAME=hyunggn68@gmail.com,SMTP_FROM_EMAIL=hyunggn68@gmail.com,SMTP_FROM_NAME=여유,EMAIL_VERIFICATION_CODE_EXPIRY_MINUTES=3,EMAIL_VERIFICATION_CODE_LENGTH=6,EMAIL_VERIFICATION_MAX_ATTEMPTS=5,LLM_MODEL=gpt-4o-mini,LLM_TEMPERATURE=0.7,LLM_MAX_TOKENS=50" \
               --set-secrets="DB_PASSWORD=db-password:latest,JWT_SECRET=jwt-secret:latest,SMTP_PASSWORD=smtp-password:latest,OPENAI_API_KEY=openai-api-key:latest" \
               --cpu-boost \
               --execution-environment gen2
@@ -210,8 +217,10 @@ jobs:
               --max-instances 10 \
               --min-instances 1 \
               --add-cloudsql-instances ${{ env.PROJECT_ID }}:asia-northeast3:youtube \
+              --vpc-connector redis-connector \
+              --vpc-egress all-traffic \
               --service-account github-actions@${{ env.PROJECT_ID }}.iam.gserviceaccount.com \
-              --update-env-vars="DB_NAME=yt,DB_USER=yt,DB_PORT=3306,DB_HOST=/cloudsql/${{ env.PROJECT_ID }}:asia-northeast3:youtube,JWT_ALGO=HS256,JWT_ACCESS_MINUTES=60,SMTP_HOST=smtp.gmail.com,SMTP_PORT=587,SMTP_USERNAME=hyunggn68@gmail.com,SMTP_FROM_EMAIL=hyunggn68@gmail.com,SMTP_FROM_NAME=여유,EMAIL_VERIFICATION_CODE_EXPIRY_MINUTES=3,EMAIL_VERIFICATION_CODE_LENGTH=6,EMAIL_VERIFICATION_MAX_ATTEMPTS=5,LLM_MODEL=gpt-4o-mini,LLM_TEMPERATURE=0.7,LLM_MAX_TOKENS=50" \
+              --update-env-vars="DB_NAME=yt,DB_USER=yt,DB_PORT=3306,DB_HOST=/cloudsql/${{ env.PROJECT_ID }}:asia-northeast3:youtube,REDIS_URL=${{ secrets.REDIS_URL }},JWT_ALGO=HS256,JWT_ACCESS_MINUTES=60,SMTP_HOST=smtp.gmail.com,SMTP_PORT=587,SMTP_USERNAME=hyunggn68@gmail.com,SMTP_FROM_EMAIL=hyunggn68@gmail.com,SMTP_FROM_NAME=여유,EMAIL_VERIFICATION_CODE_EXPIRY_MINUTES=3,EMAIL_VERIFICATION_CODE_LENGTH=6,EMAIL_VERIFICATION_MAX_ATTEMPTS=5,LLM_MODEL=gpt-4o-mini,LLM_TEMPERATURE=0.7,LLM_MAX_TOKENS=50" \
               --update-secrets="DB_PASSWORD=db-password:latest,JWT_SECRET=jwt-secret:latest,SMTP_PASSWORD=smtp-password:latest,OPENAI_API_KEY=openai-api-key:latest" \
               --cpu-boost \
               --execution-environment gen2
