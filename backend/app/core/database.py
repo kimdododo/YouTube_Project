@@ -89,10 +89,17 @@ def _cloud_sql_creator():
         ip_type=IPTypes.PUBLIC,  # 필요한 경우 PRIVATE로 변경
     )
 
-# Cloud SQL Connector가 우선순위가 높음 (USE_CLOUD_SQL_CONNECTOR가 True이면 무조건 사용)
-if USE_CLOUD_SQL_CONNECTOR and CLOUD_SQL_INSTANCE:
+# Cloud SQL Connector가 최우선순위 (USE_CLOUD_SQL_CONNECTOR가 True이고 CLOUD_SQL_INSTANCE가 설정되어 있으면 무조건 사용)
+# 이 경우 DB_HOST는 무시됨
+if USE_CLOUD_SQL_CONNECTOR:
+    if not CLOUD_SQL_INSTANCE:
+        raise ValueError(
+            "USE_CLOUD_SQL_CONNECTOR가 true로 설정되었지만 CLOUD_SQL_INSTANCE 환경 변수가 설정되지 않았습니다. "
+            f"현재 값: '{CLOUD_SQL_INSTANCE}'"
+        )
     print("[DEBUG] Using Cloud SQL Python Connector for database connections")
     print(f"[DEBUG] CLOUD_SQL_INSTANCE: {CLOUD_SQL_INSTANCE}")
+    print("[DEBUG] DB_HOST는 무시됩니다 (Cloud SQL Connector 사용)")
     connector = _init_cloud_sql_connector()
     engine = create_engine(
         "mysql+pymysql://",
