@@ -5,7 +5,7 @@ End-to-End RAG 파이프라인
 from typing import Optional
 import os
 from sqlalchemy.orm import Session
-from langchain.schema import Document
+from langchain_core.documents import Document
 from app.models.video_summary import VideoSummary
 from app.rag.loader import load_video_documents
 from app.rag.splitter import split_documents

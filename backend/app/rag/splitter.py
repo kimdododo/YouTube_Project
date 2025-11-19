@@ -3,8 +3,8 @@
 LangChain의 RecursiveCharacterTextSplitter 사용
 """
 from typing import List
-from langchain.schema import Document
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_core.documents import Document
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 
 def split_documents(documents: List[Document]) -> List[Document]:

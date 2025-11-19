@@ -2,10 +2,9 @@
 한줄 요약 RAG 체인 정의
 OpenAI ChatCompletion 사용
 """
-from langchain.chains import LLMChain
-from langchain_openai import ChatOpenAI
-from langchain.prompts import PromptTemplate
 import os
+from langchain_openai import ChatOpenAI
+from langchain_core.prompts import PromptTemplate
 
 
 ONE_LINE_SUMMARY_PROMPT = """
@@ -20,6 +19,7 @@ ONE_LINE_SUMMARY_PROMPT = """
 - 지명, 활동, 특징, 분위기 등 구체 정보를 가능한 한 많이 포함
 - 객관적 정보 중심, 주관적 감정 표현·이모지·과장 표현 금지
 - 사용자가 이 한 줄만 보고도 영상의 핵심 내용을 그려볼 수 있게 서술
+- 문장의 끝은 반드시 '~해요'로 마무리한다
 
 # CONTEXT
 {context}
@@ -27,37 +27,33 @@ ONE_LINE_SUMMARY_PROMPT = """
 # 출력:
 한 줄 요약:
 """
+prompt = PromptTemplate(
+    input_variables=["context"],
+    template=ONE_LINE_SUMMARY_PROMPT,
+)
 
 
-
-
-def create_summary_chain() -> LLMChain:
-    """한줄 요약 RAG 체인 생성"""
-
+def _get_llm() -> ChatOpenAI:
     openai_api_key = os.getenv("OPENAI_API_KEY", "").strip()
     if not openai_api_key:
         raise ValueError("OPENAI_API_KEY 환경 변수가 설정되지 않았습니다.")
 
     llm_model = os.getenv("LLM_MODEL", "gpt-4o-mini").strip()
+    temperature = float(os.getenv("LLM_TEMPERATURE", "0.7"))
+    max_tokens = int(os.getenv("LLM_MAX_TOKENS", "200"))
 
-    llm = ChatOpenAI(
+    return ChatOpenAI(
         model=llm_model,
-        temperature=float(os.getenv("LLM_TEMPERATURE", "0.7")),
-        max_tokens=int(os.getenv("LLM_MAX_TOKENS", "200")),
-        api_key=openai_api_key  # strip 이미 적용됨
+        temperature=temperature,
+        max_tokens=max_tokens,
+        api_key=openai_api_key,
     )
-
-    prompt = PromptTemplate(
-        input_variables=["context"],
-        template=ONE_LINE_SUMMARY_PROMPT
-    )
-
-    return LLMChain(llm=llm, prompt=prompt)
 
 
 def generate_summary_from_context(context: str) -> str:
     """컨텍스트로부터 한줄 요약 생성"""
-    chain = create_summary_chain()
-    result = chain.run(context=context)
-
-    return result.strip()
+    llm = _get_llm()
+    formatted_prompt = prompt.format(context=context)
+    result = llm.invoke(formatted_prompt)
+    summary = getattr(result, "content", str(result))
+    return summary.strip()

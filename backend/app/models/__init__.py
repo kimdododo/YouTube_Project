@@ -9,5 +9,7 @@ from app.models.email_verification import EmailVerification
 from app.models.search_history import SearchHistory
 from app.models.comment import Comment
 from app.models.video_summary import VideoSummary
+from app.models.user_preference import UserPreference
+from app.models.video_static import VideoStatic
 
-__all__ = ["User", "Video", "Channel", "LoginHistory", "UserTravelPreference", "UserTravelKeyword", "EmailVerification", "SearchHistory", "Comment", "VideoSummary"]
+__all__ = ["User", "Video", "Channel", "LoginHistory", "UserTravelPreference", "UserTravelKeyword", "EmailVerification", "SearchHistory", "Comment", "VideoSummary", "UserPreference", "VideoStatic"]

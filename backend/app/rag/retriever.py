@@ -3,7 +3,7 @@ RAG Retriever 구성
 video_id 필터링을 적용한 검색기
 """
 from typing import List
-from langchain.schema import Document
+from langchain_core.documents import Document
 from langchain_community.vectorstores import Chroma
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from app.rag.vectorstore import get_vectorstore

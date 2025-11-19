@@ -2,7 +2,7 @@
 Chroma 벡터스토어 초기화 및 인덱싱
 """
 from typing import List, Optional
-from langchain.schema import Document
+from langchain_core.documents import Document
 from langchain_community.vectorstores import Chroma
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from app.rag.embeddings import get_embedding_model

@@ -5,6 +5,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import video, channel
 from app.api.routes import recommend, auth, search, summary
+from app.api.routes import redis_test, personalized, videos_static
 from app.core.errors import attach_error_handlers
 from app.core.database import get_db
 from fastapi import APIRouter, Depends
@@ -62,6 +63,13 @@ app.include_router(channel.router)
 app.include_router(summary.router)  # /api/videos/{id}/summary/one-line
 # 인증 라우터도 backward-compat 경로 추가 (/api/auth)
 app.include_router(auth.router, prefix="/api/auth")
+
+# Redis 테스트 라우터
+app.include_router(redis_test.router)
+
+# 개인화 및 정적 정보 라우터
+app.include_router(personalized.router)  # /personalized/{user_id}/{video_id}
+app.include_router(videos_static.router)  # /videos/{video_id}/static
 
 
 @app.get("/")

@@ -3,7 +3,7 @@ RAG 문서 로더
 DB에서 travel_videos와 travel_comments 데이터를 로드하여 Document 객체로 변환
 """
 from typing import List
-from langchain.schema import Document
+from langchain_core.documents import Document
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from app.models.video import Video

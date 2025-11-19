@@ -1,133 +1,115 @@
+"""
+User Preference CRUD
+"""
 from sqlalchemy.orm import Session
-from sqlalchemy import and_
+from app.models.user_preference import UserPreference
 from app.models.user_travel_preference import UserTravelPreference
 from app.models.user_travel_keyword import UserTravelKeyword
-from typing import List
+from typing import Optional, Dict, Any, List
 
 
-def save_user_preferences(db: Session, user_id: int, preference_ids: List[int]) -> List[UserTravelPreference]:
-    """
-    사용자 여행 취향 저장 (기존 취향 삭제 후 새로 저장)
-    """
-    try:
-        # 기존 취향 삭제
-        db.query(UserTravelPreference).filter(
-            UserTravelPreference.user_id == user_id
-        ).delete()
-        
-        # 새 취향 저장
-        preferences = []
-        for pref_id in preference_ids:
-            # 유효성 검사 (1-11 범위)
-            if not (1 <= pref_id <= 11):
-                continue
-            
-            preference = UserTravelPreference(
-                user_id=user_id,
-                preference_id=pref_id
-            )
-            db.add(preference)
-            preferences.append(preference)
-        
-        db.commit()
-        
-        # 저장된 객체 새로고침
-        for pref in preferences:
-            db.refresh(pref)
-        
-        return preferences
-    except Exception as e:
-        db.rollback()
-        print(f"[ERROR] Failed to save user preferences: {e}")
-        raise
+# ===== user_preferences 테이블 (embedding, topics 저장용) =====
+
+def get_user_preference(db: Session, user_id: int) -> Optional[UserPreference]:
+    """사용자 취향 정보 조회 (embedding, topics)"""
+    return db.query(UserPreference).filter(UserPreference.user_id == user_id).first()
+
+
+def create_or_update_user_preference(
+    db: Session,
+    user_id: int,
+    embedding: Optional[list] = None,
+    topics: Optional[Dict[str, float]] = None,
+    sentiment_weight: float = 0.3
+) -> UserPreference:
+    """사용자 취향 정보 생성 또는 업데이트 (embedding, topics)"""
+    pref = get_user_preference(db, user_id)
+    
+    if pref:
+        if embedding is not None:
+            pref.embedding = embedding
+        if topics is not None:
+            pref.topics = topics
+        pref.sentiment_weight = sentiment_weight
+    else:
+        pref = UserPreference(
+            user_id=user_id,
+            embedding=embedding,
+            topics=topics,
+            sentiment_weight=sentiment_weight
+        )
+        db.add(pref)
+    
+    db.commit()
+    db.refresh(pref)
+    return pref
+
+
+# ===== user_travel_preferences 테이블 (기존 preference_ids 저장용) =====
+
+def save_user_preferences(db: Session, user_id: int, preference_ids: List[int]):
+    """사용자 여행 취향 저장 (preference_ids 리스트)"""
+    # 기존 취향 삭제
+    delete_user_preferences(db, user_id)
+    
+    # 새 취향 저장
+    for pref_id in preference_ids:
+        pref = UserTravelPreference(
+            user_id=user_id,
+            preference_id=pref_id
+        )
+        db.add(pref)
+    
+    db.commit()
 
 
 def get_user_preferences(db: Session, user_id: int) -> List[int]:
-    """
-    사용자 여행 취향 조회
-    Returns: preference_id 목록
-    """
-    try:
-        preferences = db.query(UserTravelPreference).filter(
-            UserTravelPreference.user_id == user_id
-        ).order_by(UserTravelPreference.preference_id).all()
-        
-        return [pref.preference_id for pref in preferences]
-    except Exception as e:
-        # 테이블이 없을 수 있으므로 빈 리스트 반환
-        print(f"[WARN] Failed to get user preferences (table may not exist): {e}")
-        return []
+    """사용자 여행 취향 조회 (preference_ids 리스트 반환)"""
+    prefs = db.query(UserTravelPreference).filter(
+        UserTravelPreference.user_id == user_id
+    ).all()
+    
+    return [pref.preference_id for pref in prefs]
 
 
-def delete_user_preferences(db: Session, user_id: int) -> bool:
-    """
-    사용자 여행 취향 삭제
-    """
-    deleted = db.query(UserTravelPreference).filter(
+def delete_user_preferences(db: Session, user_id: int):
+    """사용자 여행 취향 삭제"""
+    db.query(UserTravelPreference).filter(
         UserTravelPreference.user_id == user_id
     ).delete()
+    db.commit()
+
+
+# ===== user_travel_keywords 테이블 =====
+
+def save_user_keywords(db: Session, user_id: int, keywords: List[str]):
+    """사용자 여행 키워드 저장"""
+    # 기존 키워드 삭제
+    delete_user_keywords(db, user_id)
+    
+    # 새 키워드 저장
+    for keyword in keywords:
+        kw = UserTravelKeyword(
+            user_id=user_id,
+            keyword=keyword
+        )
+        db.add(kw)
     
     db.commit()
-    return deleted > 0
-
-
-def save_user_keywords(db: Session, user_id: int, keywords: List[str]) -> List[UserTravelKeyword]:
-    """
-    사용자 여행 키워드 저장 (기존 키워드 삭제 후 새로 저장)
-    """
-    try:
-        normalized_keywords = []
-        for keyword in keywords:
-            if not keyword:
-                continue
-            normalized_keywords.append(keyword.strip())
-
-        # 기존 키워드 삭제
-        db.query(UserTravelKeyword).filter(
-            UserTravelKeyword.user_id == user_id
-        ).delete()
-
-        saved = []
-        for key in normalized_keywords:
-            if not key:
-                continue
-            keyword = UserTravelKeyword(
-                user_id=user_id,
-                keyword=key
-            )
-            db.add(keyword)
-            saved.append(keyword)
-
-        db.commit()
-
-        for kw in saved:
-            db.refresh(kw)
-
-        return saved
-    except Exception as e:
-        db.rollback()
-        print(f"[ERROR] Failed to save user keywords: {e}")
-        raise
 
 
 def get_user_keywords(db: Session, user_id: int) -> List[str]:
-    """
-    사용자 여행 키워드 조회
-    """
-    try:
-        keywords = db.query(UserTravelKeyword).filter(
-            UserTravelKeyword.user_id == user_id
-        ).order_by(UserTravelKeyword.keyword).all()
-        return [kw.keyword for kw in keywords]
-    except Exception as e:
-        print(f"[WARN] Failed to get user keywords (table may not exist): {e}")
-        return []
+    """사용자 여행 키워드 조회"""
+    keywords = db.query(UserTravelKeyword).filter(
+        UserTravelKeyword.user_id == user_id
+    ).all()
+    
+    return [kw.keyword for kw in keywords]
 
 
-def delete_user_keywords(db: Session, user_id: int) -> bool:
-    deleted = db.query(UserTravelKeyword).filter(
+def delete_user_keywords(db: Session, user_id: int):
+    """사용자 여행 키워드 삭제"""
+    db.query(UserTravelKeyword).filter(
         UserTravelKeyword.user_id == user_id
     ).delete()
     db.commit()
-    return deleted > 0
-
