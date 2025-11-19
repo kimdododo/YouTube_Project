@@ -80,13 +80,16 @@ def _cloud_sql_creator():
 
     if not CLOUD_SQL_INSTANCE:
         raise ValueError("CLOUD_SQL_INSTANCE 환경 변수가 필요합니다.")
+    
+    # PRIVATE IP 사용 (VPC 내부 연결 - 더 빠르고 안정적)
+    print(f"[DEBUG] Connecting to Cloud SQL instance: {CLOUD_SQL_INSTANCE} using PRIVATE IP")
     return connector.connect(
         CLOUD_SQL_INSTANCE,
         "pymysql",
         user=DB_USER,
         password=DB_PASSWORD,
         db=DB_NAME,
-        ip_type=IPTypes.PUBLIC,  # 필요한 경우 PRIVATE로 변경
+        ip_type=IPTypes.PRIVATE,  # VPC 내부 연결 사용 (Cloud Run에서 권장)
     )
 
 # Cloud SQL Connector가 최우선순위 (USE_CLOUD_SQL_CONNECTOR가 True이고 CLOUD_SQL_INSTANCE가 설정되어 있으면 무조건 사용)
