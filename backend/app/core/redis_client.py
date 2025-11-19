@@ -10,7 +10,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+REDIS_URL = os.getenv("REDIS_URL", "")
 REDIS_SOCKET_TIMEOUT = float(os.getenv("REDIS_SOCKET_TIMEOUT", "1.5"))
 REDIS_RETRY = int(os.getenv("REDIS_RETRY", "3"))
 
@@ -23,6 +23,9 @@ class RedisClient:
 
     def connect(self) -> redis.Redis:
         """Redis 연결 (재시도 로직 포함)"""
+        if not REDIS_URL:
+            raise ValueError("REDIS_URL 환경 변수가 설정되지 않았습니다. Cloud Memorystore Redis URL을 설정하세요.")
+        
         if self._client:
             try:
                 self._client.ping()

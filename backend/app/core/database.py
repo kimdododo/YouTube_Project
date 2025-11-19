@@ -50,23 +50,34 @@ if not socket_exists:
         print(f"[ERROR] Socket directory does not exist: {socket_dir}")
         print(f"[ERROR] Cloud SQL Unix socket will be created by Cloud Run at runtime")
 
-# Cloud SQL Unix socket 연결을 위한 올바른 URL 형식
-# URL 쿼리 파라미터로 unix_socket을 전달해야 PyMySQL이 올바르게 인식함
-DATABASE_URL = (
-    f"mysql+pymysql://{encoded_user}:{encoded_password}@/{DB_NAME}"
-    f"?unix_socket={quote_plus(DB_HOST)}&charset=utf8mb4"
-)
-connect_args = {
-    'sql_mode': 'TRADITIONAL',
-    'connect_timeout': 5,
-}
-print(f"[DEBUG] Database connection (Cloud SQL Unix socket): mysql+pymysql://{DB_USER}:{'*' * len(str(DB_PASSWORD))}@/unix_socket={DB_HOST}/{DB_NAME}")
+# Cloud SQL Unix socket 연결을 위한 커스텀 creator 함수
+# PyMySQL에서 Unix socket을 사용하려면 host=None, unix_socket을 직접 전달해야 함
+import pymysql
 
-# SQLAlchemy 엔진 생성
-# Unix socket은 URL 쿼리 파라미터로 전달되므로 connect_args에는 추가 설정만 포함
+def create_unix_socket_connection():
+    """Unix socket을 사용하여 Cloud SQL에 연결하는 커스텀 creator 함수"""
+    return pymysql.connect(
+        host=None,  # host를 None으로 설정하여 Unix socket 사용
+        unix_socket=DB_HOST,  # Unix socket 경로
+        user=DB_USER,
+        password=DB_PASSWORD,
+        database=DB_NAME,
+        charset='utf8mb4',
+        sql_mode='TRADITIONAL',
+        connect_timeout=5,
+        read_timeout=30,
+        write_timeout=30,
+    )
+
+# SQLAlchemy URL (실제 연결은 creator 함수에서 처리)
+# Unix socket 사용 시 호스트는 필요 없음 (creator 함수에서 직접 처리)
+DATABASE_URL = f"mysql+pymysql://{encoded_user}:{encoded_password}@/{DB_NAME}?charset=utf8mb4"
+print(f"[DEBUG] Database connection (Cloud SQL Unix socket): mysql+pymysql://{DB_USER}:{'*' * len(str(DB_PASSWORD))}@unix_socket={DB_HOST}/{DB_NAME}")
+
+# SQLAlchemy 엔진 생성 (커스텀 creator 함수 사용)
 engine = create_engine(
     DATABASE_URL,
-    connect_args=connect_args,
+    creator=create_unix_socket_connection,  # 커스텀 creator 함수 사용
     pool_pre_ping=True,  # 연결 상태 확인
     pool_recycle=3600,   # 1시간마다 연결 재생성
     pool_size=10,        # 연결 풀 크기 (기본값 5 → 10으로 증가)
