@@ -27,10 +27,10 @@ if not isinstance(DB_HOST, str) or not DB_HOST.startswith('/cloudsql/'):
     raise ValueError(f"DB_HOST는 Cloud SQL Unix socket 경로(/cloudsql/...)여야 합니다. 현재 값: {DB_HOST} (타입: {type(DB_HOST)})")
 
 # Unix 소켓 사용 (Cloud SQL)
-# PyMySQL에서 Unix 소켓을 사용하려면 host를 None으로 설정하고 unix_socket을 전달
+# PyMySQL에서 Unix 소켓을 사용하려면 URL 쿼리 파라미터로 unix_socket을 전달해야 함
 import os
 
-# Unix socket 파일 존재 여부 확인
+# Unix socket 파일 존재 여부 확인 (디버깅용)
 socket_exists = os.path.exists(DB_HOST)
 print(f"[DEBUG] Unix socket path: {DB_HOST}")
 print(f"[DEBUG] Unix socket exists: {socket_exists}")
@@ -42,27 +42,31 @@ if not socket_exists:
     socket_dir = os.path.dirname(DB_HOST)
     if os.path.exists(socket_dir):
         print(f"[DEBUG] Socket directory exists: {socket_dir}")
-        print(f"[DEBUG] Files in socket directory: {os.listdir(socket_dir)}")
+        try:
+            print(f"[DEBUG] Files in socket directory: {os.listdir(socket_dir)}")
+        except Exception as e:
+            print(f"[DEBUG] Cannot list socket directory: {e}")
     else:
         print(f"[ERROR] Socket directory does not exist: {socket_dir}")
+        print(f"[ERROR] Cloud SQL Unix socket will be created by Cloud Run at runtime")
 
-DATABASE_URL = f"mysql+pymysql://{encoded_user}:{encoded_password}@localhost/{DB_NAME}?charset=utf8mb4"
+# Cloud SQL Unix socket 연결을 위한 올바른 URL 형식
+# URL 쿼리 파라미터로 unix_socket을 전달해야 PyMySQL이 올바르게 인식함
+DATABASE_URL = (
+    f"mysql+pymysql://{encoded_user}:{encoded_password}@/{DB_NAME}"
+    f"?unix_socket={quote_plus(DB_HOST)}&charset=utf8mb4"
+)
 connect_args = {
-    'host': None,  # host를 None으로 설정하여 Unix socket 사용 강제
-    'unix_socket': DB_HOST,  # Unix 소켓 경로
-    'charset': 'utf8mb4',
-    'sql_mode': 'TRADITIONAL'
+    'sql_mode': 'TRADITIONAL',
+    'connect_timeout': 5,
 }
-print(f"[DEBUG] Database connection (Cloud SQL Unix socket): mysql+pymysql://{DB_USER}:{'*' * len(str(DB_PASSWORD))}@unix_socket={DB_HOST}/{DB_NAME}")
+print(f"[DEBUG] Database connection (Cloud SQL Unix socket): mysql+pymysql://{DB_USER}:{'*' * len(str(DB_PASSWORD))}@/unix_socket={DB_HOST}/{DB_NAME}")
 
 # SQLAlchemy 엔진 생성
-# connect_timeout을 짧게 설정하여 빠른 실패 보장
+# Unix socket은 URL 쿼리 파라미터로 전달되므로 connect_args에는 추가 설정만 포함
 engine = create_engine(
     DATABASE_URL,
-    connect_args={
-        **connect_args,
-        'connect_timeout': 5,  # 연결 타임아웃 5초
-    },
+    connect_args=connect_args,
     pool_pre_ping=True,  # 연결 상태 확인
     pool_recycle=3600,   # 1시간마다 연결 재생성
     pool_size=10,        # 연결 풀 크기 (기본값 5 → 10으로 증가)
