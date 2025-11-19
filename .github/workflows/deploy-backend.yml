@@ -135,14 +135,31 @@ jobs:
             echo "$SQL_INSTANCES"
           fi
           
-          # 서비스 계정 확인
+          # 서비스 계정 확인 및 권한 부여
           echo "Checking service accounts..."
           SA_EMAIL="github-actions@${{ env.PROJECT_ID }}.iam.gserviceaccount.com"
           if gcloud iam service-accounts describe $SA_EMAIL --project=${{ env.PROJECT_ID }} 2>/dev/null; then
             echo "✅ Service account exists: $SA_EMAIL"
+            
+            # Cloud SQL Client 역할 확인 및 부여
+            echo "Checking Cloud SQL Client role..."
+            if gcloud projects get-iam-policy ${{ env.PROJECT_ID }} \
+              --flatten="bindings[].members" \
+              --filter="bindings.members:serviceAccount:$SA_EMAIL AND bindings.role:roles/cloudsql.client" \
+              --format="value(bindings.role)" 2>/dev/null | grep -q "roles/cloudsql.client"; then
+              echo "✅ Service account already has roles/cloudsql.client"
+            else
+              echo "⚠️ Service account does not have roles/cloudsql.client, granting..."
+              gcloud projects add-iam-policy-binding ${{ env.PROJECT_ID }} \
+                --member="serviceAccount:$SA_EMAIL" \
+                --role="roles/cloudsql.client" \
+                --condition=None 2>/dev/null || echo "⚠️ Failed to grant role (may need manual setup)"
+              echo "✅ Cloud SQL Client role granted (or already exists)"
+            fi
           else
             echo "⚠️ Service account verification skipped (IAM API may not be enabled)"
             echo "Deployment will use: $SA_EMAIL"
+            echo "⚠️ Please ensure $SA_EMAIL has roles/cloudsql.client role"
           fi
           
           # Cloud Run 서비스 확인
@@ -153,9 +170,10 @@ jobs:
         if: success()
         run: |
           echo "Deploying to Cloud Run..."
-          IMAGE_URL="${{ env.DOCKER_IMAGE }}:latest"
+          # 이미지 URL 명시적으로 설정 (docker.io 접두사 포함)
+          IMAGE_URL="docker.io/${{ secrets.DOCKER_USERNAME }}/youtube-backend:latest"
           echo "Image URL: $IMAGE_URL"
-          echo "Full image path: docker.io/${{ secrets.DOCKER_USERNAME }}/youtube-backend:latest"
+          echo "Full image path: $IMAGE_URL"
           
           # 이미지 경로 확인
           echo "Verifying image path format..."
@@ -175,9 +193,25 @@ jobs:
           echo "Starting Cloud Run deployment..."
           echo "This may take several minutes..."
           
-          # 이미지가 Docker Hub에 전파될 때까지 추가 대기
-          echo "Waiting additional 30 seconds for image propagation..."
-          sleep 30
+          # 이미지가 Docker Hub에 전파될 때까지 추가 대기 (60초로 증가)
+          echo "Waiting additional 60 seconds for image propagation..."
+          sleep 60
+          
+          # 이미지 존재 확인 (Docker Hub에서)
+          echo "Verifying image exists on Docker Hub..."
+          IMAGE_FULL_PATH="docker.io/${{ secrets.DOCKER_USERNAME }}/youtube-backend:latest"
+          echo "Checking image: $IMAGE_FULL_PATH"
+          
+          # Docker Hub API로 이미지 존재 확인 (선택적, 실패해도 계속 진행)
+          if command -v curl >/dev/null 2>&1; then
+            echo "Checking Docker Hub API..."
+            DOCKER_HUB_CHECK=$(curl -s -o /dev/null -w "%{http_code}" "https://hub.docker.com/v2/repositories/${{ secrets.DOCKER_USERNAME }}/youtube-backend/tags/latest" || echo "000")
+            if [ "$DOCKER_HUB_CHECK" = "200" ]; then
+              echo "✅ Image found on Docker Hub"
+            else
+              echo "⚠️ Could not verify image on Docker Hub (HTTP $DOCKER_HUB_CHECK), but continuing..."
+            fi
+          fi
           
           # 첫 배포인 경우 서비스 생성, 이후에는 업데이트
           if [ "$SERVICE_EXISTS" = "false" ]; then

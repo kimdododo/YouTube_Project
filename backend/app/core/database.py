@@ -2,7 +2,7 @@
 데이터베이스 연결 설정
 .env에서 DB 연결 정보를 읽어 SQLAlchemy 엔진을 생성합니다.
 """
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from urllib.parse import quote_plus
@@ -38,14 +38,18 @@ connect_args = {
 print(f"[DEBUG] Database connection (Cloud SQL Unix socket): mysql+pymysql://{DB_USER}:{'*' * len(str(DB_PASSWORD))}@unix_socket={DB_HOST}/{DB_NAME}")
 
 # SQLAlchemy 엔진 생성
+# connect_timeout을 짧게 설정하여 빠른 실패 보장
 engine = create_engine(
     DATABASE_URL,
-    connect_args=connect_args,
+    connect_args={
+        **connect_args,
+        'connect_timeout': 5,  # 연결 타임아웃 5초
+    },
     pool_pre_ping=True,  # 연결 상태 확인
     pool_recycle=3600,   # 1시간마다 연결 재생성
     pool_size=10,        # 연결 풀 크기 (기본값 5 → 10으로 증가)
     max_overflow=20,     # 추가 연결 허용 (기본값 10 → 20으로 증가)
-    pool_timeout=30,      # 연결 대기 시간 (초)
+    pool_timeout=10,     # 연결 대기 시간 10초로 단축 (30초 → 10초)
     echo=False  # SQL 쿼리 로깅 (개발 시 True로 설정)
 )
 
@@ -60,10 +64,28 @@ def get_db():
     """
     데이터베이스 세션 의존성
     FastAPI의 Depends에서 사용합니다.
+    pool_pre_ping=True로 설정되어 있어 연결 상태를 자동으로 확인합니다.
     """
-    db = SessionLocal()
+    db = None
     try:
+        db = SessionLocal()
         yield db
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"[Database] Connection failed: {str(e)}")
+        # 세션이 생성되었으면 닫기
+        if db:
+            try:
+                db.close()
+            except:
+                pass
+        # 에러를 다시 발생시켜서 API가 빈 응답을 반환하도록 함
+        raise
     finally:
-        db.close()
+        if db:
+            try:
+                db.close()
+            except:
+                pass
 
