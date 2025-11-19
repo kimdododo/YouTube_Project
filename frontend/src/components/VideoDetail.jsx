@@ -1,9 +1,8 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Star, ChevronLeft, ChevronRight, Bookmark } from 'lucide-react'
 import { useBookmark } from '../contexts/BookmarkContext'
 import AppLayout from './layouts/AppLayout'
-import VideoCard from './VideoCard'
 import { optimizeThumbnailUrl } from '../utils/imageUtils'
 import { addToWatchHistory } from '../utils/watchHistory'
 
@@ -28,7 +27,12 @@ function VideoDetail() {
   const [aiSummary, setAiSummary] = useState('')
   const [aiSummaryError, setAiSummaryError] = useState('')
   const [isLoadingSummary, setIsLoadingSummary] = useState(false)
-  const getDescriptionPreview = (text) => {
+  
+  // timeout refs for cleanup
+  const slideTimeoutRef = useRef(null)
+  
+  // 헬퍼 함수들을 useCallback으로 메모이제이션
+  const getDescriptionPreview = useCallback((text) => {
     if (!text) return ''
     const hasNewLine = text.includes('\n')
     if (text.length > 200) {
@@ -39,18 +43,18 @@ function VideoDetail() {
       return firstLine.length < text.length ? `${firstLine}...` : firstLine
     }
     return text
-  }
+  }, [])
 
   const bookmarked = video ? isBookmarked(video.id || video.video_id) : false
 
-  const handleBookmarkClick = () => {
+  const handleBookmarkClick = useCallback(() => {
     if (video) {
       toggleBookmark(video)
     }
-  }
+  }, [video, toggleBookmark])
 
-  // 조회수 포맷팅 헬퍼 함수 (먼저 선언)
-  const formatViews = (count) => {
+  // 조회수 포맷팅 헬퍼 함수
+  const formatViews = useCallback((count) => {
     if (!count) return '0회'
     if (count >= 1000000) {
       return `${(count / 1000000).toFixed(1)}M`
@@ -59,14 +63,110 @@ function VideoDetail() {
       return `${(count / 10000).toFixed(1)}만회`
     }
     return `${count.toLocaleString()}회`
-  }
+  }, [])
+
+  // fetch 함수들을 useCallback으로 메모이제이션
+  const fetchVideoDetail = useCallback(async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const response = await fetch(`${API_BASE_URL}/videos/${videoId}`)
+      if (!response.ok) {
+        throw new Error('비디오를 찾을 수 없습니다.')
+      }
+      const data = await response.json()
+      setVideo(data)
+      
+      // 시청 기록에 추가
+      if (data && data.id) {
+        addToWatchHistory({
+          ...data,
+          views: data.view_count ? formatViews(data.view_count) : '0회',
+          category: data.keyword || data.region || '기타'
+        })
+      }
+    } catch (err) {
+      console.error('[VideoDetail] Failed to fetch video:', err)
+      setError(err.message || '비디오를 불러오는데 실패했습니다.')
+    } finally {
+      setLoading(false)
+    }
+  }, [videoId, formatViews])
+
+  const fetchSimilarVideos = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/videos/${videoId}/similar?limit=${SIMILAR_LIMIT}`)
+      if (response.ok) {
+        const result = await response.json()
+        const videos = result.videos || result
+        setSimilarVideos(videos)
+      }
+    } catch (err) {
+      console.error('[VideoDetail] Failed to fetch similar videos:', err)
+    }
+  }, [videoId])
+
+  const fetchComments = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/comments?video_id=${videoId}&limit=${COMMENT_LIMIT}`)
+      if (response.ok) {
+        const data = await response.json()
+        setComments(Array.isArray(data) ? data : (data.comments || []))
+      } else if (response.status === 404) {
+        console.log('[VideoDetail] Comments API not available, using empty array')
+        setComments([])
+      } else {
+        console.warn('[VideoDetail] Failed to fetch comments:', response.status, response.statusText)
+        setComments([])
+      }
+    } catch (err) {
+      console.log('[VideoDetail] Comments API unavailable:', err.message)
+      setComments([])
+    }
+  }, [videoId])
+
+  const fetchCommentSentiment = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/videos/${videoId}/comments/sentiment?limit=${COMMENT_LIMIT}`)
+      if (response.ok) {
+        const data = await response.json()
+        setCommentAnalysis(data)
+      } else {
+        console.log('[VideoDetail] Comment sentiment API not available, using fallback')
+        setCommentAnalysis(null)
+      }
+    } catch (err) {
+      console.log('[VideoDetail] Comment sentiment API unavailable:', err.message)
+      setCommentAnalysis(null)
+    }
+  }, [videoId])
+
+  const fetchAiSummary = useCallback(async (targetVideoId) => {
+    if (!targetVideoId) return
+    setIsLoadingSummary(true)
+    setAiSummaryError('')
+    setAiSummary('')
+    try {
+      const response = await fetch(`${API_BASE_URL}/videos/${targetVideoId}/summary/one-line`)
+      if (!response.ok) {
+        throw new Error('AI 요약을 불러올 수 없습니다.')
+      }
+      const data = await response.json()
+      setAiSummary(data.summary || '')
+    } catch (err) {
+      console.warn('[VideoDetail] Failed to fetch AI summary:', err)
+      setAiSummaryError('AI 요약을 불러오지 못했습니다.')
+    } finally {
+      setIsLoadingSummary(false)
+    }
+  }, [])
 
   useEffect(() => {
     if (!videoId) return
     fetchVideoDetail()
     fetchSimilarVideos()
     setShowFullDescription(false)
-  }, [videoId])
+  }, [videoId, fetchVideoDetail, fetchSimilarVideos])
 
   useEffect(() => {
     if (!videoId) return
@@ -98,110 +198,11 @@ function VideoDetail() {
         window.clearTimeout(idleId)
       }
     }
-  }, [videoId])
+  }, [videoId, fetchComments, fetchCommentSentiment, fetchAiSummary])
 
-  const fetchVideoDetail = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      const response = await fetch(`${API_BASE_URL}/videos/${videoId}`)
-      if (!response.ok) {
-        throw new Error('비디오를 찾을 수 없습니다.')
-      }
-      const data = await response.json()
-      setVideo(data)
-      
-      // 시청 기록에 추가
-      if (data && data.id) {
-        addToWatchHistory({
-          ...data,
-          views: data.view_count ? formatViews(data.view_count) : '0회',
-          category: data.keyword || data.region || '기타'
-        })
-      }
-    } catch (err) {
-      console.error('[VideoDetail] Failed to fetch video:', err)
-      setError(err.message || '비디오를 불러오는데 실패했습니다.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const fetchSimilarVideos = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/videos/${videoId}/similar?limit=${SIMILAR_LIMIT}`)
-      if (response.ok) {
-        const result = await response.json()
-        const videos = result.videos || result
-        setSimilarVideos(videos) // 모든 영상 표시 (가로 스크롤)
-      }
-    } catch (err) {
-      console.error('[VideoDetail] Failed to fetch similar videos:', err)
-    }
-  }
-
-  const fetchComments = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/comments?video_id=${videoId}&limit=${COMMENT_LIMIT}`)
-      if (response.ok) {
-        const data = await response.json()
-        setComments(Array.isArray(data) ? data : (data.comments || []))
-      } else if (response.status === 404) {
-        // 댓글 API가 없는 경우 빈 배열로 설정 (에러 로그 없이 조용히 처리)
-        console.log('[VideoDetail] Comments API not available, using empty array')
-        setComments([])
-      } else {
-        // 다른 에러의 경우에만 로그 출력
-        console.warn('[VideoDetail] Failed to fetch comments:', response.status, response.statusText)
-        setComments([])
-      }
-    } catch (err) {
-      // 네트워크 에러 등은 조용히 처리
-      console.log('[VideoDetail] Comments API unavailable:', err.message)
-      setComments([])
-    }
-  }
-
-  const fetchCommentSentiment = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/videos/${videoId}/comments/sentiment?limit=${COMMENT_LIMIT}`)
-      if (response.ok) {
-        const data = await response.json()
-        setCommentAnalysis(data)
-      } else {
-        // API 실패 시 기본값 설정 (에러 로그 없이 조용히 처리)
-        console.log('[VideoDetail] Comment sentiment API not available, using fallback')
-        setCommentAnalysis(null)
-      }
-    } catch (err) {
-      // 네트워크 에러 등은 조용히 처리
-      console.log('[VideoDetail] Comment sentiment API unavailable:', err.message)
-      setCommentAnalysis(null)
-    }
-  }
-
-  const fetchAiSummary = async (targetVideoId) => {
-    if (!targetVideoId) return
-    setIsLoadingSummary(true)
-    setAiSummaryError('')
-    setAiSummary('')
-    try {
-      const response = await fetch(`${API_BASE_URL}/videos/${targetVideoId}/summary/one-line`)
-      if (!response.ok) {
-        throw new Error('AI 요약을 불러올 수 없습니다.')
-      }
-      const data = await response.json()
-      setAiSummary(data.summary || '')
-    } catch (err) {
-      console.warn('[VideoDetail] Failed to fetch AI summary:', err)
-      setAiSummaryError('AI 요약을 불러오지 못했습니다.')
-    } finally {
-      setIsLoadingSummary(false)
-    }
-  }
 
   // 댓글 분석 결과 가져오기 (백엔드 API에서 받은 데이터 또는 기본값)
-  const getCommentAnalysis = () => {
+  const getCommentAnalysis = useCallback(() => {
     // 실제 API 데이터가 있으면 사용
     if (commentAnalysis && (commentAnalysis.positive > 0 || commentAnalysis.negative > 0)) {
       return commentAnalysis
@@ -230,9 +231,9 @@ function VideoDetail() {
       totalComments: 0,
       analyzedComments: 0
     }
-  }
+  }, [commentAnalysis, comments.length])
 
-  const formatDate = (dateString) => {
+  const formatDate = useCallback((dateString) => {
     if (!dateString) return ''
     const date = new Date(dateString)
     const now = new Date()
@@ -245,7 +246,7 @@ function VideoDetail() {
     if (diffDays < 30) return `${Math.floor(diffDays / 7)}주 전`
     if (diffDays < 365) return `${Math.floor(diffDays / 30)}개월 전`
     return `${Math.floor(diffDays / 365)}년 전`
-  }
+  }, [])
 
   const cardWidth = 320
   const gap = 24
@@ -270,7 +271,7 @@ function VideoDetail() {
     return () => window.removeEventListener('resize', updateVisibleCards)
   }, [])
 
-  const slideNext = () => {
+  const slideNext = useCallback(() => {
     if (isTransitioning || similarVideos.length === 0) return
     setIsTransitioning(true)
     setCurrentIndex((prev) => {
@@ -278,10 +279,14 @@ function VideoDetail() {
       // 무한루프: 마지막 카드 다음은 첫 번째로
       return nextIndex >= similarVideos.length ? 0 : nextIndex
     })
-    setTimeout(() => setIsTransitioning(false), 500)
-  }
+    // 이전 timeout 정리
+    if (slideTimeoutRef.current) {
+      clearTimeout(slideTimeoutRef.current)
+    }
+    slideTimeoutRef.current = setTimeout(() => setIsTransitioning(false), 500)
+  }, [isTransitioning, similarVideos.length, visibleCards])
 
-  const slidePrev = () => {
+  const slidePrev = useCallback(() => {
     if (isTransitioning || similarVideos.length === 0) return
     setIsTransitioning(true)
     setCurrentIndex((prev) => {
@@ -289,8 +294,21 @@ function VideoDetail() {
       // 무한루프: 첫 번째 카드 이전은 마지막으로
       return prevIndex < 0 ? Math.max(0, similarVideos.length - visibleCards) : prevIndex
     })
-    setTimeout(() => setIsTransitioning(false), 500)
-  }
+    // 이전 timeout 정리
+    if (slideTimeoutRef.current) {
+      clearTimeout(slideTimeoutRef.current)
+    }
+    slideTimeoutRef.current = setTimeout(() => setIsTransitioning(false), 500)
+  }, [isTransitioning, similarVideos.length, visibleCards])
+
+  // cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (slideTimeoutRef.current) {
+        clearTimeout(slideTimeoutRef.current)
+      }
+    }
+  }, [])
 
   // useMemo는 모든 early return 이전에 호출되어야 함 (React 훅 규칙)
   const sliderVideos = useMemo(() => {
@@ -329,11 +347,20 @@ function VideoDetail() {
     )
   }
 
-  const analysisResult = getCommentAnalysis()
-  const thumbnailUrl = optimizeThumbnailUrl(video.thumbnail_url, video.id, video.is_shorts || false)
-  const youtubeUrl = video.youtube_url || (video.id ? `https://www.youtube.com/watch?v=${video.id}` : null)
+  const analysisResult = useMemo(() => getCommentAnalysis(), [getCommentAnalysis])
+  const thumbnailUrl = useMemo(() => 
+    optimizeThumbnailUrl(video.thumbnail_url, video.id, video.is_shorts || false),
+    [video.thumbnail_url, video.id, video.is_shorts]
+  )
+  const youtubeUrl = useMemo(() => 
+    video.youtube_url || (video.id ? `https://www.youtube.com/watch?v=${video.id}` : null),
+    [video.youtube_url, video.id]
+  )
 
-  const renderedSimilarVideos = sliderVideos.length > 0 ? sliderVideos : similarVideos
+  const renderedSimilarVideos = useMemo(() => 
+    sliderVideos.length > 0 ? sliderVideos : similarVideos,
+    [sliderVideos, similarVideos]
+  )
 
   return (
     <AppLayout>
