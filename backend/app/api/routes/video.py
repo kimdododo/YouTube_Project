@@ -111,9 +111,9 @@ async def get_recommended_videos(
         videos = crud_video.get_recommended_videos(db, skip=skip, limit=fetch_limit)
         print(f"[DEBUG] Found {len(videos)} videos (4min+)")
         
-        # 2. 총 개수 조회 (4분 이상만)
-        total = crud_video.get_videos_count(db)
-        print(f"[DEBUG] Total videos (4min+): {total}")
+        # 2. 총 개수 조회 생략 (성능 최적화)
+        # total = crud_video.get_videos_count(db)
+        # print(f"[DEBUG] Total videos (4min+): {total}")
         
         # 3. VideoResponse로 변환
         video_responses = []
@@ -178,7 +178,10 @@ async def get_recommended_videos(
                 else:
                     print(f"[WARN] Reranking failed, using original order")
             except Exception as rerank_error:
-                print(f"[WARN] Reranking error: {rerank_error}, using original order")
+                    print(f"[WARN] Reranking error: {rerank_error}, using original order")
+        
+        # total은 실제 반환된 비디오 개수 사용 (성능 최적화)
+        total = len(video_responses)
         
         return VideoListResponse(
             videos=video_responses,
@@ -208,9 +211,10 @@ def get_trend_videos(
         videos = crud_video.get_trend_videos(db, skip=skip, limit=limit)
         print(f"[DEBUG] Found {len(videos)} trend videos (4min+)")
         
-        # 2. 총 개수 조회 (4분 이상만)
-        total = crud_video.get_videos_count(db)
-        print(f"[DEBUG] Total videos (4min+): {total}")
+        # 2. 총 개수 조회 생략 (성능 최적화)
+        # total = crud_video.get_videos_count(db)
+        # print(f"[DEBUG] Total videos (4min+): {total}")
+        total = len(videos)  # 실제 반환된 개수만 사용
         
         # 3. VideoResponse로 변환 (에러 발생 가능 지점)
         video_responses = []
@@ -434,9 +438,10 @@ def get_most_liked_videos(
         videos = crud_video.get_most_liked_videos(db, skip=skip, limit=limit)
         print(f"[DEBUG] Found {len(videos)} most liked videos (4min+)")
 
-        # 2. 총 개수 조회 (4분 이상만)
-        total = crud_video.get_videos_count(db)
-        print(f"[DEBUG] Total videos (4min+): {total}")
+        # 2. 총 개수 조회 생략 (성능 최적화)
+        # total = crud_video.get_videos_count(db)
+        # print(f"[DEBUG] Total videos (4min+): {total}")
+        total = len(videos)  # 실제 반환된 개수만 사용
 
         # 3. VideoResponse로 변환
         video_responses = []

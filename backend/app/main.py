@@ -17,7 +17,10 @@ from sqlalchemy import text
 app = FastAPI(
     title="YouTube Data Pipeline API",
     description="YouTube 데이터 수집 파이프라인 백엔드 API",
-    version="1.0.0"
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json"
 )
 
 

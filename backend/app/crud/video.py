@@ -40,8 +40,9 @@ def get_videos(
 
 
 def get_videos_count(db: Session, channel_id: Optional[str] = None) -> int:
-    """비디오 총 개수 조회 (4분 이상만)"""
-    query = db.query(Video)
+    """비디오 총 개수 조회 (4분 이상만) - 최적화된 COUNT 쿼리"""
+    # COUNT(*) 대신 func.count()를 사용하여 최적화
+    query = db.query(func.count(Video.id))
     
     # 4분 = 240초 이상인 영상만 필터링
     query = query.filter(Video.duration_sec >= 240)
@@ -49,7 +50,8 @@ def get_videos_count(db: Session, channel_id: Optional[str] = None) -> int:
     if channel_id:
         query = query.filter(Video.channel_id == channel_id)
     
-    return query.count()
+    # scalar()를 사용하여 단일 값 반환
+    return query.scalar() or 0
 
 
 def create_video(db: Session, video: VideoCreate) -> Video:

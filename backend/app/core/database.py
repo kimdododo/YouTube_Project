@@ -58,7 +58,7 @@ engine_kwargs = dict(
     pool_recycle=3600,
     pool_size=10,
     max_overflow=20,
-    pool_timeout=10,
+    pool_timeout=30,  # Cloud SQL Connector 사용 시 연결 시간이 더 걸릴 수 있으므로 증가
     echo=False,
 )
 
