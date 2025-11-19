@@ -11,5 +11,6 @@ from app.models.comment import Comment
 from app.models.video_summary import VideoSummary
 from app.models.user_preference import UserPreference
 from app.models.video_static import VideoStatic
+from app.models.comment_sentiment import CommentSentimentSummary
 
-__all__ = ["User", "Video", "Channel", "LoginHistory", "UserTravelPreference", "UserTravelKeyword", "EmailVerification", "SearchHistory", "Comment", "VideoSummary", "UserPreference", "VideoStatic"]
+__all__ = ["User", "Video", "Channel", "LoginHistory", "UserTravelPreference", "UserTravelKeyword", "EmailVerification", "SearchHistory", "Comment", "VideoSummary", "UserPreference", "VideoStatic", "CommentSentimentSummary"]

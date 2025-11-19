@@ -460,15 +460,17 @@ function VideoDetail() {
                 <p className="text-white/90 leading-relaxed">
                   {(() => {
                     if (!video.description) return ''
+                    // 모든 description에 대해 더보기/간략히 기능 제공
                     const hasNewLine = video.description.includes('\n')
-                    const shouldClip = video.description.length > 200 || hasNewLine
+                    const shouldClip = video.description.length > 100 || hasNewLine
                     if (!shouldClip || showFullDescription) {
                       return video.description
                     }
                     return getDescriptionPreview(video.description)
                   })()}
                 </p>
-                {(video.description.length > 200 || video.description.includes('\n')) && (
+                {/* 모든 description에 더보기/간략히 버튼 표시 */}
+                {video.description && (
                   <button
                     onClick={() => setShowFullDescription(!showFullDescription)}
                     className="text-blue-400 hover:text-blue-300 text-sm font-medium transition-colors"

@@ -77,6 +77,18 @@ EMAIL_VERIFICATION_CODE_EXPIRY_MINUTES = int(os.getenv("EMAIL_VERIFICATION_CODE_
 EMAIL_VERIFICATION_CODE_LENGTH = int(os.getenv("EMAIL_VERIFICATION_CODE_LENGTH", "6").strip())
 EMAIL_VERIFICATION_MAX_ATTEMPTS = int(os.getenv("EMAIL_VERIFICATION_MAX_ATTEMPTS", "5").strip())
 
+# LLM 설정 (OpenAI / LangChain)
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
+LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4o-mini").strip()
+try:
+    LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.7").strip())
+except (ValueError, AttributeError):
+    LLM_TEMPERATURE = 0.7
+try:
+    LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "160").strip())
+except (ValueError, AttributeError):
+    LLM_MAX_TOKENS = 160
+
 # 디버그: 환경 변수 로드 확인 (비밀번호는 마스킹)
 print(f"[DEBUG] Config loaded:")
 print(f"[DEBUG]   DB_USER: {DB_USER if DB_USER else '(empty)'}")

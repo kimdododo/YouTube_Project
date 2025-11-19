@@ -12,6 +12,7 @@ from app.crud import video as crud_video
 from app.recommendations import ContentBasedRecommender
 # ML API 서버 제거됨 - 재랭킹 기능 비활성화
 from app.services.comment_summary import generate_comment_summary
+from app.services.sentiment_summary import summarize_sentiment
 
 router = APIRouter(prefix="/api/videos", tags=["videos"])
 # 채널 다양화 추천 (정적 경로 - 동적보다 먼저)
@@ -565,6 +566,157 @@ def get_video_keywords(
         print(f"[ERROR] Error in get_video_keywords: {str(e)}")
         print(f"[ERROR] Traceback: {error_trace}")
         raise HTTPException(status_code=500, detail=f"Error computing video keywords: {str(e)}")
+
+
+@router.get("/{video_id}/sentiment-summary")
+async def get_sentiment_summary(
+    video_id: str,
+    max_comments: int = Query(200, ge=1, le=500, description="분석할 최대 댓글 수"),
+    db: Session = Depends(get_db)
+):
+    """
+    비디오 댓글 기반 감정 요약 (LangChain 기반)
+    
+    Args:
+        video_id: YouTube 비디오 ID
+        max_comments: 분석할 최대 댓글 수 (기본값: 200, 최대: 500)
+        db: 데이터베이스 세션
+        
+    Returns:
+        {
+            "success": true,
+            "result": {
+                "positive_ratio": 0.78,
+                "negative_ratio": 0.22,
+                "positive_keywords": ["유익한 정보", "현지 분위기 최고", "편집 깔끔", "친절한 설명"],
+                "negative_keywords": ["음성 작음", "영상 길이"]
+            }
+        }
+        
+    에러 처리:
+        - 댓글이 없으면: positive_ratio=0, negative_ratio=0, 키워드는 빈 배열
+        - LLM 에러 시: success=false, message 포함
+    """
+    import traceback
+    import logging
+    import os
+    from datetime import datetime, timedelta
+    logger = logging.getLogger(__name__)
+    
+    try:
+        # 1. 비디오 존재 확인
+        db_video = crud_video.get_video(db, video_id=video_id)
+        if db_video is None:
+            raise HTTPException(status_code=404, detail="Video not found")
+        
+        # 2. 댓글 조회
+        comments = crud_video.get_comments_for_video(db, video_id=video_id, max_comments=max_comments)
+        
+        if not comments:
+            # 댓글이 없으면 기본값 반환
+            return {
+                "success": True,
+                "result": {
+                    "positive_ratio": 0.0,
+                    "negative_ratio": 0.0,
+                    "positive_keywords": [],
+                    "negative_keywords": []
+                }
+            }
+        
+        # 3. 캐시 확인 (선택사항 - 성능 최적화)
+        from app.models.comment_sentiment import CommentSentimentSummary
+        cached_summary = db.query(CommentSentimentSummary).filter(
+            CommentSentimentSummary.video_id == video_id
+        ).first()
+        
+        # 캐시가 있고 최근 업데이트된 경우 (24시간 이내) 캐시 사용
+        if cached_summary:
+            from datetime import datetime, timedelta
+            cache_age = datetime.now() - cached_summary.updated_at.replace(tzinfo=None) if cached_summary.updated_at else timedelta(days=1)
+            if cache_age < timedelta(hours=24):
+                logger.info(f"[SentimentSummary] Using cached result for video_id: {video_id}")
+                return {
+                    "success": True,
+                    "result": {
+                        "positive_ratio": cached_summary.positive_ratio,
+                        "negative_ratio": cached_summary.negative_ratio,
+                        "positive_keywords": cached_summary.positive_keywords or [],
+                        "negative_keywords": cached_summary.negative_keywords or []
+                    }
+                }
+        
+        # 4. LangChain 기반 감정 요약 (캐시 없거나 오래된 경우)
+        try:
+            result = summarize_sentiment(comments)
+            
+            # 5. 결과를 캐시에 저장 (UPSERT)
+            try:
+                if cached_summary:
+                    # 업데이트
+                    cached_summary.positive_ratio = result["positive_ratio"]
+                    cached_summary.negative_ratio = result["negative_ratio"]
+                    cached_summary.positive_keywords = result["positive_keywords"]
+                    cached_summary.negative_keywords = result["negative_keywords"]
+                    cached_summary.analyzed_comments_count = len(comments)
+                    cached_summary.model_name = os.getenv("LLM_MODEL", "gpt-4o-mini")
+                    cached_summary.updated_at = datetime.now()
+                else:
+                    # 새로 생성
+                    new_summary = CommentSentimentSummary(
+                        video_id=video_id,
+                        positive_ratio=result["positive_ratio"],
+                        negative_ratio=result["negative_ratio"],
+                        positive_keywords=result["positive_keywords"],
+                        negative_keywords=result["negative_keywords"],
+                        analyzed_comments_count=len(comments),
+                        model_name=os.getenv("LLM_MODEL", "gpt-4o-mini")
+                    )
+                    db.add(new_summary)
+                db.commit()
+                logger.info(f"[SentimentSummary] Result cached for video_id: {video_id}")
+            except Exception as cache_error:
+                # 캐시 저장 실패해도 결과는 반환
+                logger.warning(f"[SentimentSummary] Failed to cache result: {cache_error}")
+                db.rollback()
+            
+            return {
+                "success": True,
+                "result": result
+            }
+        except Exception as llm_error:
+            # LLM 에러는 500이 아니라 안전하게 처리
+            error_trace = traceback.format_exc()
+            logger.error(f"[SentimentSummary] LLM error: {llm_error}")
+            logger.error(f"[SentimentSummary] Traceback: {error_trace}")
+            return {
+                "success": False,
+                "message": f"LLM 분석 중 오류가 발생했습니다: {str(llm_error)}",
+                "result": {
+                    "positive_ratio": 0.0,
+                    "negative_ratio": 0.0,
+                    "positive_keywords": [],
+                    "negative_keywords": []
+                }
+            }
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        error_trace = traceback.format_exc()
+        logger.error(f"[SentimentSummary] Error in get_sentiment_summary: {str(e)}")
+        logger.error(f"[SentimentSummary] Traceback: {error_trace}")
+        # 일반 에러도 안전하게 처리
+        return {
+            "success": False,
+            "message": f"댓글 감정 분석 중 오류가 발생했습니다: {str(e)}",
+            "result": {
+                "positive_ratio": 0.0,
+                "negative_ratio": 0.0,
+                "positive_keywords": [],
+                "negative_keywords": []
+            }
+        }
 
 
 @router.get("/{video_id}/comments/sentiment")

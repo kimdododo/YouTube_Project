@@ -3,7 +3,7 @@ Video CRUD 작업
 데이터베이스 CRUD 연산을 정의합니다.
 """
 from sqlalchemy.orm import Session
-from sqlalchemy import desc, func
+from sqlalchemy import desc, func, text
 from typing import List, Optional
 from app.models.video import Video
 from app.schemas.video import VideoCreate, VideoUpdate
@@ -212,4 +212,49 @@ def get_diversified_videos(
                 break
 
     return selected
+
+
+def get_comments_for_video(db: Session, video_id: str, max_comments: int = 200) -> List[str]:
+    """
+    특정 비디오의 댓글 텍스트 목록 조회 (감정 분석용)
+    
+    Args:
+        db: 데이터베이스 세션
+        video_id: 비디오 ID
+        max_comments: 최대 조회할 댓글 수 (기본값: 200, 성능/비용 고려)
+        
+    Returns:
+        댓글 텍스트 리스트 (최신순, 좋아요 많은 순으로 정렬)
+        
+    예시:
+        comments = get_comments_for_video(db, "dQw4w9WgXcQ", max_comments=100)
+        # -> ["영상 너무 재밌어요", "편집이 깔끔해서 좋아요", ...]
+    """
+    try:
+        # travel_comments 테이블에서 댓글 조회
+        # 좋아요 많은 순, 최신순으로 정렬하여 상위 N개만 조회
+        query = text("""
+            SELECT text 
+            FROM travel_comments 
+            WHERE video_id = :video_id 
+            AND text IS NOT NULL 
+            AND text != ''
+            AND LENGTH(TRIM(text)) > 0
+            ORDER BY like_count DESC, created_at DESC
+            LIMIT :limit
+        """)
+        
+        result = db.execute(query, {"video_id": video_id, "limit": max_comments})
+        rows = result.fetchall()
+        
+        # 텍스트만 추출
+        comments = [row[0] for row in rows if row[0] and row[0].strip()]
+        
+        return comments
+    except Exception as e:
+        # 에러 발생 시 빈 리스트 반환 (서비스 레이어에서 처리)
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"[CRUD] Error fetching comments for video {video_id}: {e}")
+        return []
 

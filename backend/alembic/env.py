@@ -20,6 +20,7 @@ from app.models import (
     login_history,
     user_travel_preference,
     email_verification,
+    comment_sentiment,  # 댓글 감정 요약 캐시 테이블
 )  # noqa: ensure models are imported
 
 from app.core.config import (
