@@ -243,6 +243,8 @@ def get_personalized_recommendations(
     """콘텐츠 기반 개인 맞춤 영상 추천"""
     import traceback
     try:
+        print(f"[DEBUG] Personalized recommendation request: limit={limit}, preferences={preference}")
+        
         # 추천 알고리즘 인스턴스 생성
         recommender = ContentBasedRecommender()
         
@@ -278,6 +280,8 @@ def get_personalized_recommendations(
         # 중복 제거
         user_prefs['preferred_keywords'] = list(set(user_prefs['preferred_keywords']))
         
+        print(f"[DEBUG] User preferences: {user_prefs}")
+        
         # 추천 영상 조회
         recommended_videos = recommender.recommend(
             db=db,
@@ -287,9 +291,11 @@ def get_personalized_recommendations(
             min_duration_sec=240
         )
         
+        print(f"[DEBUG] Recommended videos count: {len(recommended_videos)}")
+        
         # VideoResponse로 변환
         video_responses = []
-        for video in recommended_videos:
+        for idx, video in enumerate(recommended_videos):
             try:
                 video_dict = {
                     "id": video.id,
@@ -314,24 +320,32 @@ def get_personalized_recommendations(
                 video_response = VideoResponse.model_validate(video_dict)
                 video_responses.append(video_response.model_dump())
             except Exception as ve:
-                print(f"[DEBUG] Error validating recommended video: {str(ve)}")
+                print(f"[DEBUG] Error validating recommended video {idx}: {str(ve)}")
+                print(f"[DEBUG] Video data: id={video.id if video else 'None'}, title={video.title if video else 'None'}")
+                import traceback
+                print(f"[DEBUG] Validation error traceback: {traceback.format_exc()}")
                 continue
+        
+        print(f"[DEBUG] Successfully converted {len(video_responses)} videos")
         
         return RecommendationResponse(
             videos=video_responses,
             total=len(video_responses),
             message=f"Found {len(video_responses)} personalized recommendations"
         )
+    except HTTPException:
+        raise
     except Exception as e:
         error_trace = traceback.format_exc()
         print(f"[ERROR] Error in get_personalized_recommendations: {str(e)}")
         print(f"[ERROR] Traceback: {error_trace}")
-        # 데이터베이스 연결 오류 시 빈 리스트 반환 (500 에러 대신)
+        # 에러 발생 시 빈 리스트 반환 (500 에러 대신)
         import logging
         logger = logging.getLogger(__name__)
-        logger.error(f"[Personalized] Database error: {str(e)}")
-        from app.schemas.video import RecommendationResponse
-        return RecommendationResponse(videos=[], total=0, message="Database connection error")
+        logger.error(f"[Personalized] Error: {str(e)}")
+        logger.error(f"[Personalized] Traceback: {error_trace}")
+        # RecommendationResponse는 이미 import되어 있음
+        return RecommendationResponse(videos=[], total=0, message=f"Error: {str(e)}")
 
 
 # 특정 영상과 유사한 영상 추천
