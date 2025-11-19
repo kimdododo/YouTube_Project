@@ -49,6 +49,9 @@ print(
     "[DEBUG] Database connection: "
     f"mysql+pymysql://{DB_USER}:{masked_password}@{connection_hint}/{DB_NAME}"
 )
+print(f"[DEBUG] USE_CLOUD_SQL_CONNECTOR: {USE_CLOUD_SQL_CONNECTOR} (type: {type(USE_CLOUD_SQL_CONNECTOR)})")
+print(f"[DEBUG] CLOUD_SQL_INSTANCE: {CLOUD_SQL_INSTANCE if CLOUD_SQL_INSTANCE else '(empty)'}")
+print(f"[DEBUG] USE_UNIX_SOCKET: {USE_UNIX_SOCKET}")
 
 engine_kwargs = dict(
     pool_pre_ping=True,
@@ -86,8 +89,10 @@ def _cloud_sql_creator():
         ip_type=IPTypes.PUBLIC,  # 필요한 경우 PRIVATE로 변경
     )
 
+# Cloud SQL Connector가 우선순위가 높음 (USE_CLOUD_SQL_CONNECTOR가 True이면 무조건 사용)
 if USE_CLOUD_SQL_CONNECTOR and CLOUD_SQL_INSTANCE:
     print("[DEBUG] Using Cloud SQL Python Connector for database connections")
+    print(f"[DEBUG] CLOUD_SQL_INSTANCE: {CLOUD_SQL_INSTANCE}")
     connector = _init_cloud_sql_connector()
     engine = create_engine(
         "mysql+pymysql://",
@@ -116,7 +121,7 @@ elif USE_UNIX_SOCKET:
     def create_unix_socket_connection():
         """Unix socket을 사용하여 Cloud SQL에 연결하는 커스텀 creator 함수"""
         return pymysql.connect(
-            host="localhost",
+            host=None,  # Unix socket 사용 시 host는 None이어야 함
             unix_socket=DB_HOST,
             user=DB_USER,
             password=DB_PASSWORD,
