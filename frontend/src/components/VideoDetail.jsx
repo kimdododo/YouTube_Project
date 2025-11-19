@@ -317,6 +317,27 @@ function VideoDetail() {
     return [...similarVideos, ...similarVideos]
   }, [similarVideos, visibleCards])
 
+  // 모든 useMemo를 early return 이전에 호출
+  const analysisResult = useMemo(() => {
+    if (!video) return null
+    return getCommentAnalysis()
+  }, [getCommentAnalysis, video])
+  
+  const thumbnailUrl = useMemo(() => {
+    if (!video) return null
+    return optimizeThumbnailUrl(video.thumbnail_url, video.id, video.is_shorts || false)
+  }, [video?.thumbnail_url, video?.id, video?.is_shorts])
+  
+  const youtubeUrl = useMemo(() => {
+    if (!video) return null
+    return video.youtube_url || (video.id ? `https://www.youtube.com/watch?v=${video.id}` : null)
+  }, [video?.youtube_url, video?.id])
+
+  const renderedSimilarVideos = useMemo(() => 
+    sliderVideos.length > 0 ? sliderVideos : similarVideos,
+    [sliderVideos, similarVideos]
+  )
+
   if (loading) {
     return (
       <AppLayout>
@@ -346,21 +367,6 @@ function VideoDetail() {
       </AppLayout>
     )
   }
-
-  const analysisResult = useMemo(() => getCommentAnalysis(), [getCommentAnalysis])
-  const thumbnailUrl = useMemo(() => 
-    optimizeThumbnailUrl(video.thumbnail_url, video.id, video.is_shorts || false),
-    [video.thumbnail_url, video.id, video.is_shorts]
-  )
-  const youtubeUrl = useMemo(() => 
-    video.youtube_url || (video.id ? `https://www.youtube.com/watch?v=${video.id}` : null),
-    [video.youtube_url, video.id]
-  )
-
-  const renderedSimilarVideos = useMemo(() => 
-    sliderVideos.length > 0 ? sliderVideos : similarVideos,
-    [sliderVideos, similarVideos]
-  )
 
   return (
     <AppLayout>

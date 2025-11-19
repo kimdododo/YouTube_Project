@@ -282,14 +282,21 @@ def get_personalized_recommendations(
         
         print(f"[DEBUG] User preferences: {user_prefs}")
         
-        # 추천 영상 조회
-        recommended_videos = recommender.recommend(
-            db=db,
-            user_preferences=user_prefs,
-            viewed_video_ids=preference.viewed_video_ids,
-            limit=limit,
-            min_duration_sec=240
-        )
+        # 선호도 벡터 확인 (선호도가 없으면 일반 추천으로 폴백)
+        user_vector = recommender._calculate_user_preference_vector(user_prefs)
+        if not user_vector:
+            print(f"[DEBUG] No user preferences found, falling back to general recommendations")
+            # 일반 추천으로 폴백 (조회수 기준 상위 영상)
+            recommended_videos = crud_video.get_most_liked_videos(db, skip=0, limit=limit)
+        else:
+            # 추천 영상 조회
+            recommended_videos = recommender.recommend(
+                db=db,
+                user_preferences=user_prefs,
+                viewed_video_ids=preference.viewed_video_ids,
+                limit=limit,
+                min_duration_sec=240
+            )
         
         print(f"[DEBUG] Recommended videos count: {len(recommended_videos)}")
         
