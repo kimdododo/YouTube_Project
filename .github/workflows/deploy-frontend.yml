@@ -17,6 +17,7 @@ env:
   REGION: asia-northeast3
   DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
   DOCKER_IMAGE: docker.io/${{ secrets.DOCKER_USERNAME }}/youtube-frontend
+  VITE_API_URL: https://yt-backend-480607763463.asia-northeast3.run.app
 
 jobs:
   build-and-deploy:
@@ -141,7 +142,8 @@ jobs:
               --cpu 1 \
               --timeout 300 \
               --max-instances 10 \
-              --min-instances 0
+              --min-instances 0 \
+              --set-env-vars VITE_API_URL=${{ env.VITE_API_URL }},NODE_ENV=production
           else
             echo "Updating existing Cloud Run service..."
             gcloud run deploy ${{ env.SERVICE_NAME }} \
@@ -155,7 +157,8 @@ jobs:
               --cpu 1 \
               --timeout 300 \
               --max-instances 10 \
-              --min-instances 0
+              --min-instances 0 \
+              --update-env-vars VITE_API_URL=${{ env.VITE_API_URL }},NODE_ENV=production
           fi
           
           echo "✅ Deployment completed successfully"
