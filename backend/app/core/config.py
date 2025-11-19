@@ -37,6 +37,9 @@ DB_PASSWORD = os.getenv("DB_PASSWORD", "").strip()
 DB_HOST = os.getenv("DB_HOST", "").strip()
 DB_PORT = os.getenv("DB_PORT", "3306").strip()
 DB_NAME = os.getenv("DB_NAME", "yt").strip()
+# Cloud SQL Python Connector 설정 (선택)
+USE_CLOUD_SQL_CONNECTOR = os.getenv("USE_CLOUD_SQL_CONNECTOR", "false").strip().lower() in ("1", "true", "yes")
+CLOUD_SQL_INSTANCE = os.getenv("CLOUD_SQL_INSTANCE", "").strip()
 
 # JWT/SECURITY
 JWT_SECRET = os.getenv("JWT_SECRET", "CHANGE_ME_SECRET").strip()
@@ -75,6 +78,9 @@ print(f"[DEBUG]   DB_PASSWORD: {'*' * len(DB_PASSWORD) if DB_PASSWORD else '(emp
 print(f"[DEBUG]   DB_HOST: {DB_HOST}")
 print(f"[DEBUG]   DB_PORT: {DB_PORT}")
 print(f"[DEBUG]   DB_NAME: {DB_NAME}")
+print(f"[DEBUG]   USE_CLOUD_SQL_CONNECTOR: {USE_CLOUD_SQL_CONNECTOR}")
+if USE_CLOUD_SQL_CONNECTOR:
+    print(f"[DEBUG]   CLOUD_SQL_INSTANCE: {CLOUD_SQL_INSTANCE}")
 print(f"[DEBUG]   JWT_ALGO: {JWT_ALGO}")
 print(f"[DEBUG]   SMTP_HOST: {SMTP_HOST}")
 print(f"[DEBUG]   SMTP_PORT: {SMTP_PORT}")

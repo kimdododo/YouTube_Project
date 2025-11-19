@@ -6,7 +6,15 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from urllib.parse import quote_plus
-from app.core.config import DB_USER, DB_PASSWORD, DB_HOST, DB_PORT, DB_NAME
+from app.core.config import (
+    DB_USER,
+    DB_PASSWORD,
+    DB_HOST,
+    DB_PORT,
+    DB_NAME,
+    USE_CLOUD_SQL_CONNECTOR,
+    CLOUD_SQL_INSTANCE,
+)
 
 # 환경 변수 검증
 if not DB_USER:
@@ -51,7 +59,42 @@ engine_kwargs = dict(
     echo=False,
 )
 
-if USE_UNIX_SOCKET:
+connector = None
+
+def _init_cloud_sql_connector():
+    """Cloud SQL Python Connector 초기화"""
+    from google.cloud.sql.connector import Connector
+    import atexit
+
+    conn = Connector()
+    atexit.register(conn.close)
+    return conn
+
+
+def _cloud_sql_creator():
+    """Cloud SQL Python Connector로 MySQL 연결 생성"""
+    from google.cloud.sql.connector import IPTypes
+
+    if not CLOUD_SQL_INSTANCE:
+        raise ValueError("CLOUD_SQL_INSTANCE 환경 변수가 필요합니다.")
+    return connector.connect(
+        CLOUD_SQL_INSTANCE,
+        "pymysql",
+        user=DB_USER,
+        password=DB_PASSWORD,
+        db=DB_NAME,
+        ip_type=IPTypes.PUBLIC,  # 필요한 경우 PRIVATE로 변경
+    )
+
+if USE_CLOUD_SQL_CONNECTOR and CLOUD_SQL_INSTANCE:
+    print("[DEBUG] Using Cloud SQL Python Connector for database connections")
+    connector = _init_cloud_sql_connector()
+    engine = create_engine(
+        "mysql+pymysql://",
+        creator=_cloud_sql_creator,
+        **engine_kwargs,
+    )
+elif USE_UNIX_SOCKET:
     import os
     import pymysql
 
@@ -73,7 +116,7 @@ if USE_UNIX_SOCKET:
     def create_unix_socket_connection():
         """Unix socket을 사용하여 Cloud SQL에 연결하는 커스텀 creator 함수"""
         return pymysql.connect(
-            host=None,
+            host="localhost",
             unix_socket=DB_HOST,
             user=DB_USER,
             password=DB_PASSWORD,
