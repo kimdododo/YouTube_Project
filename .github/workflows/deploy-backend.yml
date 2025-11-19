@@ -238,6 +238,15 @@ jobs:
               --execution-environment gen2
           else
             echo "Updating existing Cloud Run service..."
+            # Cloud SQL 인스턴스 연결 확인 및 설정
+            echo "Ensuring Cloud SQL instance is connected..."
+            gcloud run services update ${{ env.SERVICE_NAME }} \
+              --region ${{ env.REGION }} \
+              --project ${{ env.PROJECT_ID }} \
+              --add-cloudsql-instances ${{ env.PROJECT_ID }}:asia-northeast3:youtube \
+              --quiet || echo "⚠️ Cloud SQL instance may already be connected"
+            
+            # 서비스 업데이트
             gcloud run deploy ${{ env.SERVICE_NAME }} \
               --image "$IMAGE_URL" \
               --region ${{ env.REGION }} \
@@ -250,7 +259,6 @@ jobs:
               --timeout 300 \
               --max-instances 10 \
               --min-instances 1 \
-              --add-cloudsql-instances ${{ env.PROJECT_ID }}:asia-northeast3:youtube \
               --vpc-connector redis-connector \
               --vpc-egress all-traffic \
               --service-account github-actions@${{ env.PROJECT_ID }}.iam.gserviceaccount.com \

@@ -28,6 +28,24 @@ if not isinstance(DB_HOST, str) or not DB_HOST.startswith('/cloudsql/'):
 
 # Unix 소켓 사용 (Cloud SQL)
 # PyMySQL에서 Unix 소켓을 사용하려면 host를 None으로 설정하고 unix_socket을 전달
+import os
+
+# Unix socket 파일 존재 여부 확인
+socket_exists = os.path.exists(DB_HOST)
+print(f"[DEBUG] Unix socket path: {DB_HOST}")
+print(f"[DEBUG] Unix socket exists: {socket_exists}")
+
+if not socket_exists:
+    print(f"[WARNING] Unix socket file not found at {DB_HOST}")
+    print(f"[WARNING] This may indicate Cloud SQL connection is not properly configured")
+    print(f"[WARNING] Checking if socket directory exists...")
+    socket_dir = os.path.dirname(DB_HOST)
+    if os.path.exists(socket_dir):
+        print(f"[DEBUG] Socket directory exists: {socket_dir}")
+        print(f"[DEBUG] Files in socket directory: {os.listdir(socket_dir)}")
+    else:
+        print(f"[ERROR] Socket directory does not exist: {socket_dir}")
+
 DATABASE_URL = f"mysql+pymysql://{encoded_user}:{encoded_password}@localhost/{DB_NAME}?charset=utf8mb4"
 connect_args = {
     'host': None,  # host를 None으로 설정하여 Unix socket 사용 강제
