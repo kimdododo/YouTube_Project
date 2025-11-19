@@ -59,7 +59,11 @@ def get_diversified_videos(
         error_trace = traceback.format_exc()
         print(f"[ERROR] Error in get_diversified_videos: {str(e)}")
         print(f"[ERROR] Traceback: {error_trace}")
-        raise HTTPException(status_code=500, detail=f"Error fetching diversified videos: {str(e)}")
+        # 데이터베이스 연결 오류 시 빈 리스트 반환 (500 에러 대신)
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"[Diversified] Database error: {str(e)}")
+        return VideoListResponse(videos=[], total=0)
 
 
 @router.get("/", response_model=VideoListResponse)
@@ -184,7 +188,11 @@ async def get_recommended_videos(
         error_trace = traceback.format_exc()
         print(f"[ERROR] Error in get_recommended_videos: {str(e)}")
         print(f"[ERROR] Traceback: {error_trace}")
-        raise HTTPException(status_code=500, detail=f"Error fetching recommended videos: {str(e)}")
+        # 데이터베이스 연결 오류 시 빈 리스트 반환 (500 에러 대신)
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"[Recommended] Database error: {str(e)}")
+        return VideoListResponse(videos=[], total=0)
 
 
 @router.get("/trends", response_model=VideoListResponse)
@@ -244,7 +252,11 @@ def get_trend_videos(
         error_trace = traceback.format_exc()
         print(f"[ERROR] Error in get_trend_videos: {str(e)}")
         print(f"[ERROR] Traceback: {error_trace}")
-        raise HTTPException(status_code=500, detail=f"Error fetching trend videos: {str(e)}")
+        # 데이터베이스 연결 오류 시 빈 리스트 반환 (500 에러 대신)
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"[Trend] Database error: {str(e)}")
+        return VideoListResponse(videos=[], total=0)
 
 
 # 콘텐츠 기반 개인 맞춤 추천
@@ -340,7 +352,12 @@ def get_personalized_recommendations(
         error_trace = traceback.format_exc()
         print(f"[ERROR] Error in get_personalized_recommendations: {str(e)}")
         print(f"[ERROR] Traceback: {error_trace}")
-        raise HTTPException(status_code=500, detail=f"Error generating recommendations: {str(e)}")
+        # 데이터베이스 연결 오류 시 빈 리스트 반환 (500 에러 대신)
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"[Personalized] Database error: {str(e)}")
+        from app.schemas.video import RecommendationResponse
+        return RecommendationResponse(videos=[], total=0, message="Database connection error")
 
 
 # 특정 영상과 유사한 영상 추천
@@ -460,7 +477,11 @@ def get_most_liked_videos(
         error_trace = traceback.format_exc()
         print(f"[ERROR] Error in get_most_liked_videos: {str(e)}")
         print(f"[ERROR] Traceback: {error_trace}")
-        raise HTTPException(status_code=500, detail=f"Error fetching most liked videos: {str(e)}")
+        # 데이터베이스 연결 오류 시 빈 리스트 반환 (500 에러 대신)
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"[MostLiked] Database error: {str(e)}")
+        return VideoListResponse(videos=[], total=0)
 
 
 # 동적 경로는 정적 경로 다음에 정의

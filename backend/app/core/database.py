@@ -19,27 +19,21 @@ if not DB_PASSWORD:
 encoded_password = quote_plus(str(DB_PASSWORD))
 encoded_user = quote_plus(str(DB_USER))
 
-# Unix 소켓 경로 확인 (/cloudsql/... 형식)
-is_unix_socket = DB_HOST.startswith('/cloudsql/') or (DB_HOST.startswith('/') and ':' not in DB_HOST)
+# Cloud SQL Unix 소켓 연결만 사용 (로컬 데이터베이스 미지원)
+# DB_HOST는 /cloudsql/PROJECT_ID:REGION:INSTANCE_NAME 형식이어야 함
+if not DB_HOST.startswith('/cloudsql/'):
+    raise ValueError(f"DB_HOST는 Cloud SQL Unix socket 경로(/cloudsql/...)여야 합니다. 현재 값: {DB_HOST}")
 
-if is_unix_socket:
-    # Unix 소켓 사용 (Cloud SQL)
-    # PyMySQL에서 Unix 소켓을 사용하려면 host를 None으로 설정하고 unix_socket을 전달
-    DATABASE_URL = f"mysql+pymysql://{encoded_user}:{encoded_password}@localhost/{DB_NAME}?charset=utf8mb4"
-    connect_args = {
-        'host': None,  # host를 None으로 설정
-        'unix_socket': DB_HOST,  # Unix 소켓 경로
-        'charset': 'utf8mb4',
-        'sql_mode': 'TRADITIONAL'
-    }
-    print(f"[DEBUG] Database connection (Unix socket): mysql+pymysql://{DB_USER}:{'*' * len(str(DB_PASSWORD))}@unix_socket={DB_HOST}/{DB_NAME}")
-else:
-    # 일반 TCP 연결
-    DATABASE_URL = f"mysql+pymysql://{encoded_user}:{encoded_password}@{DB_HOST}:{DB_PORT}/{DB_NAME}?charset=utf8mb4"
-    connect_args = {
-        'charset': 'utf8mb4'
-    }
-    print(f"[DEBUG] Database connection (TCP): mysql+pymysql://{DB_USER}:{'*' * len(str(DB_PASSWORD))}@{DB_HOST}:{DB_PORT}/{DB_NAME}")
+# Unix 소켓 사용 (Cloud SQL)
+# PyMySQL에서 Unix 소켓을 사용하려면 host를 None으로 설정하고 unix_socket을 전달
+DATABASE_URL = f"mysql+pymysql://{encoded_user}:{encoded_password}@localhost/{DB_NAME}?charset=utf8mb4"
+connect_args = {
+    'host': None,  # host를 None으로 설정하여 Unix socket 사용 강제
+    'unix_socket': DB_HOST,  # Unix 소켓 경로
+    'charset': 'utf8mb4',
+    'sql_mode': 'TRADITIONAL'
+}
+print(f"[DEBUG] Database connection (Cloud SQL Unix socket): mysql+pymysql://{DB_USER}:{'*' * len(str(DB_PASSWORD))}@unix_socket={DB_HOST}/{DB_NAME}")
 
 # SQLAlchemy 엔진 생성
 engine = create_engine(
@@ -47,6 +41,9 @@ engine = create_engine(
     connect_args=connect_args,
     pool_pre_ping=True,  # 연결 상태 확인
     pool_recycle=3600,   # 1시간마다 연결 재생성
+    pool_size=10,        # 연결 풀 크기 (기본값 5 → 10으로 증가)
+    max_overflow=20,     # 추가 연결 허용 (기본값 10 → 20으로 증가)
+    pool_timeout=30,      # 연결 대기 시간 (초)
     echo=False  # SQL 쿼리 로깅 (개발 시 True로 설정)
 )
 
