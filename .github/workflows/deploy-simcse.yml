@@ -17,7 +17,6 @@ env:
   DOCKER_IMAGE: docker.io/${{ secrets.DOCKER_USERNAME }}/simcse-serve-bento
   EMBED_MODEL_DIR: gs://yt-model-server/simcse
   SENTIMENT_MODEL_DIR: gs://yt-model-server/sentiment
-  ASPECT_MODEL_DIR: gs://yt-model-server/aspect
 
 jobs:
   build-and-deploy:
@@ -65,7 +64,6 @@ jobs:
         env:
           EMBED_MODEL_DIR: ${{ env.EMBED_MODEL_DIR }}
           SENTIMENT_MODEL_DIR: ${{ env.SENTIMENT_MODEL_DIR }}
-          ASPECT_MODEL_DIR: ${{ env.ASPECT_MODEL_DIR }}
         run: bentoml build
 
       - name: 🐳 Containerize Bento
@@ -92,5 +90,5 @@ jobs:
             --timeout 300 \
             --max-instances 10 \
             --service-account=github-actions@${{ env.PROJECT_ID }}.iam.gserviceaccount.com \
-            --set-env-vars EMBED_MODEL_DIR=${{ env.EMBED_MODEL_DIR }},SENTIMENT_MODEL_DIR=${{ env.SENTIMENT_MODEL_DIR }},ASPECT_MODEL_DIR=${{ env.ASPECT_MODEL_DIR }}
+            --set-env-vars EMBED_MODEL_DIR=${{ env.EMBED_MODEL_DIR }},SENTIMENT_MODEL_DIR=${{ env.SENTIMENT_MODEL_DIR }}
 
