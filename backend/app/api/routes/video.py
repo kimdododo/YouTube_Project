@@ -625,33 +625,41 @@ async def get_sentiment_summary(
             }
         
         # 3. 캐시 확인 (선택사항 - 성능 최적화)
-        from app.models.comment_sentiment import CommentSentimentSummary
-        cached_summary = db.query(CommentSentimentSummary).filter(
-            CommentSentimentSummary.video_id == video_id
-        ).first()
-        
-        # 캐시가 있고 최근 업데이트된 경우 (24시간 이내) 캐시 사용
-        if cached_summary:
-            from datetime import datetime, timedelta
-            cache_age = datetime.now() - cached_summary.updated_at.replace(tzinfo=None) if cached_summary.updated_at else timedelta(days=1)
-            if cache_age < timedelta(hours=24):
-                logger.info(f"[SentimentSummary] Using cached result for video_id: {video_id}")
-                return {
-                    "success": True,
-                    "result": {
-                        "positive_ratio": cached_summary.positive_ratio,
-                        "negative_ratio": cached_summary.negative_ratio,
-                        "positive_keywords": cached_summary.positive_keywords or [],
-                        "negative_keywords": cached_summary.negative_keywords or []
+        # 테이블이 없을 수 있으므로 try-except로 감싸서 안전하게 처리
+        cached_summary = None
+        try:
+            from app.models.comment_sentiment import CommentSentimentSummary
+            cached_summary = db.query(CommentSentimentSummary).filter(
+                CommentSentimentSummary.video_id == video_id
+            ).first()
+            
+            # 캐시가 있고 최근 업데이트된 경우 (24시간 이내) 캐시 사용
+            if cached_summary:
+                from datetime import datetime, timedelta
+                cache_age = datetime.now() - cached_summary.updated_at.replace(tzinfo=None) if cached_summary.updated_at else timedelta(days=1)
+                if cache_age < timedelta(hours=24):
+                    logger.info(f"[SentimentSummary] Using cached result for video_id: {video_id}")
+                    return {
+                        "success": True,
+                        "result": {
+                            "positive_ratio": cached_summary.positive_ratio,
+                            "negative_ratio": cached_summary.negative_ratio,
+                            "positive_keywords": cached_summary.positive_keywords or [],
+                            "negative_keywords": cached_summary.negative_keywords or []
+                        }
                     }
-                }
+        except Exception as cache_error:
+            # 테이블이 없거나 캐시 조회 실패 시 무시하고 계속 진행
+            logger.warning(f"[SentimentSummary] Cache check failed (table may not exist): {cache_error}")
+            cached_summary = None
         
         # 4. LangChain 기반 감정 요약 (캐시 없거나 오래된 경우)
         try:
             result = summarize_sentiment(comments)
             
-            # 5. 결과를 캐시에 저장 (UPSERT)
+            # 5. 결과를 캐시에 저장 (UPSERT) - 테이블이 없으면 무시
             try:
+                from app.models.comment_sentiment import CommentSentimentSummary
                 if cached_summary:
                     # 업데이트
                     cached_summary.positive_ratio = result["positive_ratio"]
@@ -676,9 +684,12 @@ async def get_sentiment_summary(
                 db.commit()
                 logger.info(f"[SentimentSummary] Result cached for video_id: {video_id}")
             except Exception as cache_error:
-                # 캐시 저장 실패해도 결과는 반환
-                logger.warning(f"[SentimentSummary] Failed to cache result: {cache_error}")
-                db.rollback()
+                # 캐시 저장 실패해도 결과는 반환 (테이블이 없을 수 있음)
+                logger.warning(f"[SentimentSummary] Failed to cache result (table may not exist): {cache_error}")
+                try:
+                    db.rollback()
+                except:
+                    pass
             
             return {
                 "success": True,
