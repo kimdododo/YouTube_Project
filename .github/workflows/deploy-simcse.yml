@@ -17,6 +17,7 @@ env:
   DOCKER_IMAGE: docker.io/${{ secrets.DOCKER_USERNAME }}/simcse-serve-bento
   EMBED_MODEL_DIR: gs://yt-model-server/simcse
   SENTIMENT_MODEL_DIR: gs://yt-model-server/sentiment
+  ASPECT_MODEL_DIR: gs://yt-model-server/aspect
 
 jobs:
   build-and-deploy:
