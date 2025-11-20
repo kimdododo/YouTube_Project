@@ -127,16 +127,34 @@ function VideoDetail() {
 
   const fetchCommentSentiment = useCallback(async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/videos/${videoId}/comments/sentiment?limit=${COMMENT_LIMIT}`)
+      // FIX: 새로운 LangChain 기반 감정 요약 API 사용
+      const response = await fetch(`${API_BASE_URL}/videos/${videoId}/sentiment-summary?max_comments=${COMMENT_LIMIT}`)
       if (response.ok) {
         const data = await response.json()
-        setCommentAnalysis(data)
+        // 응답 형식 변환: { success: true, result: { positive_ratio, negative_ratio, positive_keywords, negative_keywords } }
+        if (data.success && data.result) {
+          const result = data.result
+          // 백엔드 응답을 프론트엔드 형식으로 변환
+          setCommentAnalysis({
+            positive: Math.round(result.positive_ratio * 100), // 비율을 퍼센트로 변환
+            negative: Math.round(result.negative_ratio * 100),
+            positivePoints: result.positive_keywords || [],
+            negativePoints: result.negative_keywords || [],
+            summary: [], // 요약은 별도로 처리하지 않음
+            totalComments: comments.length || 0,
+            analyzedComments: comments.length || 0
+          })
+        } else {
+          console.log('[VideoDetail] Sentiment summary API returned unsuccessful response:', data.message || 'Unknown error')
+          setCommentAnalysis(null)
+        }
       } else {
-        console.log('[VideoDetail] Comment sentiment API not available, using fallback')
+        const errorData = await response.json().catch(() => ({ detail: response.statusText }))
+        console.log('[VideoDetail] Comment sentiment API error:', response.status, errorData)
         setCommentAnalysis(null)
       }
     } catch (err) {
-      console.log('[VideoDetail] Comment sentiment API unavailable:', err.message)
+      console.error('[VideoDetail] Comment sentiment API unavailable:', err.message)
       setCommentAnalysis(null)
     }
   }, [videoId])
@@ -203,9 +221,12 @@ function VideoDetail() {
 
   // 댓글 분석 결과 가져오기 (백엔드 API에서 받은 데이터 또는 기본값)
   const getCommentAnalysis = useCallback(() => {
-    // 실제 API 데이터가 있으면 사용
+    // 실제 API 데이터가 있으면 사용 (새로운 LangChain API 응답 형식)
     if (commentAnalysis && (commentAnalysis.positive > 0 || commentAnalysis.negative > 0)) {
-      return commentAnalysis
+      return {
+        ...commentAnalysis,
+        summary: commentAnalysis.summary || [] // summary는 빈 배열로 처리
+      }
     }
     
     // 댓글이 있지만 분석 데이터가 없는 경우 (로딩 중)

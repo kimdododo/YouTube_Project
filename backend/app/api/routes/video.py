@@ -172,7 +172,7 @@ async def get_recommended_videos(
 @router.get("/trends", response_model=VideoListResponse)
 def get_trend_videos(
     skip: int = Query(0, ge=0, description="페이지네이션 오프셋"),
-    limit: int = Query(10, ge=1, le=100, description="반환할 비디오 수"),
+    limit: int = Query(10, ge=1, le=500, description="반환할 비디오 수 (최대 500)"),
     db: Session = Depends(get_db)
 ):
     """트렌드 비디오 목록 조회 (최근 게시일 기준)"""
