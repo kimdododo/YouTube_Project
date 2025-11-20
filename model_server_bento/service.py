@@ -102,6 +102,7 @@ def _ensure_local(path: Path, description: str, expect_dir: bool = False) -> Pat
 
 
 def _resolve_path(raw: str, description: str, cache_subdir: str, is_file: bool) -> Path:
+    raw = os.path.expandvars(raw)
     if raw.startswith("gs://"):
         return _download_from_gcs(raw, cache_subdir, is_file)
     path_obj = Path(raw)
