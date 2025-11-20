@@ -28,15 +28,22 @@ from google.cloud import storage
 # ---------------------------------------------------------------------------
 EMBED_MODEL_DIR = os.getenv("EMBED_MODEL_DIR", "models/simcse")
 SENTIMENT_MODEL_DIR = os.getenv("SENTIMENT_MODEL_DIR", "models/sentiment")
-DEFAULT_MODEL_PATH = os.getenv("MODEL_PATH", str(Path(EMBED_MODEL_DIR) / "model.onnx"))
-DEFAULT_TOKENIZER_PATH = os.getenv(
-    "TOKENIZER_PATH", str(Path(EMBED_MODEL_DIR) / "tokenizer")
+
+
+def _compose_path(base: str, name: str) -> str:
+    base = base.rstrip("/")
+    if base.startswith("gs://"):
+        return f"{base}/{name}".rstrip("/")
+    return str(Path(base) / name)
+
+
+DEFAULT_MODEL_PATH = os.getenv("MODEL_PATH") or _compose_path(EMBED_MODEL_DIR, "model.onnx")
+DEFAULT_TOKENIZER_PATH = os.getenv("TOKENIZER_PATH") or _compose_path(EMBED_MODEL_DIR, "tokenizer")
+DEFAULT_SENTIMENT_MODEL_PATH = os.getenv("SENTIMENT_MODEL_PATH") or _compose_path(
+    SENTIMENT_MODEL_DIR, "model.onnx"
 )
-DEFAULT_SENTIMENT_MODEL_PATH = os.getenv(
-    "SENTIMENT_MODEL_PATH", str(Path(SENTIMENT_MODEL_DIR) / "model.onnx")
-)
-DEFAULT_SENTIMENT_TOKENIZER_PATH = os.getenv(
-    "SENTIMENT_TOKENIZER_PATH", str(Path(SENTIMENT_MODEL_DIR) / "tokenizer")
+DEFAULT_SENTIMENT_TOKENIZER_PATH = os.getenv("SENTIMENT_TOKENIZER_PATH") or _compose_path(
+    SENTIMENT_MODEL_DIR, "tokenizer"
 )
 MODEL_CACHE_ROOT = Path(os.getenv("MODEL_CACHE_ROOT", "/tmp/bento_model_cache"))
 SENTIMENT_LABELS = ["negative", "neutral", "positive"]
