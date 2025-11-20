@@ -12,5 +12,7 @@ from app.models.video_summary import VideoSummary
 from app.models.user_preference import UserPreference
 from app.models.video_static import VideoStatic
 from app.models.comment_sentiment import CommentSentimentSummary
+from app.models.user_persona import UserPersonaVector
+from app.models.user_video_event import UserVideoEvent
 
-__all__ = ["User", "Video", "Channel", "LoginHistory", "UserTravelPreference", "UserTravelKeyword", "EmailVerification", "SearchHistory", "Comment", "VideoSummary", "UserPreference", "VideoStatic", "CommentSentimentSummary"]
+__all__ = ["User", "Video", "Channel", "LoginHistory", "UserTravelPreference", "UserTravelKeyword", "EmailVerification", "SearchHistory", "Comment", "VideoSummary", "UserPreference", "VideoStatic", "CommentSentimentSummary", "UserPersonaVector", "UserVideoEvent"], "UserTravelKeyword", "EmailVerification", "SearchHistory", "Comment", "VideoSummary", "UserPreference", "VideoStatic", "CommentSentimentSummary", "UserPersonaVector"]

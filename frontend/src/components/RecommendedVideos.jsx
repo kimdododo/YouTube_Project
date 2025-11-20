@@ -3,7 +3,7 @@ import AppLayout from './layouts/AppLayout'
 import MainRecommendationSection from './recommend/MainRecommendationSection'
 import ThemeRecommendationSection from './recommend/ThemeRecommendationSection'
 import useThemeVideos from '../hooks/useThemeVideos'
-import { getPersonalizedRecommendations, getRecommendedVideos, getTrendVideos, getMostLikedVideos, getAllVideos, getDiversifiedVideos } from '../api/videos'
+import { getPersonalizedRecommendations, getRecommendedVideos, getTrendVideos, getMostLikedVideos, getAllVideos, getDiversifiedVideos, fetchPersonalizedRecommendations } from '../api/videos'
 
 function RecommendedVideos() {
   const [loading, setLoading] = useState(true)
@@ -11,31 +11,73 @@ function RecommendedVideos() {
   const [usePersonalized, setUsePersonalized] = useState(true)
   const [error, setError] = useState(null)
   const [userName, setUserName] = useState('')
+  const [userId, setUserId] = useState(null)
+  const [coldStart, setColdStart] = useState(false)
   
   // 테마별 비디오 데이터 가져오기
   const { themes, loading: themesLoading } = useThemeVideos()
 
-  // API에서 실제 데이터 가져오기 (useCallback으로 메모이제이션)
+  // NEW: 사용자 ID 가져오기 (JWT 토큰 또는 /api/auth/me)
+  useEffect(() => {
+    const fetchUserId = async () => {
+      try {
+        // JWT 토큰이 있으면 사용자 정보 조회
+        const token = localStorage.getItem('token')
+        if (token) {
+          const API_BASE_URL = import.meta.env?.VITE_API_URL || '/api'
+          const fixedUrl = API_BASE_URL.endsWith('/api') ? API_BASE_URL : `${API_BASE_URL}/api`
+          
+          const response = await fetch(`${fixedUrl}/auth/me`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          })
+          
+          if (response.ok) {
+            const userInfo = await response.json()
+            if (userInfo.id) {
+              setUserId(userInfo.id)
+              console.log('[RecommendedVideos] User ID from /auth/me:', userInfo.id)
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[RecommendedVideos] Failed to get user ID:', err)
+      }
+    }
+    
+    fetchUserId()
+  }, [])
+
+  // NEW: SimCSE 기반 개인화 추천 API 호출
   const fetchVideos = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
       console.log('[RecommendedVideos] Starting to fetch videos...')
       
-      const travelPreferences = JSON.parse(localStorage.getItem('travelPreferences') || '[]')
-      const hasPreferences = travelPreferences.length > 0
-      
       let recommended = []
       
-      if (usePersonalized && hasPreferences) {
+      // NEW: SimCSE 기반 개인화 추천 시도 (user_id가 있는 경우)
+      if (userId) {
         try {
-          recommended = await getPersonalizedRecommendations({}, 20)
-          console.log('[RecommendedVideos] Using personalized recommendations:', recommended?.length || 0)
+          console.log('[RecommendedVideos] Fetching SimCSE-based personalized recommendations for user:', userId)
+          const personalizedResult = await fetchPersonalizedRecommendations(userId)
+          
+          if (personalizedResult && personalizedResult.length > 0) {
+            recommended = personalizedResult
+            setColdStart(false)
+            console.log('[RecommendedVideos] Using SimCSE personalized recommendations:', recommended.length)
+          } else {
+            throw new Error('No personalized recommendations returned')
+          }
         } catch (personalizedError) {
-          console.warn('[RecommendedVideos] Personalized recommendation failed, falling back to general:', personalizedError)
+          console.error('[RecommendedVideos] SimCSE personalized recommendation failed:', personalizedError)
+          // Fallback to general recommendations
+          setColdStart(true)
           try {
             recommended = await getDiversifiedVideos(200, 1)
-            console.log('[RecommendedVideos] Fallback diversified endpoint:', recommended?.length || 0)
+            console.log('[RecommendedVideos] Fallback to diversified videos:', recommended?.length || 0)
           } catch (diversifiedError) {
             console.warn('[RecommendedVideos] Diversified endpoint failed, trying general:', diversifiedError)
             recommended = await getRecommendedVideos(null, false, 100)
@@ -43,19 +85,40 @@ function RecommendedVideos() {
           }
         }
       } else {
-        try {
-          recommended = await getDiversifiedVideos(200, 1)
-          console.log('[RecommendedVideos] Using diversified endpoint for RANDOM:', recommended?.length || 0)
-        } catch (diversifiedError) {
-          console.warn('[RecommendedVideos] Diversified endpoint failed, trying all videos:', diversifiedError)
+        // user_id가 없으면 기존 로직 사용
+        const travelPreferences = JSON.parse(localStorage.getItem('travelPreferences') || '[]')
+        const hasPreferences = travelPreferences.length > 0
+        
+        if (usePersonalized && hasPreferences) {
           try {
-            const all = await getAllVideos(0, 300)
-            recommended = all || []
-            console.log('[RecommendedVideos] Using RANDOM from full pool (fallback):', recommended?.length || 0)
-          } catch (allError) {
-            console.warn('[RecommendedVideos] All videos failed, trying general recommendation:', allError)
-            recommended = await getRecommendedVideos(null, false, 100)
-            console.log('[RecommendedVideos] Using general recommendation as last resort:', recommended?.length || 0)
+            recommended = await getPersonalizedRecommendations({}, 20)
+            console.log('[RecommendedVideos] Using old personalized recommendations:', recommended?.length || 0)
+          } catch (personalizedError) {
+            console.warn('[RecommendedVideos] Old personalized recommendation failed, falling back:', personalizedError)
+            try {
+              recommended = await getDiversifiedVideos(200, 1)
+              console.log('[RecommendedVideos] Fallback diversified endpoint:', recommended?.length || 0)
+            } catch (diversifiedError) {
+              console.warn('[RecommendedVideos] Diversified endpoint failed, trying general:', diversifiedError)
+              recommended = await getRecommendedVideos(null, false, 100)
+              console.log('[RecommendedVideos] Using general recommendation:', recommended?.length || 0)
+            }
+          }
+        } else {
+          try {
+            recommended = await getDiversifiedVideos(200, 1)
+            console.log('[RecommendedVideos] Using diversified endpoint for RANDOM:', recommended?.length || 0)
+          } catch (diversifiedError) {
+            console.warn('[RecommendedVideos] Diversified endpoint failed, trying all videos:', diversifiedError)
+            try {
+              const all = await getAllVideos(0, 300)
+              recommended = all || []
+              console.log('[RecommendedVideos] Using RANDOM from full pool (fallback):', recommended?.length || 0)
+            } catch (allError) {
+              console.warn('[RecommendedVideos] All videos failed, trying general recommendation:', allError)
+              recommended = await getRecommendedVideos(null, false, 100)
+              console.log('[RecommendedVideos] Using general recommendation as last resort:', recommended?.length || 0)
+            }
           }
         }
       }
@@ -134,7 +197,7 @@ function RecommendedVideos() {
     } finally {
       setLoading(false)
     }
-  }, [usePersonalized])
+  }, [usePersonalized, userId])
 
   useEffect(() => {
     fetchVideos()
@@ -175,6 +238,14 @@ function RecommendedVideos() {
           >
             AI가 당신의 취향을 분석하여 선별한 맞춤 여행 영상을 확인하세요.
           </p>
+          {/* NEW: Cold-start 안내 메시지 */}
+          {coldStart && !loading && (
+            <div className="mt-4 p-4 bg-blue-900/30 rounded-lg border border-blue-500/30">
+              <p className="text-blue-200 text-sm">
+                아직 시청 기록이 적어서, 우선 인기 여행 영상을 추천해드릴게요.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* 메인 추천 섹션 */}

@@ -735,7 +735,7 @@ async def get_keyword_embeddings(
         # ML API 서버 제거됨 - 임베딩 기능 비활성화
         # 빈 배열 반환 (프론트엔드에서 폴백 처리)
         print(f"[WARN] Keyword embeddings disabled (ML API server removed)")
-        return ok({"embeddings": []}).model_dump()
+            return ok({"embeddings": []}).model_dump()
     except Exception as e:
         print(f"[ERROR] Error getting keyword embeddings: {str(e)}")
         print(f"[ERROR] Traceback: {traceback.format_exc()}")

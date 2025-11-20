@@ -89,6 +89,9 @@ try:
 except (ValueError, AttributeError):
     LLM_MAX_TOKENS = 160
 
+# SimCSE Embedding Server 설정
+EMBEDDING_SERVER_URL = os.getenv("EMBEDDING_SERVER_URL", "").strip()
+
 # 디버그: 환경 변수 로드 확인 (비밀번호는 마스킹)
 print(f"[DEBUG] Config loaded:")
 print(f"[DEBUG]   DB_USER: {DB_USER if DB_USER else '(empty)'}")

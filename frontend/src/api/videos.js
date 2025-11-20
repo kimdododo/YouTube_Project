@@ -4,6 +4,74 @@
  */
 import { optimizeThumbnailUrl } from '../utils/imageUtils'
 
+// NEW: 개인화 추천 API 클라이언트 함수
+/**
+ * SimCSE 임베딩 기반 개인화 추천 영상 조회
+ * @param {number} userId - 사용자 ID
+ * @returns {Promise<Object>} 개인화 추천 결과
+ */
+export const fetchPersonalizedRecommendations = async (userId) => {
+  try {
+    console.log('[videos.js] Fetching personalized recommendations for user:', userId)
+    
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 60000)
+    
+    // JWT 토큰이 있으면 헤더에 포함
+    const token = localStorage.getItem('access_token') || localStorage.getItem('token')
+    const headers = {
+      'Content-Type': 'application/json'
+    }
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+    
+    const response = await fetch(`${API_BASE_URL}/recommendations/personalized?user_id=${userId}`, {
+      signal: controller.signal,
+      headers: headers
+    })
+    
+    clearTimeout(timeoutId)
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ detail: response.statusText }))
+      console.error('[videos.js] Personalized recommendations API error:', response.status, errorData)
+      throw new Error(errorData.detail || `HTTP ${response.status}: Failed to fetch personalized recommendations`)
+    }
+    
+    const result = await response.json()
+    console.log('[videos.js] Received personalized recommendations:', result.count || 0)
+    
+    // 백엔드 응답 형식을 프론트엔드 형식으로 변환
+    if (result.success && result.items) {
+      return result.items.map(item => ({
+        id: item.video_id,
+        video_id: item.video_id,
+        thumbnail_url: item.thumbnail_url,
+        title: item.title,
+        channel_title: item.channel_title,
+        channel_id: null, // 채널 ID는 백엔드에서 제공하지 않으면 null
+        similarity_score: item.similarity_score,
+        reason: item.reason,
+        // 기존 형식과 호환성을 위한 필드
+        description: '',
+        views: 0,
+        likes: 0,
+        rating: 5,
+        showRating: false,
+        type: 'personalized',
+        youtube_url: createYouTubeUrl(item.video_id),
+        is_shorts: false
+      }))
+    }
+    
+    return []
+  } catch (error) {
+    console.error('[videos.js] Error fetching personalized recommendations:', error)
+    throw error
+  }
+}
+
 // Vite 환경 변수 우선 사용, 없으면 '/api' 프록시 사용
 // FIX: 404 에러 방지를 위해 base URL이 /api로 끝나지 않으면 자동 추가
 let API_BASE_URL = import.meta.env?.VITE_API_URL || '/api'
