@@ -116,3 +116,9 @@ cloud-sql-proxy
 # Docker Compose overrides
 docker-compose-*.yml
 !docker-compose.yml
+model_server_bento/models/
+model_server_bento/models/
+model_server_bento/models/
+model_server_bento/models/
+model_server_bento/models/
+model_server_bento/models/

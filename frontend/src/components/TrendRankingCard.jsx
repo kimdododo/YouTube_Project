@@ -2,6 +2,7 @@ import { Star, ArrowUp, ArrowDown, Minus, Bookmark } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useBookmark } from '../contexts/BookmarkContext'
 import { handleImageError, optimizeThumbnailUrl, getOptimizedImageStyles, handleImageLoadQuality } from '../utils/imageUtils'
+import { trackEvent } from '../utils/analytics'
 
 function TrendRankingCard({ rank, video, change }) {
   const navigate = useNavigate()
@@ -9,10 +10,17 @@ function TrendRankingCard({ rank, video, change }) {
   
   const videoId = video.id || video.video_id
   const bookmarked = isBookmarked(videoId)
+  const eventContext = typeof window !== 'undefined' ? `${window.location.pathname}#trend` : 'trend'
 
   const handleBookmarkClick = (e) => {
     e.stopPropagation() // 카드 클릭 이벤트 방지
     toggleBookmark(video)
+    trackEvent('bookmark_toggle', {
+      video_id: videoId,
+      context: eventContext,
+      bookmarked: !bookmarked,
+      rank
+    })
   }
 
   // 썸네일 URL 최적화
@@ -24,7 +32,11 @@ function TrendRankingCard({ rank, video, change }) {
   const optimizedStyles = getOptimizedImageStyles()
 
   const handleClick = () => {
-    const videoId = video.id || video.video_id
+    trackEvent('video_click', {
+      video_id: videoId,
+      context: eventContext,
+      rank
+    })
     if (videoId) {
       // 비디오 상세 페이지로 이동
       navigate(`/video/${videoId}`)

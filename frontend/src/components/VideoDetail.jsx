@@ -5,10 +5,11 @@ import { useBookmark } from '../contexts/BookmarkContext'
 import AppLayout from './layouts/AppLayout'
 import { optimizeThumbnailUrl } from '../utils/imageUtils'
 import { addToWatchHistory } from '../utils/watchHistory'
+import { usePageTracking, trackEvent } from '../utils/analytics'
+import { fetchVideoDetail as fetchVideoDetailApi } from '../api/videos'
 
 const API_BASE_URL = import.meta.env?.VITE_API_URL || '/api'
 const SIMILAR_LIMIT = 12
-const COMMENT_LIMIT = 20
 const SECONDARY_FETCH_DELAY = 250
 
 function VideoDetail() {
@@ -18,8 +19,7 @@ function VideoDetail() {
   const [loading, setLoading] = useState(true)
   const [video, setVideo] = useState(null)
   const [similarVideos, setSimilarVideos] = useState([])
-  const [comments, setComments] = useState([])
-  const [commentAnalysis, setCommentAnalysis] = useState(null)
+  const [analysis, setAnalysis] = useState(null)
   const [error, setError] = useState(null)
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isTransitioning, setIsTransitioning] = useState(false)
@@ -30,6 +30,8 @@ function VideoDetail() {
   
   // timeout refs for cleanup
   const slideTimeoutRef = useRef(null)
+
+  usePageTracking('VideoDetail')
   
   // 헬퍼 함수들을 useCallback으로 메모이제이션
   const getDescriptionPreview = useCallback((text) => {
@@ -70,12 +72,12 @@ function VideoDetail() {
     try {
       setLoading(true)
       setError(null)
-      const response = await fetch(`${API_BASE_URL}/videos/${videoId}`)
-      if (!response.ok) {
+      const detail = await fetchVideoDetailApi(videoId)
+      if (!detail.video) {
         throw new Error('비디오를 찾을 수 없습니다.')
       }
-      const data = await response.json()
-      setVideo(data)
+      setVideo(detail.video)
+      setAnalysis(detail.analysis || null)
       
       // 시청 기록에 추가
       if (data && data.id) {
@@ -103,59 +105,6 @@ function VideoDetail() {
       }
     } catch (err) {
       console.error('[VideoDetail] Failed to fetch similar videos:', err)
-    }
-  }, [videoId])
-
-  const fetchComments = useCallback(async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/comments?video_id=${videoId}&limit=${COMMENT_LIMIT}`)
-      if (response.ok) {
-        const data = await response.json()
-        setComments(Array.isArray(data) ? data : (data.comments || []))
-      } else if (response.status === 404) {
-        console.log('[VideoDetail] Comments API not available, using empty array')
-        setComments([])
-      } else {
-        console.warn('[VideoDetail] Failed to fetch comments:', response.status, response.statusText)
-        setComments([])
-      }
-    } catch (err) {
-      console.log('[VideoDetail] Comments API unavailable:', err.message)
-      setComments([])
-    }
-  }, [videoId])
-
-  const fetchCommentSentiment = useCallback(async () => {
-    try {
-      // FIX: 새로운 LangChain 기반 감정 요약 API 사용
-      const response = await fetch(`${API_BASE_URL}/videos/${videoId}/sentiment-summary?max_comments=${COMMENT_LIMIT}`)
-      if (response.ok) {
-        const data = await response.json()
-        // 응답 형식 변환: { success: true, result: { positive_ratio, negative_ratio, positive_keywords, negative_keywords } }
-        if (data.success && data.result) {
-          const result = data.result
-          // 백엔드 응답을 프론트엔드 형식으로 변환
-          setCommentAnalysis({
-            positive: Math.round(result.positive_ratio * 100), // 비율을 퍼센트로 변환
-            negative: Math.round(result.negative_ratio * 100),
-            positivePoints: result.positive_keywords || [],
-            negativePoints: result.negative_keywords || [],
-            summary: [], // 요약은 별도로 처리하지 않음
-            totalComments: comments.length || 0,
-            analyzedComments: comments.length || 0
-          })
-        } else {
-          console.log('[VideoDetail] Sentiment summary API returned unsuccessful response:', data.message || 'Unknown error')
-          setCommentAnalysis(null)
-        }
-      } else {
-        const errorData = await response.json().catch(() => ({ detail: response.statusText }))
-        console.log('[VideoDetail] Comment sentiment API error:', response.status, errorData)
-        setCommentAnalysis(null)
-      }
-    } catch (err) {
-      console.error('[VideoDetail] Comment sentiment API unavailable:', err.message)
-      setCommentAnalysis(null)
     }
   }, [videoId])
 
@@ -192,8 +141,6 @@ function VideoDetail() {
     let usedIdleCallback = false
 
     const runSecondaryFetches = () => {
-      fetchComments()
-      fetchCommentSentiment()
       fetchAiSummary(videoId)
     }
 
@@ -216,43 +163,8 @@ function VideoDetail() {
         window.clearTimeout(idleId)
       }
     }
-  }, [videoId, fetchComments, fetchCommentSentiment, fetchAiSummary])
+  }, [videoId, fetchAiSummary])
 
-
-  // 댓글 분석 결과 가져오기 (백엔드 API에서 받은 데이터 또는 기본값)
-  const getCommentAnalysis = useCallback(() => {
-    // 실제 API 데이터가 있으면 사용 (새로운 LangChain API 응답 형식)
-    if (commentAnalysis && (commentAnalysis.positive > 0 || commentAnalysis.negative > 0)) {
-      return {
-        ...commentAnalysis,
-        summary: commentAnalysis.summary || [] // summary는 빈 배열로 처리
-      }
-    }
-    
-    // 댓글이 있지만 분석 데이터가 없는 경우 (로딩 중)
-    if (comments.length > 0) {
-      return {
-        positive: 0,
-        negative: 0,
-        positivePoints: [],
-        negativePoints: [],
-        summary: ['댓글을 분석하는 중입니다...'],
-        totalComments: comments.length,
-        analyzedComments: 0
-      }
-    }
-    
-    // 댓글이 없는 경우
-    return {
-      positive: 0,
-      negative: 0,
-      positivePoints: [],
-      negativePoints: [],
-      summary: ['댓글이 없어 분석할 수 없습니다.'],
-      totalComments: 0,
-      analyzedComments: 0
-    }
-  }, [commentAnalysis, comments.length])
 
   const formatDate = useCallback((dateString) => {
     if (!dateString) return ''
@@ -295,6 +207,10 @@ function VideoDetail() {
   const slideNext = useCallback(() => {
     if (isTransitioning || similarVideos.length === 0) return
     setIsTransitioning(true)
+    trackEvent('similar_videos_carousel', {
+      direction: 'next',
+      video_id: video?.id || video?.video_id || videoId
+    })
     setCurrentIndex((prev) => {
       const nextIndex = prev + visibleCards
       // 무한루프: 마지막 카드 다음은 첫 번째로
@@ -310,6 +226,10 @@ function VideoDetail() {
   const slidePrev = useCallback(() => {
     if (isTransitioning || similarVideos.length === 0) return
     setIsTransitioning(true)
+    trackEvent('similar_videos_carousel', {
+      direction: 'prev',
+      video_id: video?.id || video?.video_id || videoId
+    })
     setCurrentIndex((prev) => {
       const prevIndex = prev - visibleCards
       // 무한루프: 첫 번째 카드 이전은 마지막으로
@@ -338,12 +258,6 @@ function VideoDetail() {
     return [...similarVideos, ...similarVideos]
   }, [similarVideos, visibleCards])
 
-  // 모든 useMemo를 early return 이전에 호출
-  const analysisResult = useMemo(() => {
-    if (!video) return null
-    return getCommentAnalysis()
-  }, [getCommentAnalysis, video])
-  
   const thumbnailUrl = useMemo(() => {
     if (!video) return null
     return optimizeThumbnailUrl(video.thumbnail_url, video.id, video.is_shorts || false)
@@ -357,6 +271,40 @@ function VideoDetail() {
   const renderedSimilarVideos = useMemo(() => 
     sliderVideos.length > 0 ? sliderVideos : similarVideos,
     [sliderVideos, similarVideos]
+  )
+
+  const sentimentPercentages = useMemo(() => {
+    if (!analysis?.sentiment_ratio) return null
+    const normalize = (value = 0) => {
+      if (value <= 1) {
+        return Math.round(value * 100)
+      }
+      return Math.round(value)
+    }
+    return {
+      positive: normalize(analysis.sentiment_ratio.pos),
+      neutral: normalize(analysis.sentiment_ratio.neu),
+      negative: normalize(analysis.sentiment_ratio.neg),
+    }
+  }, [analysis])
+
+  const topKeywords = useMemo(
+    () => (analysis?.top_keywords || []).slice(0, 12),
+    [analysis]
+  )
+
+  const topComments = useMemo(
+    () => (analysis?.top_comments || []).slice(0, 4),
+    [analysis]
+  )
+
+  const sentimentBars = useMemo(
+    () => [
+      { label: '긍정', value: sentimentPercentages?.positive ?? 0, color: 'bg-emerald-500' },
+      { label: '중립', value: sentimentPercentages?.neutral ?? 0, color: 'bg-slate-400' },
+      { label: '부정', value: sentimentPercentages?.negative ?? 0, color: 'bg-rose-500' },
+    ],
+    [sentimentPercentages]
   )
 
   if (loading) {
@@ -493,7 +441,15 @@ function VideoDetail() {
                 {/* 모든 description에 더보기/간략히 버튼 표시 */}
                 {video.description && (
                   <button
-                    onClick={() => setShowFullDescription(!showFullDescription)}
+                    onClick={() => {
+                      const nextState = !showFullDescription
+                      setShowFullDescription(nextState)
+                      trackEvent('description_toggle', {
+                        video_id: video.id || video.video_id || videoId,
+                        expanded: nextState,
+                        page: 'VideoDetail'
+                      })
+                    }}
                     className="text-blue-400 hover:text-blue-300 text-sm font-medium transition-colors"
                   >
                     {showFullDescription ? '간략히' : '더보기'}
@@ -518,7 +474,10 @@ function VideoDetail() {
               <div className="flex items-center justify-between mb-2">
                 <div className="text-blue-400 font-semibold">AI 한줄평</div>
                 <button
-                  onClick={() => fetchAiSummary(videoId)}
+                  onClick={() => {
+                    trackEvent('ai_summary_request', { video_id: videoId })
+                    fetchAiSummary(videoId)
+                  }}
                   disabled={isLoadingSummary}
                   className="text-xs text-white/70 hover:text-white transition-colors disabled:opacity-50"
                 >
@@ -541,69 +500,98 @@ function VideoDetail() {
           </div>
         </div>
 
-        {/* 댓글 분석 섹션 */}
-        {comments.length > 0 && (
-          <div className="mb-12">
-            <h2 className="text-2xl font-bold text-white mb-6">댓글 분석</h2>
-            
-            {/* 1행: 긍정 댓글, 부정 댓글, 3줄 요약 (3열 그리드) */}
-            <div className="grid grid-cols-3 gap-4">
-              {/* 긍정 댓글 바 */}
-              <div className="bg-[#1a1f3a]/80 backdrop-blur-sm rounded-lg p-4 border border-blue-900/30 flex flex-col">
-                <button className="w-full bg-gradient-to-r from-blue-600 to-blue-500 text-white font-bold text-base py-3 px-4 rounded-lg text-left mb-3 cursor-default">
-                  긍정 댓글 {analysisResult.positive || 0}%
-                </button>
-                {/* 긍정 피드백 목록 */}
-                {analysisResult.positivePoints && analysisResult.positivePoints.length > 0 ? (
-                  <div className="space-y-1.5 flex-1">
-                    {analysisResult.positivePoints.map((point, idx) => (
-                      <div key={idx} className="text-white text-xs">
-                        {point}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-white/60 text-xs">긍정 피드백이 없습니다.</div>
-                )}
-              </div>
+        {/* AI 댓글 인사이트 섹션 */}
+        <div className="mb-12">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold text-white">AI 댓글 인사이트</h2>
+            {analysis?.model?.sentiment_model && (
+              <span className="text-xs text-white/50">
+                모델: {analysis.model.sentiment_model} · {analysis.model.version || 'v1'}
+              </span>
+            )}
+          </div>
 
-              {/* 부정 댓글 바 */}
-              <div className="bg-[#1a1f3a]/80 backdrop-blur-sm rounded-lg p-4 border border-red-900/30 flex flex-col">
-                <button className="w-full bg-gradient-to-r from-red-600 to-red-500 text-white font-bold text-base py-3 px-4 rounded-lg text-left mb-3 cursor-default">
-                  부정 댓글 {analysisResult.negative || 0}%
-                </button>
-                {/* 부정 피드백 목록 */}
-                {analysisResult.negativePoints && analysisResult.negativePoints.length > 0 ? (
-                  <div className="space-y-1.5 flex-1">
-                    {analysisResult.negativePoints.map((point, idx) => (
-                      <div key={idx} className="text-white text-xs">
-                        {point}
+          {analysis ? (
+            <div className="grid gap-6 lg:grid-cols-3">
+              {/* 감정 비율 */}
+              <div className="bg-[#11172b]/80 backdrop-blur border border-white/5 rounded-xl p-6 shadow-xl lg:col-span-1">
+                <h3 className="text-white font-semibold mb-4">댓글 감정 비율</h3>
+                <div className="space-y-4">
+                  {sentimentBars.map(({ label, value, color }) => (
+                    <div key={label}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-white/70 text-sm">{label}</span>
+                        <span className="text-white font-semibold text-sm">{value}%</span>
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-white/60 text-xs">부정 피드백이 없습니다.</div>
-                )}
-              </div>
-
-              {/* 댓글 3줄 요약 */}
-              <div className="bg-[#1a1f3a]/80 backdrop-blur-sm rounded-lg p-4 border border-blue-900/30 flex flex-col">
-                <h3 className="text-white font-bold text-base mb-3">댓글 3줄 요약</h3>
-                <div className="space-y-2 flex-1">
-                  {analysisResult.summary && analysisResult.summary.length > 0 ? (
-                    analysisResult.summary.map((item, idx) => (
-                      <p key={idx} className="text-white/90 text-xs leading-relaxed">
-                        {item}
-                      </p>
-                    ))
-                  ) : (
-                    <p className="text-white/60 text-xs">요약 정보가 없습니다.</p>
-                  )}
+                      <div className="w-full h-2.5 bg-white/5 rounded-full overflow-hidden">
+                        <div
+                          className={`${color} h-full rounded-full transition-all`}
+                          style={{ width: `${Math.min(100, Math.max(0, value))}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
+
+              {/* 상위 키워드 */}
+              <div className="bg-[#11172b]/80 backdrop-blur border border-white/5 rounded-xl p-6 shadow-xl lg:col-span-1">
+                <h3 className="text-white font-semibold mb-4">좋아요 높은 키워드</h3>
+                {topKeywords.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {topKeywords.map((keyword) => (
+                      <div
+                        key={keyword.keyword}
+                        className="px-3 py-1.5 rounded-full bg-blue-600/20 text-blue-100 text-sm flex items-center gap-2"
+                      >
+                        <span>#{keyword.keyword}</span>
+                        <span className="text-white/60 text-xs">{keyword.weight?.toFixed(1)}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-white/50 text-sm">분석된 키워드가 없습니다.</p>
+                )}
+              </div>
+
+              {/* 상위 댓글 */}
+              <div className="bg-[#11172b]/80 backdrop-blur border border-white/5 rounded-xl p-6 shadow-xl lg:col-span-1">
+                <h3 className="text-white font-semibold mb-4">좋아요 상위 댓글</h3>
+                {topComments.length > 0 ? (
+                  <div className="space-y-4">
+                    {topComments.map((comment) => (
+                      <div key={comment.comment_id} className="p-3 rounded-lg bg-white/5">
+                        <div className="flex items-center justify-between mb-2">
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                              comment.label === 'pos'
+                                ? 'bg-emerald-500/20 text-emerald-300'
+                                : comment.label === 'neg'
+                                ? 'bg-rose-500/20 text-rose-300'
+                                : 'bg-slate-500/20 text-slate-200'
+                            }`}
+                          >
+                            {comment.label?.toUpperCase() || 'NEU'}
+                          </span>
+                          <span className="text-white/60 text-xs">
+                            👍 {comment.like_count?.toLocaleString() || 0}
+                          </span>
+                        </div>
+                        <p className="text-white/80 text-sm leading-relaxed">{comment.text}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-white/50 text-sm">상위 댓글 데이터가 없습니다.</p>
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="bg-[#11172b]/70 border border-dashed border-white/10 rounded-xl p-6 text-white/60 text-sm">
+              분석 데이터가 아직 준비되지 않았습니다. 잠시 후 다시 확인해주세요.
+            </div>
+          )}
+        </div>
 
         {/* 추천 영상 섹션 - 무한루프 슬라이더 */}
         {similarVideos.length > 0 && (

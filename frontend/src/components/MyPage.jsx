@@ -6,6 +6,7 @@ import MyPageLayout from './layouts/MyPageLayout'
 import { getRecommendedVideos } from '../api/videos'
 import { getWatchHistory, formatWatchTime } from '../utils/watchHistory'
 import { changePassword, saveTravelPreferences, fetchTravelPreferences, getToken, logout as clearAuth, getCurrentUser, getMyKeywords, updateUserProfile } from '../api/auth'
+import { usePageTracking } from '../utils/analytics'
 import {
   Chart as ChartJS,
   ArcElement,
@@ -48,6 +49,7 @@ const TRAVEL_KEYWORD_LABELS = {
 }
 
 function MyPage() {
+  usePageTracking('MyPage')
   const navigate = useNavigate()
   const location = useLocation()
   const [activeTab, setActiveTab] = useState('insight')

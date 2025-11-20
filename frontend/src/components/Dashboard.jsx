@@ -6,6 +6,7 @@ import AppLayout from './layouts/AppLayout'
 import { getRecommendedVideos, getTrendVideos, getMostLikedVideos } from '../api/videos'
 import { getAllChannels } from '../api/channels'
 import { optimizeThumbnailUrl, getOptimizedImageStyles, handleImageLoadQuality } from '../utils/imageUtils'
+import { usePageTracking } from '../utils/analytics'
 
 // 스크롤 애니메이션 훅
 function useScrollAnimation() {
@@ -147,6 +148,8 @@ function Dashboard() {
   const autoScrollRef = useRef(null)
   const trendScrollContainerRef = useRef(null)
   const trendAutoScrollRef = useRef(null)
+
+  usePageTracking('Dashboard')
 
   // 로그인 상태 체크는 AppLayout에서 처리
 

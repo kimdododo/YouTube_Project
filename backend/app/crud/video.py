@@ -258,3 +258,42 @@ def get_comments_for_video(db: Session, video_id: str, max_comments: int = 200) 
         logger.error(f"[CRUD] Error fetching comments for video {video_id}: {e}")
         return []
 
+
+def get_comment_payloads_for_video(
+    db: Session,
+    video_id: str,
+    limit: int = 100,
+) -> List[dict]:
+    """
+    Fetch comment payloads (id/text/like_count) for Bento analysis.
+    """
+    try:
+        query = text(
+            """
+            SELECT id, text, COALESCE(like_count, 0) AS like_count
+            FROM travel_comments
+            WHERE video_id = :video_id
+              AND text IS NOT NULL
+              AND text != ''
+            ORDER BY like_count DESC, created_at DESC
+            LIMIT :limit
+        """
+        )
+        rows = db.execute(query, {"video_id": video_id, "limit": limit}).fetchall()
+        payloads: List[dict] = []
+        for row in rows:
+            payloads.append(
+                {
+                    "comment_id": str(row[0]),
+                    "text": row[1],
+                    "like_count": int(row[2]) if row[2] is not None else 0,
+                }
+            )
+        return payloads
+    except Exception as e:
+        import logging
+
+        logger = logging.getLogger(__name__)
+        logger.error("[CRUD] Error building comment payloads for %s: %s", video_id, e)
+        return []
+

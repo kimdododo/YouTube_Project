@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom'
 import VideoCard from './VideoCard'
 import AppLayout from './layouts/AppLayout'
 import { getAllVideos } from '../api/videos'
+import { usePageTracking, trackEvent } from '../utils/analytics'
 
 const THEME_CONFIG = {
   budget: {
@@ -29,6 +30,7 @@ function ThemeVideos() {
   const [error, setError] = useState(null)
 
   const themeConfig = THEME_CONFIG[theme] || THEME_CONFIG.budget
+  usePageTracking(`ThemeVideos-${theme}`)
 
   // 테마별 영상 가져오기
   useEffect(() => {
@@ -82,7 +84,12 @@ function ThemeVideos() {
         return out
       }
       
-      setVideos(dedupeById(filteredVideos))
+      const deduped = dedupeById(filteredVideos)
+      setVideos(deduped)
+      trackEvent('theme_videos_loaded', {
+        theme,
+        count: deduped.length
+      })
     } catch (error) {
       console.error('[ThemeVideos] Failed to fetch theme videos:', error)
       setError(error.message || '영상을 불러오는데 실패했습니다.')

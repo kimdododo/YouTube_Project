@@ -54,3 +54,39 @@ class VideoListResponse(BaseModel):
     videos: list[VideoResponse]
     total: int
 
+
+# --- Video detail analysis schemas ---------------------------------------------------------
+
+class SentimentRatio(BaseModel):
+    pos: float = 0.0
+    neu: float = 0.0
+    neg: float = 0.0
+
+
+class TopKeyword(BaseModel):
+    keyword: str
+    weight: float
+
+
+class TopComment(BaseModel):
+    comment_id: str
+    text: str
+    like_count: int = 0
+    label: Optional[str] = None
+    score: Optional[float] = None
+
+
+class VideoAnalysis(BaseModel):
+    video_id: Optional[str] = None
+    sentiment_ratio: Optional[SentimentRatio] = None
+    top_comments: list[TopComment] = Field(default_factory=list)
+    top_keywords: list[TopKeyword] = Field(default_factory=list)
+    model: Optional[dict[str, Any]] = None
+
+    class Config:
+        extra = "allow"
+
+
+class VideoDetailResponse(BaseModel):
+    video: VideoResponse
+    analysis: Optional[VideoAnalysis] = None

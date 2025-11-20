@@ -3,6 +3,7 @@ import AppLayout from './layouts/AppLayout'
 import TrendRankingCard from './TrendRankingCard'
 import VideoCard from './VideoCard'
 import { getTrendVideos, getDiversifiedVideos } from '../api/videos'
+import { usePageTracking, trackEvent } from '../utils/analytics'
 
 function TravelTrends() {
   const [activeTab, setActiveTab] = useState('trending')
@@ -11,6 +12,8 @@ function TravelTrends() {
   const [trendVideos, setTrendVideos] = useState([])
   const [themeVideos, setThemeVideos] = useState([]) // 테마별 여행지 비디오
   const [loading, setLoading] = useState(true)
+
+  usePageTracking('TravelTrends')
 
   // 테마별 카테고리 목록
   const themeCategories = [
@@ -263,7 +266,10 @@ function TravelTrends() {
         {/* Main Tabs */}
         <div className="flex space-x-4 mb-4">
           <button
-            onClick={() => setActiveTab('trending')}
+            onClick={() => {
+              setActiveTab('trending')
+              trackEvent('travel_trends_tab_click', { tab: 'trending' })
+            }}
             className={`px-6 py-3 rounded-lg font-medium transition-all ${
               activeTab === 'trending'
                 ? 'bg-blue-600 text-white'
@@ -273,7 +279,10 @@ function TravelTrends() {
             지금 뜨는 여행
           </button>
           <button
-            onClick={() => setActiveTab('theme')}
+            onClick={() => {
+              setActiveTab('theme')
+              trackEvent('travel_trends_tab_click', { tab: 'theme' })
+            }}
             className={`px-6 py-3 rounded-lg font-medium transition-all ${
               activeTab === 'theme'
                 ? 'bg-blue-600 text-white'
@@ -288,7 +297,10 @@ function TravelTrends() {
         {activeTab === 'trending' && (
           <div className="flex space-x-3 mb-6">
             <button
-              onClick={() => setActivePeriod('daily')}
+              onClick={() => {
+                setActivePeriod('daily')
+                trackEvent('travel_trends_period_click', { period: 'daily' })
+              }}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                 activePeriod === 'daily'
                   ? 'bg-blue-600 text-white'
@@ -298,7 +310,10 @@ function TravelTrends() {
               일간
             </button>
             <button
-              onClick={() => setActivePeriod('weekly')}
+              onClick={() => {
+                setActivePeriod('weekly')
+                trackEvent('travel_trends_period_click', { period: 'weekly' })
+              }}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                 activePeriod === 'weekly'
                   ? 'bg-blue-600 text-white'
@@ -308,7 +323,10 @@ function TravelTrends() {
               주간
             </button>
             <button
-              onClick={() => setActivePeriod('monthly')}
+              onClick={() => {
+                setActivePeriod('monthly')
+                trackEvent('travel_trends_period_click', { period: 'monthly' })
+              }}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                 activePeriod === 'monthly'
                   ? 'bg-blue-600 text-white'
@@ -326,7 +344,10 @@ function TravelTrends() {
             {themeCategories.map((category) => (
               <button
                 key={category.id}
-                onClick={() => setActiveThemeCategory(category.id)}
+                onClick={() => {
+                  setActiveThemeCategory(category.id)
+                  trackEvent('travel_trends_theme_click', { theme: category.id })
+                }}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                   activeThemeCategory === category.id
                     ? 'bg-blue-600 text-white'

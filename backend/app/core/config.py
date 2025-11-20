@@ -92,6 +92,9 @@ except (ValueError, AttributeError):
 # SimCSE Embedding Server 설정
 EMBEDDING_SERVER_URL = os.getenv("EMBEDDING_SERVER_URL", "").strip()
 
+# BentoML 서비스 (감정/키워드 분석) 설정
+BENTO_BASE_URL = os.getenv("BENTO_BASE_URL", "").strip()
+
 # 디버그: 환경 변수 로드 확인 (비밀번호는 마스킹)
 print(f"[DEBUG] Config loaded:")
 print(f"[DEBUG]   DB_USER: {DB_USER if DB_USER else '(empty)'}")
@@ -108,4 +111,5 @@ print(f"[DEBUG]   SMTP_PORT: {SMTP_PORT}")
 print(f"[DEBUG]   SMTP_USERNAME: {SMTP_USERNAME if SMTP_USERNAME else '(empty)'}")
 print(f"[DEBUG]   SMTP_PASSWORD: {'SET' if SMTP_PASSWORD else '(empty)'}")
 print(f"[DEBUG]   SMTP_FROM_EMAIL: {SMTP_FROM_EMAIL if SMTP_FROM_EMAIL else '(empty)'}")
+print(f"[DEBUG]   BENTO_BASE_URL: {BENTO_BASE_URL if BENTO_BASE_URL else '(not set)'}")
 

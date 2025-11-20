@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { useState, useEffect, useRef } from 'react'
 import { useBookmark } from '../contexts/BookmarkContext'
 import { handleImageError, optimizeThumbnailUrl, getOptimizedImageStyles, handleImageLoadQuality } from '../utils/imageUtils'
+import { trackEvent } from '../utils/analytics'
 
-function VideoCard({ video, simple = false, featured = false, hideBookmark = false, active = false, themeColors = null, cardWidth = null, cardHeight = null }) {
+function VideoCard({ video, simple = false, featured = false, hideBookmark = false, active = false, themeColors = null, cardWidth = null, cardHeight = null, analyticsContext = null }) {
   const navigate = useNavigate()
   const { isBookmarked, toggleBookmark } = useBookmark()
   const thumbnailRef = useRef(null)
@@ -12,6 +13,7 @@ function VideoCard({ video, simple = false, featured = false, hideBookmark = fal
   
   const videoId = video.id || video.video_id
   const bookmarked = isBookmarked(videoId)
+  const eventContext = analyticsContext || (typeof window !== 'undefined' ? window.location.pathname : 'unknown')
 
   // 반응형 감지
   useEffect(() => {
@@ -26,6 +28,11 @@ function VideoCard({ video, simple = false, featured = false, hideBookmark = fal
   const handleBookmarkClick = (e) => {
     e.stopPropagation() // 카드 클릭 이벤트 방지
     toggleBookmark(video)
+    trackEvent('bookmark_toggle', {
+      video_id: videoId,
+      context: eventContext,
+      bookmarked: !bookmarked
+    })
   }
   
   // 썸네일 URL 최적화 (videoId가 있으면 항상 고화질 URL 사용)
@@ -139,7 +146,11 @@ function VideoCard({ video, simple = false, featured = false, hideBookmark = fal
   const keywordColor = getKeywordColor(videoKeyword)
 
   const handleClick = () => {
-    const videoId = video.id || video.video_id
+    trackEvent('video_click', {
+      video_id: videoId,
+      context: eventContext,
+      layout: featured ? 'featured' : simple ? 'simple' : 'default'
+    })
     if (videoId) {
       // 비디오 상세 페이지로 이동
       navigate(`/video/${videoId}`)

@@ -1,0 +1,97 @@
+name: Build and Deploy Bento SimCSE
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - "model_server_bento/**"
+      - ".github/workflows/deploy-simcse.yml"
+  workflow_dispatch:
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REGION: asia-northeast3
+  SERVICE_NAME: simcse-server
+  DOCKER_IMAGE: docker.io/${{ secrets.DOCKER_USERNAME }}/simcse-serve-bento
+  EMBED_MODEL_DIR: gs://yt-model-server/bento-models/simcse
+  SENTIMENT_MODEL_DIR: gs://yt-model-server/bento-models/sentiment
+  ASPECT_MODEL_DIR: gs://yt-model-server/bento-models/aspect
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 🔐 Authenticate to Google Cloud
+        id: auth
+        if: ${{ secrets.GCP_SA_KEY != '' }}
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          create_credentials_file: true
+
+      - name: ☁️ Configure gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+
+      - name: 🐳 Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: 📦 Install dependencies
+        working-directory: model_server_bento
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: 🧱 Bento build
+        working-directory: model_server_bento
+        env:
+          EMBED_MODEL_DIR: ${{ env.EMBED_MODEL_DIR }}
+          SENTIMENT_MODEL_DIR: ${{ env.SENTIMENT_MODEL_DIR }}
+          ASPECT_MODEL_DIR: ${{ env.ASPECT_MODEL_DIR }}
+        run: bentoml build
+
+      - name: 🐳 Containerize Bento
+        run: |
+          bentoml containerize simcse_onnx_service:latest -t ${{ env.DOCKER_IMAGE }}:${{ github.sha }}
+          docker tag ${{ env.DOCKER_IMAGE }}:${{ github.sha }} ${{ env.DOCKER_IMAGE }}:latest
+
+      - name: 🚀 Push images
+        run: |
+          docker push ${{ env.DOCKER_IMAGE }}:${{ github.sha }}
+          docker push ${{ env.DOCKER_IMAGE }}:latest
+
+      - name: ☁️ Deploy to Cloud Run
+        run: |
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --image ${{ env.DOCKER_IMAGE }}:${{ github.sha }} \
+            --region ${{ env.REGION }} \
+            --project ${{ env.PROJECT_ID }} \
+            --platform managed \
+            --allow-unauthenticated \
+            --port 8080 \
+            --cpu 2 \
+            --memory 2Gi \
+            --timeout 300 \
+            --max-instances 10 \
+            --service-account=github-actions@${{ env.PROJECT_ID }}.iam.gserviceaccount.com \
+            --set-env-vars EMBED_MODEL_DIR=${{ env.EMBED_MODEL_DIR }},SENTIMENT_MODEL_DIR=${{ env.SENTIMENT_MODEL_DIR }},ASPECT_MODEL_DIR=${{ env.ASPECT_MODEL_DIR }}
+

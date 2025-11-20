@@ -110,6 +110,30 @@ const createYouTubeUrl = (videoId) => {
 }
 
 /**
+ * Fetch a single video with AI analysis payload.
+ * @param {string} videoId
+ * @returns {Promise<{video: Object, analysis: Object | null}>}
+ */
+export const fetchVideoDetail = async (videoId) => {
+  if (!videoId) {
+    throw new Error('videoId is required')
+  }
+
+  const response = await fetch(`${API_BASE_URL}/videos/${videoId}`)
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ detail: response.statusText }))
+    throw new Error(errorData.detail || 'Failed to fetch video detail')
+  }
+
+  const data = await response.json()
+  const detail = data?.video ? data : { video: data, analysis: data?.analysis }
+  return {
+    video: detail.video || null,
+    analysis: detail.analysis || null,
+  }
+}
+
+/**
  * 가장 많은 좋아요를 받은 영상 목록 조회
  * @returns {Promise<Array>} 좋아요가 많은 영상 목록
  */

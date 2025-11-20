@@ -4,6 +4,7 @@ import MainRecommendationSection from './recommend/MainRecommendationSection'
 import ThemeRecommendationSection from './recommend/ThemeRecommendationSection'
 import useThemeVideos from '../hooks/useThemeVideos'
 import { getPersonalizedRecommendations, getRecommendedVideos, getTrendVideos, getMostLikedVideos, getAllVideos, getDiversifiedVideos, fetchPersonalizedRecommendations } from '../api/videos'
+import { usePageTracking, trackEvent } from '../utils/analytics'
 
 function RecommendedVideos() {
   const [loading, setLoading] = useState(true)
@@ -13,6 +14,7 @@ function RecommendedVideos() {
   const [userName, setUserName] = useState('')
   const [userId, setUserId] = useState(null)
   const [coldStart, setColdStart] = useState(false)
+  usePageTracking('RecommendedVideos')
   
   // 테마별 비디오 데이터 가져오기
   const { themes, loading: themesLoading } = useThemeVideos()
@@ -22,7 +24,7 @@ function RecommendedVideos() {
     const fetchUserId = async () => {
       try {
         // JWT 토큰이 있으면 사용자 정보 조회
-        const token = localStorage.getItem('token')
+        const token = localStorage.getItem('access_token') || localStorage.getItem('token')
         if (token) {
           const API_BASE_URL = import.meta.env?.VITE_API_URL || '/api'
           const fixedUrl = API_BASE_URL.endsWith('/api') ? API_BASE_URL : `${API_BASE_URL}/api`
@@ -55,7 +57,8 @@ function RecommendedVideos() {
       setLoading(true)
       setError(null)
       console.log('[RecommendedVideos] Starting to fetch videos...')
-      
+      let usedColdStart = false
+      let recommendationSource = userId ? 'personalized' : 'general'
       let recommended = []
       
       // NEW: SimCSE 기반 개인화 추천 시도 (user_id가 있는 경우)
@@ -74,7 +77,9 @@ function RecommendedVideos() {
         } catch (personalizedError) {
           console.error('[RecommendedVideos] SimCSE personalized recommendation failed:', personalizedError)
           // Fallback to general recommendations
+          usedColdStart = true
           setColdStart(true)
+          recommendationSource = 'personalized_fallback'
           try {
             recommended = await getDiversifiedVideos(200, 1)
             console.log('[RecommendedVideos] Fallback to diversified videos:', recommended?.length || 0)
@@ -85,7 +90,8 @@ function RecommendedVideos() {
           }
         }
       } else {
-        // user_id가 없으면 기존 로직 사용
+        // user_id가 없으면 기존 로직 사용 (cold-start 안내는 표시하지 않음)
+        setColdStart(false)
         const travelPreferences = JSON.parse(localStorage.getItem('travelPreferences') || '[]')
         const hasPreferences = travelPreferences.length > 0
         
@@ -189,6 +195,13 @@ function RecommendedVideos() {
       }
       
       setRecommendedVideos(diversified)
+      trackEvent('recommendations_rendered', {
+        page: 'RecommendedVideos',
+        source: recommendationSource,
+        count: diversified.length,
+        cold_start: usedColdStart,
+        user_id_present: Boolean(userId)
+      })
       console.log('[RecommendedVideos] Set recommendedVideos state:', diversified.length)
     } catch (error) {
       console.error('[RecommendedVideos] Failed to fetch recommended videos:', error)

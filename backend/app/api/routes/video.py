@@ -2,19 +2,29 @@
 Video API 라우터
 비디오 관련 REST API 엔드포인트
 """
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from app.core.database import get_db
-from app.schemas.video import VideoCreate, VideoResponse, VideoListResponse
+from app.schemas.video import (
+    VideoCreate,
+    VideoResponse,
+    VideoListResponse,
+    VideoDetailResponse,
+    VideoAnalysis,
+)
 from app.schemas.recommendation import UserPreferenceRequest, RecommendationResponse
 from app.crud import video as crud_video
 from app.recommendations import ContentBasedRecommender
 # ML API 서버 제거됨 - 재랭킹 기능 비활성화
 from app.services.comment_summary import generate_comment_summary
 from app.services.sentiment_summary import summarize_sentiment
+from app.clients.bento import analyze_video_detail_for_bento
 
 router = APIRouter(prefix="/api/videos", tags=["videos"])
+logger = logging.getLogger(__name__)
 # 채널 다양화 추천 (정적 경로 - 동적보다 먼저)
 @router.get("/diversified", response_model=VideoListResponse)
 def get_diversified_videos(
@@ -482,13 +492,30 @@ def get_most_liked_videos(
 
 
 # 동적 경로는 정적 경로 다음에 정의
-@router.get("/{video_id}", response_model=VideoResponse)
-def get_video(video_id: str, db: Session = Depends(get_db)):
-    """특정 비디오 조회 (video_id는 YouTube 비디오 ID 문자열)"""
+@router.get("/{video_id}", response_model=VideoDetailResponse)
+async def get_video(video_id: str, db: Session = Depends(get_db)):
+    """특정 비디오 조회 + Bento 분석 결과"""
     db_video = crud_video.get_video(db, video_id=video_id)
     if db_video is None:
         raise HTTPException(status_code=404, detail="Video not found")
-    return VideoResponse.model_validate(db_video)
+
+    video_payload = VideoResponse.model_validate(db_video)
+    analysis_payload: Optional[VideoAnalysis] = None
+
+    comments = crud_video.get_comment_payloads_for_video(db, video_id=video_id, limit=150)
+    if comments:
+        try:
+            bento_result = await analyze_video_detail_for_bento(
+                video_id=video_id,
+                title=db_video.title or "",
+                description=db_video.description or "",
+                comments=comments,
+            )
+            analysis_payload = VideoAnalysis.model_validate(bento_result)
+        except Exception as exc:
+            logger.warning("[VideoDetail] Bento analysis failed for %s: %s", video_id, exc)
+
+    return VideoDetailResponse(video=video_payload, analysis=analysis_payload)
 
 
 @router.get("/{video_id}/keywords")

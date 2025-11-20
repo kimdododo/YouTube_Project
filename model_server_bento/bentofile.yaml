@@ -1,0 +1,18 @@
+service: "service:SimCSEService"
+
+labels:
+  project: "youtube-travel"
+  component: "simcse-model-server"
+
+include:
+  - "service.py"
+  - "start.sh"
+  - "models/**"
+
+python:
+  packages:
+    - bentoml>=1.4.0,<2.0.0
+    - onnxruntime>=1.23.2,<2.0.0
+    - transformers>=4.37.0,<5.0.0
+    - numpy>=2.2.0,<3.0.0
+    - python-multipart>=0.0.6,<1.0.0
