@@ -38,7 +38,6 @@ jobs:
 
       - name: 🔐 Authenticate to Google Cloud
         id: auth
-        if: ${{ secrets.GCP_SA_KEY != '' }}
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
