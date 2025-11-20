@@ -32,7 +32,7 @@ EXPOSE 8080
 
 # 시작 스크립트 생성 (마이그레이션 + 서버 시작)
 RUN echo '#!/bin/bash\n\
-set -e\n\
+set -x\n\
 export PYTHONPATH=/app\n\
 echo "=== Backend Startup Script ==="\n\
 echo "Timestamp: $(date)"\n\
@@ -44,10 +44,14 @@ echo "  DB_PORT=${DB_PORT:-not set}"\n\
 echo "  DB_PASSWORD=${DB_PASSWORD:+***set***}"\n\
 echo "  PORT=${PORT:-8080}"\n\
 echo "  PYTHONPATH=${PYTHONPATH}"\n\
+echo "  BENTO_BASE_URL=${BENTO_BASE_URL:-not set}"\n\
 cd /app\n\
 echo "Current directory: $(pwd)"\n\
 echo "Python version: $(python --version)"\n\
 echo "Uvicorn location: $(which uvicorn || echo not found)"\n\
+echo "Testing Python imports..."\n\
+python -c "import sys; print(f\"Python path: {sys.path}\")" || echo "⚠️ Python path check failed"\n\
+python -c "import app.main; print(\"✅ app.main imported successfully\")" || { echo "❌ Failed to import app.main"; exit 1; }\n\
 echo "Running database migrations..."\n\
 MIGRATION_START=$(date +%s)\n\
 # 마이그레이션 실행 (타임아웃 없이, 실패해도 계속 진행)\n\
@@ -62,12 +66,13 @@ else\n\
   echo "⚠️ Migration failed after ${MIGRATION_DURATION}s (exit code: $MIGRATION_EXIT_CODE)"\n\
   echo "⚠️ Continuing with server start despite migration failure..."\n\
 fi\n\
-echo "Starting FastAPI server on port ${PORT:-8080}..."\n\
+PORT=${PORT:-8080}\n\
+echo "Starting FastAPI server on port ${PORT}..."\n\
 echo "Server start time: $(date)"\n\
-echo "PORT environment variable: ${PORT:-8080}"\n\
+echo "PORT environment variable: ${PORT}"\n\
 # Cloud Run이 PORT 환경 변수를 제공하므로 반드시 사용\n\
 # Python으로 직접 실행하여 더 나은 에러 메시지 확인\n\
-exec python -m uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080} --timeout-keep-alive 30 --log-level info\n\
+exec python -m uvicorn app.main:app --host 0.0.0.0 --port ${PORT} --timeout-keep-alive 30 --log-level info --access-log\n\
 ' > /app/start.sh && chmod +x /app/start.sh
 
 CMD ["/app/start.sh"]
