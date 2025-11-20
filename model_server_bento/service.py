@@ -21,50 +21,105 @@ import numpy as np
 import onnxruntime as ort
 from pydantic import BaseModel, Field, validator
 from transformers import AutoTokenizer
+from google.cloud import storage
 
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-EMBED_MODEL_DIR = Path(os.getenv("EMBED_MODEL_DIR", "models/simcse"))
-SENTIMENT_MODEL_DIR = Path(os.getenv("SENTIMENT_MODEL_DIR", "models/sentiment"))
-DEFAULT_MODEL_PATH = Path(os.getenv("MODEL_PATH", EMBED_MODEL_DIR / "model.onnx"))
-DEFAULT_TOKENIZER_PATH = Path(
-    os.getenv("TOKENIZER_PATH", EMBED_MODEL_DIR / "tokenizer")
+EMBED_MODEL_DIR = os.getenv("EMBED_MODEL_DIR", "models/simcse")
+SENTIMENT_MODEL_DIR = os.getenv("SENTIMENT_MODEL_DIR", "models/sentiment")
+DEFAULT_MODEL_PATH = os.getenv("MODEL_PATH", str(Path(EMBED_MODEL_DIR) / "model.onnx"))
+DEFAULT_TOKENIZER_PATH = os.getenv(
+    "TOKENIZER_PATH", str(Path(EMBED_MODEL_DIR) / "tokenizer")
 )
-DEFAULT_SENTIMENT_MODEL_PATH = Path(
-    os.getenv("SENTIMENT_MODEL_PATH", SENTIMENT_MODEL_DIR / "model.onnx")
+DEFAULT_SENTIMENT_MODEL_PATH = os.getenv(
+    "SENTIMENT_MODEL_PATH", str(Path(SENTIMENT_MODEL_DIR) / "model.onnx")
 )
-DEFAULT_SENTIMENT_TOKENIZER_PATH = Path(
-    os.getenv(
-        "SENTIMENT_TOKENIZER_PATH", SENTIMENT_MODEL_DIR / "tokenizer"
-    )
+DEFAULT_SENTIMENT_TOKENIZER_PATH = os.getenv(
+    "SENTIMENT_TOKENIZER_PATH", str(Path(SENTIMENT_MODEL_DIR) / "tokenizer")
 )
+MODEL_CACHE_ROOT = Path(os.getenv("MODEL_CACHE_ROOT", "/tmp/bento_model_cache"))
 SENTIMENT_LABELS = ["negative", "neutral", "positive"]
 MAX_SEQ_LENGTH = int(os.getenv("MAX_SEQ_LENGTH", "256"))
 NORMALIZE = os.getenv("NORMALIZE_EMBEDDINGS", "true").lower() in {"1", "true", "yes"}
 
 
-def _ensure_file(path: Path, description: str) -> Path:
+_storage_client = None
+
+
+def _get_storage_client() -> storage.Client:
+    global _storage_client
+    if _storage_client is None:
+        _storage_client = storage.Client()
+    return _storage_client
+
+
+def _download_from_gcs(gcs_uri: str, cache_subdir: str, is_file: bool) -> Path:
+    if not gcs_uri.startswith("gs://"):
+        raise ValueError(f"Invalid GCS URI: {gcs_uri}")
+
+    bucket_path = gcs_uri[5:]
+    if "/" not in bucket_path:
+        raise ValueError(f"GCS URI must include object path: {gcs_uri}")
+
+    bucket_name, object_path = bucket_path.split("/", 1)
+    cache_dir = MODEL_CACHE_ROOT / cache_subdir
+    cache_dir.mkdir(parents=True, exist_ok=True)
+
+    target_root = cache_dir / Path(object_path).name
+    client = _get_storage_client()
+    bucket = client.bucket(bucket_name)
+
+    if is_file:
+        blob = bucket.blob(object_path)
+        target_root.parent.mkdir(parents=True, exist_ok=True)
+        blob.download_to_filename(target_root)
+        return target_root
+
+    prefix = object_path.rstrip("/") + "/"
+    blobs = list(bucket.list_blobs(prefix=prefix))
+    if not blobs:
+        raise FileNotFoundError(f"No files found at {gcs_uri}")
+
+    for blob in blobs:
+        if blob.name.endswith("/"):
+            continue
+        relative = Path(blob.name[len(prefix) :])
+        destination = target_root / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        blob.download_to_filename(destination)
+    return target_root
+
+
+def _ensure_local(path: Path, description: str, expect_dir: bool = False) -> Path:
+    if expect_dir:
+        if not path.exists() or not path.is_dir():
+            raise FileNotFoundError(f"{description} not found at {path}")
+        return path
     if not path.exists():
         raise FileNotFoundError(f"{description} not found at {path}")
     return path
 
 
-def _ensure_dir(path: Path, description: str) -> Path:
-    if not path.exists() or not path.is_dir():
-        raise FileNotFoundError(f"{description} not found at {path}")
-    return path
+def _resolve_path(raw: str, description: str, cache_subdir: str, is_file: bool) -> Path:
+    if raw.startswith("gs://"):
+        return _download_from_gcs(raw, cache_subdir, is_file)
+    path_obj = Path(raw)
+    return _ensure_local(path_obj, description, expect_dir=not is_file)
 
 
-MODEL_PATH = _ensure_file(DEFAULT_MODEL_PATH, "SimCSE ONNX model")
-TOKENIZER_PATH = _ensure_dir(
-    DEFAULT_TOKENIZER_PATH, "SimCSE tokenizer directory"
+MODEL_PATH = _resolve_path(DEFAULT_MODEL_PATH, "SimCSE ONNX model", "embed_model", True)
+TOKENIZER_PATH = _resolve_path(
+    DEFAULT_TOKENIZER_PATH, "SimCSE tokenizer directory", "embed_tokenizer", False
 )
-SENTIMENT_MODEL_PATH = _ensure_file(
-    DEFAULT_SENTIMENT_MODEL_PATH, "Sentiment ONNX model"
+SENTIMENT_MODEL_PATH = _resolve_path(
+    DEFAULT_SENTIMENT_MODEL_PATH, "Sentiment ONNX model", "sentiment_model", True
 )
-SENTIMENT_TOKENIZER_PATH = _ensure_dir(
-    DEFAULT_SENTIMENT_TOKENIZER_PATH, "Sentiment tokenizer directory"
+SENTIMENT_TOKENIZER_PATH = _resolve_path(
+    DEFAULT_SENTIMENT_TOKENIZER_PATH,
+    "Sentiment tokenizer directory",
+    "sentiment_tokenizer",
+    False,
 )
 
 
