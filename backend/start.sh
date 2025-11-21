@@ -33,19 +33,28 @@ python -c "import fastapi; print('✅ fastapi imported')" || { echo "❌ fastapi
 python -c "import uvicorn; print('✅ uvicorn imported')" || { echo "❌ uvicorn not found"; exit 1; }
 
 echo "Running database migrations (this will test database connection)..."
-if alembic upgrade head 2>&1; then
+echo "=========================================="
+MIGRATION_OUTPUT=$(alembic upgrade head 2>&1)
+MIGRATION_EXIT_CODE=$?
+if [ $MIGRATION_EXIT_CODE -eq 0 ]; then
   echo "✅ Database migrations completed successfully"
+  echo "$MIGRATION_OUTPUT"
 else
-  MIGRATION_EXIT_CODE=$?
   echo "❌ Migration failed (exit code: $MIGRATION_EXIT_CODE)"
-  echo "This indicates a database connection problem."
+  echo "=========================================="
+  echo "Migration output:"
+  echo "$MIGRATION_OUTPUT"
+  echo "=========================================="
+  echo "This indicates a database connection or migration problem."
   echo "Please check:"
   echo "  1. Cloud SQL instance is running"
   echo "  2. Service account has Cloud SQL Client role"
   echo "  3. VPC connector is properly configured"
   echo "  4. Environment variables are set correctly"
+  echo "  5. Migration files are correct (check for missing down_revision)"
   exit $MIGRATION_EXIT_CODE
 fi
+echo "=========================================="
 
 PORT=${PORT:-8080}
 echo "Starting FastAPI server on port ${PORT}..."

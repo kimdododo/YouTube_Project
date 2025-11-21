@@ -1,7 +1,7 @@
 """create search_history table
 
 Revision ID: 20250115_01
-Revises: 20250103_01
+Revises: None (initial migration)
 Create Date: 2025-01-15 00:00:00
 """
 
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = "20250115_01"
-down_revision = "20250103_01"
+down_revision = None  # 첫 번째 마이그레이션 (20250103_01 파일이 없으므로 None으로 변경)
 branch_labels = None
 depends_on = None
 
