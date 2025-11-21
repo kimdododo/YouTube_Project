@@ -267,6 +267,12 @@ def _load_sentiment_labels() -> List[str]:
 
 
 SENTIMENT_LABELS = _load_sentiment_labels()
+POS_LABEL_INDEX = next(
+    (idx for idx, label in enumerate(SENTIMENT_LABELS) if str(label).lower().startswith("pos")), None
+)
+NEG_LABEL_INDEX = next(
+    (idx for idx, label in enumerate(SENTIMENT_LABELS) if str(label).lower().startswith("neg")), None
+)
 
 
 EMBED_BUNDLE = ModelBundle(MODEL_PATH, TOKENIZER_PATH)
@@ -521,9 +527,24 @@ class SimCSEService:
             label_map = {"positive": "pos", "neutral": "neu", "negative": "neg"}
             
             for (orig_idx, comment), prob_row in zip(valid_comments, probs):
-                idx = int(np.argmax(prob_row))
-                label_long = SENTIMENT_LABELS[idx]
-                label_short = label_map.get(label_long, "neu")
+                if (
+                    POS_LABEL_INDEX is not None
+                    and NEG_LABEL_INDEX is not None
+                    and POS_LABEL_INDEX < len(prob_row)
+                    and NEG_LABEL_INDEX < len(prob_row)
+                ):
+                    pos_prob = float(prob_row[POS_LABEL_INDEX])
+                    neg_prob = float(prob_row[NEG_LABEL_INDEX])
+                    if np.isnan(pos_prob) or np.isnan(neg_prob):
+                        pos_prob = 0.0
+                        neg_prob = 0.0
+                    label_short = "pos" if pos_prob >= neg_prob else "neg"
+                    score = pos_prob if label_short == "pos" else neg_prob
+                else:
+                    idx = int(np.argmax(prob_row))
+                    label_long = SENTIMENT_LABELS[idx]
+                    label_short = label_map.get(label_long, "neu")
+                    score = float(prob_row[idx])
                 sentiment_counts[label_short] += 1
                 
                 comment_results.append({
@@ -531,7 +552,7 @@ class SimCSEService:
                     "text": comment.text,
                     "like_count": comment.like_count,
                     "label": label_short,
-                    "score": float(prob_row[idx]),
+                    "score": score,
                 })
             
             binary_comments = [c for c in comment_results if c["label"] in {"pos", "neg"}]
@@ -555,7 +576,7 @@ class SimCSEService:
                 top_source,
                 key=lambda x: (x["like_count"], x["score"]),
                 reverse=True
-            )[:10]
+            )[:20]
             
             # Extract keywords from comment texts (simple frequency-based)
             # For now, we'll use a simple approach: extract common words

@@ -328,7 +328,7 @@ function VideoDetail() {
         text: comment.text?.trim() || '',
       }))
       .filter((comment) => comment.text.length > 0)
-      .slice(0, 4)
+      .slice(0, 20)
   }, [topComments])
 
   const negativeCommentHighlights = useMemo(() => {
@@ -340,7 +340,7 @@ function VideoDetail() {
         text: comment.text?.trim() || '',
       }))
       .filter((comment) => comment.text.length > 0)
-      .slice(0, 4)
+      .slice(0, 20)
   }, [topComments])
 
   const summaryLines = useMemo(() => {
@@ -588,7 +588,7 @@ function VideoDetail() {
                   <ul className="space-y-3 text-white/80 text-sm">
                     {positiveCommentHighlights.map((comment) => (
                       <li key={comment.id} className="flex items-start gap-2">
-                        <span className="w-2 h-2 rounded-full bg-black mt-2" />
+                        <span className="w-2 h-2 rounded-full bg-gray-500 mt-2" />
                         <p className="text-white/80 text-sm leading-relaxed whitespace-pre-wrap break-words max-h-32 overflow-y-auto pr-1">
                           {comment.text}
                         </p>
@@ -609,7 +609,7 @@ function VideoDetail() {
                   <ul className="space-y-3 text-white/80 text-sm">
                     {negativeCommentHighlights.map((comment) => (
                       <li key={comment.id} className="flex items-start gap-2">
-                        <span className="w-2 h-2 rounded-full bg-black mt-2" />
+                        <span className="w-2 h-2 rounded-full bg-gray-500 mt-2" />
                         <p className="text-white/80 text-sm leading-relaxed whitespace-pre-wrap break-words max-h-32 overflow-y-auto pr-1">
                           {comment.text}
                         </p>
@@ -627,7 +627,7 @@ function VideoDetail() {
                   <ul className="space-y-3 text-sm text-white/80">
                     {summaryLines.map((summary, index) => (
                       <li key={`${summary}-${index}`} className="flex items-start gap-2 leading-relaxed">
-                        <span className="text-black mt-0.5">•</span>
+                        <span className="text-gray-400 mt-0.5">•</span>
                         <span>{summary}</span>
                       </li>
                     ))}
