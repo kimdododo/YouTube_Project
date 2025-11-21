@@ -22,7 +22,7 @@ import bentoml
 import numpy as np
 import onnxruntime as ort
 from pydantic import BaseModel, Field, validator, ConfigDict
-from transformers import AutoTokenizer
+from transformers import AutoTokenizer, AutoConfig
 from google.cloud import storage
 
 # ---------------------------------------------------------------------------
@@ -48,7 +48,7 @@ DEFAULT_SENTIMENT_TOKENIZER_PATH = os.getenv("SENTIMENT_TOKENIZER_PATH") or _com
     SENTIMENT_MODEL_DIR, "tokenizer"
 )
 MODEL_CACHE_ROOT = Path(os.getenv("MODEL_CACHE_ROOT", "/tmp/bento_model_cache"))
-SENTIMENT_LABELS = ["negative", "neutral", "positive"]
+DEFAULT_SENTIMENT_LABELS = ["negative", "neutral", "positive"]
 MAX_SEQ_LENGTH = int(os.getenv("MAX_SEQ_LENGTH", "256"))
 NORMALIZE = os.getenv("NORMALIZE_EMBEDDINGS", "true").lower() in {"1", "true", "yes"}
 
@@ -219,6 +219,54 @@ def softmax(logits: np.ndarray, axis: int = -1) -> np.ndarray:
     logits = logits - np.max(logits, axis=axis, keepdims=True)
     exps = np.exp(logits)
     return exps / np.sum(exps, axis=axis, keepdims=True)
+
+
+def _label_sort_key(key: Any) -> Any:
+    try:
+        return int(key)
+    except (ValueError, TypeError):
+        return key
+
+
+def _load_sentiment_labels() -> List[str]:
+    """
+    Attempt to derive sentiment label order from model config (id2label).
+    Falls back to DEFAULT_SENTIMENT_LABELS when metadata is missing.
+    """
+    candidate_paths = []
+    try:
+        candidate_paths.append(Path(SENTIMENT_MODEL_PATH).parent)
+    except Exception:
+        pass
+    candidate_paths.append(SENTIMENT_TOKENIZER_PATH)
+    # also consider parent of tokenizer directory (e.g., .../sentiment)
+    try:
+        candidate_paths.append(SENTIMENT_TOKENIZER_PATH.parent)
+    except Exception:
+        pass
+
+    for path in candidate_paths:
+        if not path or not Path(path).exists():
+            continue
+        try:
+            config = AutoConfig.from_pretrained(
+                str(path),
+                local_files_only=True,
+                trust_remote_code=True,
+            )
+            id2label = getattr(config, "id2label", None)
+            if not id2label:
+                continue
+            sorted_items = sorted(id2label.items(), key=lambda kv: _label_sort_key(kv[0]))
+            labels = [str(label).lower() for _, label in sorted_items]
+            if labels:
+                return labels
+        except Exception:
+            continue
+    return DEFAULT_SENTIMENT_LABELS
+
+
+SENTIMENT_LABELS = _load_sentiment_labels()
 
 
 EMBED_BUNDLE = ModelBundle(MODEL_PATH, TOKENIZER_PATH)
