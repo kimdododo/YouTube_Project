@@ -255,8 +255,7 @@ jobs:
               --set-env-vars="DB_NAME=${{ env.DB_NAME }},DB_USER=${{ env.DB_USER }},DB_PORT=${{ env.DB_PORT }},DB_HOST=${{ env.DB_HOST }},CLOUD_SQL_INSTANCE=${{ env.CLOUD_SQL_INSTANCE }},USE_CLOUD_SQL_CONNECTOR=${{ env.USE_CLOUD_SQL_CONNECTOR }},REDIS_URL=${{ env.REDIS_URL }},JWT_ALGO=HS256,JWT_ACCESS_MINUTES=60,SMTP_HOST=${{ env.SMTP_HOST }},SMTP_PORT=${{ env.SMTP_PORT }},SMTP_USERNAME=${{ env.SMTP_USERNAME }},SMTP_FROM_EMAIL=${{ env.SMTP_FROM_EMAIL }},SMTP_FROM_NAME=${{ env.SMTP_FROM_NAME }},EMAIL_VERIFICATION_CODE_EXPIRY_MINUTES=${{ env.EMAIL_VERIFICATION_CODE_EXPIRY_MINUTES }},EMAIL_VERIFICATION_CODE_LENGTH=${{ env.EMAIL_VERIFICATION_CODE_LENGTH }},EMAIL_VERIFICATION_MAX_ATTEMPTS=${{ env.EMAIL_VERIFICATION_MAX_ATTEMPTS }},LLM_MODEL=${{ env.LLM_MODEL }},LLM_TEMPERATURE=${{ env.LLM_TEMPERATURE }},LLM_MAX_TOKENS=${{ env.LLM_MAX_TOKENS }},BENTO_BASE_URL=${{ env.BENTO_BASE_URL }}" \
               --set-secrets="DB_PASSWORD=db-password:latest,JWT_SECRET=jwt-secret:latest,SMTP_PASSWORD=smtp-password:latest,OPENAI_API_KEY=openai-api-key:latest" \
               --cpu-boost \
-              --execution-environment gen2 \
-              --startup-cpu-boost
+              --execution-environment gen2
           else
             echo "Updating existing Cloud Run service..."
             # Cloud SQL 인스턴스 연결 확인 및 설정
@@ -286,8 +285,7 @@ jobs:
               --update-env-vars="DB_NAME=${{ env.DB_NAME }},DB_USER=${{ env.DB_USER }},DB_PORT=${{ env.DB_PORT }},DB_HOST=${{ env.DB_HOST }},CLOUD_SQL_INSTANCE=${{ env.CLOUD_SQL_INSTANCE }},USE_CLOUD_SQL_CONNECTOR=${{ env.USE_CLOUD_SQL_CONNECTOR }},REDIS_URL=${{ env.REDIS_URL }},JWT_ALGO=HS256,JWT_ACCESS_MINUTES=60,SMTP_HOST=${{ env.SMTP_HOST }},SMTP_PORT=${{ env.SMTP_PORT }},SMTP_USERNAME=${{ env.SMTP_USERNAME }},SMTP_FROM_EMAIL=${{ env.SMTP_FROM_EMAIL }},SMTP_FROM_NAME=${{ env.SMTP_FROM_NAME }},EMAIL_VERIFICATION_CODE_EXPIRY_MINUTES=${{ env.EMAIL_VERIFICATION_CODE_EXPIRY_MINUTES }},EMAIL_VERIFICATION_CODE_LENGTH=${{ env.EMAIL_VERIFICATION_CODE_LENGTH }},EMAIL_VERIFICATION_MAX_ATTEMPTS=${{ env.EMAIL_VERIFICATION_MAX_ATTEMPTS }},LLM_MODEL=${{ env.LLM_MODEL }},LLM_TEMPERATURE=${{ env.LLM_TEMPERATURE }},LLM_MAX_TOKENS=${{ env.LLM_MAX_TOKENS }},BENTO_BASE_URL=${{ env.BENTO_BASE_URL }}" \
               --update-secrets="DB_PASSWORD=db-password:latest,JWT_SECRET=jwt-secret:latest,SMTP_PASSWORD=smtp-password:latest,OPENAI_API_KEY=openai-api-key:latest" \
               --cpu-boost \
-              --execution-environment gen2 \
-              --startup-cpu-boost
+              --execution-environment gen2
           fi
           
           echo "✅ Deployment completed successfully"
