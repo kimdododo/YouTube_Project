@@ -79,6 +79,8 @@ python -c "import socket; s = socket.socket(); s.bind((\"0.0.0.0\", ${PORT})); s
 # Cloud Run이 PORT 환경 변수를 제공하므로 반드시 사용\n\
 # Python으로 직접 실행하여 더 나은 에러 메시지 확인\n\
 echo "🚀 Launching uvicorn..."\n\
+echo "Uvicorn command: python -m uvicorn app.main:app --host 0.0.0.0 --port ${PORT} --timeout-keep-alive 30 --log-level info --access-log --no-use-colors"\n\
+# uvicorn을 exec로 실행 (PID 1이 되도록)\n\
 exec python -m uvicorn app.main:app --host 0.0.0.0 --port ${PORT} --timeout-keep-alive 30 --log-level info --access-log --no-use-colors\n\
 ' > /app/start.sh && chmod +x /app/start.sh
 
