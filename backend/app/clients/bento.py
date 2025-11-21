@@ -49,10 +49,12 @@ async def analyze_video_detail_for_bento(
     base_url = _get_base_url()
     url = f"{base_url}{endpoint_path}"
     payload = {
-        "video_id": video_id,
-        "title": title or "",
-        "description": description or "",
-        "comments": comments,
+        "request": {
+            "video_id": video_id,
+            "title": title or "",
+            "description": description or "",
+            "comments": comments,
+        }
     }
 
     logger.info("[BentoClient] POST %s with %d comments", url, len(comments))
