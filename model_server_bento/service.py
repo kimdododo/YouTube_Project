@@ -13,6 +13,8 @@ that the backend (FastAPI) and frontend clients do not need any changes.
 from __future__ import annotations
 
 import os
+import re
+from collections import Counter
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -256,6 +258,13 @@ class SentimentRequest(BaseModel):
         return filtered
 
 
+class VideoDetailRequest(BaseModel):
+    video_id: str
+    title: str = ""
+    description: str = ""
+    comments: List[Dict[str, Any]] = Field(default_factory=list)
+
+
 # ---------------------------------------------------------------------------
 # Bento Service
 # ---------------------------------------------------------------------------
@@ -336,5 +345,115 @@ class SimCSEService:
                 }
             )
         return {"results": results}
+
+    @bentoml.api(route="/v1/video-detail")
+    def video_detail(self, request: VideoDetailRequest) -> Dict[str, Any]:
+        """
+        Analyze video comments and return sentiment ratio, top comments, and keywords.
+        
+        Returns:
+            {
+                "video_id": str,
+                "sentiment_ratio": {"pos": float, "neu": float, "neg": float},
+                "top_comments": List[Dict],
+                "top_keywords": List[Dict],
+                "model": {"sentiment_model": str, "version": str}
+            }
+        """
+        if not request.comments:
+            return {
+                "video_id": request.video_id,
+                "sentiment_ratio": {"pos": 0.0, "neu": 0.0, "neg": 0.0},
+                "top_comments": [],
+                "top_keywords": [],
+                "model": {"sentiment_model": "sentiment_onnx", "version": "v1"},
+            }
+        
+        # Extract comment texts and keep track of valid comment indices
+        valid_comments = []
+        comment_texts = []
+        for i, c in enumerate(request.comments):
+            text = c.get("text", "")
+            if text and text.strip():
+                valid_comments.append((i, c))
+                comment_texts.append(text)
+        
+        if not comment_texts:
+            return {
+                "video_id": request.video_id,
+                "sentiment_ratio": {"pos": 0.0, "neu": 0.0, "neg": 0.0},
+                "top_comments": [],
+                "top_keywords": [],
+                "model": {"sentiment_model": "sentiment_onnx", "version": "v1"},
+            }
+        
+        # Perform sentiment analysis
+        logits = self.sentiment_bundle.logits(comment_texts)
+        probs = softmax(logits, axis=1)
+        
+        # Calculate sentiment ratio
+        sentiment_counts = {"pos": 0, "neu": 0, "neg": 0}
+        comment_results = []
+        
+        # Map SENTIMENT_LABELS to short labels
+        label_map = {"positive": "pos", "neutral": "neu", "negative": "neg"}
+        
+        for (orig_idx, comment), prob_row in zip(valid_comments, probs):
+            idx = int(np.argmax(prob_row))
+            label_long = SENTIMENT_LABELS[idx]
+            label_short = label_map.get(label_long, "neu")
+            sentiment_counts[label_short] += 1
+            
+            comment_results.append({
+                "comment_id": comment.get("comment_id", str(orig_idx)),
+                "text": comment.get("text", ""),
+                "like_count": comment.get("like_count", 0),
+                "label": label_short,
+                "score": float(prob_row[idx]),
+            })
+        
+        total = len(comment_texts)
+        sentiment_ratio = {
+            "pos": sentiment_counts["pos"] / total if total > 0 else 0.0,
+            "neu": sentiment_counts["neu"] / total if total > 0 else 0.0,
+            "neg": sentiment_counts["neg"] / total if total > 0 else 0.0,
+        }
+        
+        # Get top comments (sorted by like_count, then by sentiment score)
+        top_comments = sorted(
+            comment_results,
+            key=lambda x: (x["like_count"], x["score"]),
+            reverse=True
+        )[:10]  # Top 10 comments
+        
+        # Extract keywords from comment texts (simple frequency-based)
+        # For now, we'll use a simple approach: extract common words
+        # In production, you might want to use more sophisticated keyword extraction
+        
+        # Extract Korean and English words
+        words = []
+        for text in comment_texts:
+            # Simple word extraction (Korean + English)
+            word_pattern = r'[\uac00-\ud7a3]+|[a-zA-Z]+'
+            words.extend(re.findall(word_pattern, text.lower()))
+        
+        # Filter out common stop words (simple list)
+        stop_words = {"이", "가", "을", "를", "의", "에", "와", "과", "도", "로", "으로", "는", "은", "the", "a", "an", "and", "or", "but"}
+        filtered_words = [w for w in words if len(w) > 1 and w not in stop_words]
+        
+        # Count word frequencies
+        word_counts = Counter(filtered_words)
+        top_keywords = [
+            {"keyword": word, "weight": float(count)}
+            for word, count in word_counts.most_common(12)
+        ]
+        
+        return {
+            "video_id": request.video_id,
+            "sentiment_ratio": sentiment_ratio,
+            "top_comments": top_comments,
+            "top_keywords": top_keywords,
+            "model": {"sentiment_model": "sentiment_onnx", "version": "v1"},
+        }
 
 
