@@ -308,6 +308,27 @@ function VideoDetail() {
     [analysis]
   )
 
+  const positiveKeywords = useMemo(() => {
+    if (!topKeywords.length) return []
+    return topKeywords
+      .filter((_, idx) => idx % 2 === 0)
+      .slice(0, 4)
+      .map((keyword) => keyword.keyword)
+  }, [topKeywords])
+
+  const negativeKeywords = useMemo(() => {
+    if (!topKeywords.length) return []
+    return topKeywords
+      .filter((_, idx) => idx % 2 === 1)
+      .slice(0, 4)
+      .map((keyword) => keyword.keyword)
+  }, [topKeywords])
+
+  const summaryComments = useMemo(() => {
+    if (!topComments.length) return []
+    return topComments.slice(0, 3).map((comment) => comment.text)
+  }, [topComments])
+
   const sentimentBars = useMemo(
     () => [
       { label: '긍정', value: sentimentPercentages?.positive ?? 0, color: 'bg-emerald-500' },
@@ -523,80 +544,54 @@ function VideoDetail() {
 
           {analysis && analysis.sentiment_ratio ? (
             <div className="grid gap-6 lg:grid-cols-3">
-              {/* 감정 비율 */}
-              <div className="bg-[#11172b]/80 backdrop-blur border border-white/5 rounded-xl p-6 shadow-xl lg:col-span-1">
-                <h3 className="text-white font-semibold mb-4">댓글 감정 비율</h3>
-                {sentimentPercentages && (sentimentPercentages.positive > 0 || sentimentPercentages.neutral > 0 || sentimentPercentages.negative > 0) ? (
-                  <div className="space-y-4">
-                    {sentimentBars.map(({ label, value, color }) => (
-                      <div key={label}>
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-white/70 text-sm">{label}</span>
-                          <span className="text-white font-semibold text-sm">{value}%</span>
-                        </div>
-                        <div className="w-full h-2.5 bg-white/5 rounded-full overflow-hidden">
-                          <div
-                            className={`${color} h-full rounded-full transition-all`}
-                            style={{ width: `${Math.min(100, Math.max(0, value))}%` }}
-                          />
-                        </div>
-                      </div>
+              <div className="rounded-2xl bg-gradient-to-br from-blue-900/60 to-blue-600/30 border border-blue-600/30 p-6 text-white">
+                <p className="text-sm text-white/70 mb-1">긍정 댓글</p>
+                <h3 className="text-3xl font-bold mb-4">{sentimentPercentages?.positive ?? 0}%</h3>
+                {positiveKeywords.length > 0 ? (
+                  <ul className="space-y-2 text-white/80 text-sm">
+                    {positiveKeywords.map((keyword) => (
+                      <li key={keyword} className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-blue-300" />
+                        {keyword}
+                      </li>
                     ))}
-                  </div>
+                  </ul>
                 ) : (
-                  <p className="text-white/50 text-sm">분석할 댓글이 없습니다.</p>
+                  <p className="text-white/50 text-sm">긍정 키워드가 부족합니다.</p>
                 )}
               </div>
 
-              {/* 상위 키워드 */}
-              <div className="bg-[#11172b]/80 backdrop-blur border border-white/5 rounded-xl p-6 shadow-xl lg:col-span-1">
-                <h3 className="text-white font-semibold mb-4">좋아요 높은 키워드</h3>
-                {topKeywords.length > 0 ? (
-                  <div className="flex flex-wrap gap-2">
-                    {topKeywords.map((keyword) => (
-                      <div
-                        key={keyword.keyword}
-                        className="px-3 py-1.5 rounded-full bg-blue-600/20 text-blue-100 text-sm flex items-center gap-2"
-                      >
-                        <span>#{keyword.keyword}</span>
-                        <span className="text-white/60 text-xs">{keyword.weight?.toFixed(1)}</span>
-                      </div>
+              <div className="rounded-2xl bg-gradient-to-br from-rose-900/60 to-rose-600/30 border border-rose-600/30 p-6 text-white">
+                <p className="text-sm text-white/70 mb-1">부정 댓글</p>
+                <h3 className="text-3xl font-bold mb-4">{sentimentPercentages?.negative ?? 0}%</h3>
+                {negativeKeywords.length > 0 ? (
+                  <ul className="space-y-2 text-white/80 text-sm">
+                    {negativeKeywords.map((keyword) => (
+                      <li key={keyword} className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-rose-300" />
+                        {keyword}
+                      </li>
                     ))}
-                  </div>
+                  </ul>
                 ) : (
-                  <p className="text-white/50 text-sm">분석된 키워드가 없습니다.</p>
+                  <p className="text-white/50 text-sm">부정 키워드가 부족합니다.</p>
                 )}
               </div>
 
-              {/* 상위 댓글 */}
-              <div className="bg-[#11172b]/80 backdrop-blur border border-white/5 rounded-xl p-6 shadow-xl lg:col-span-1">
-                <h3 className="text-white font-semibold mb-4">좋아요 상위 댓글</h3>
-                {topComments.length > 0 ? (
-                  <div className="space-y-4">
-                    {topComments.map((comment) => (
-                      <div key={comment.comment_id} className="p-3 rounded-lg bg-white/5">
-                        <div className="flex items-center justify-between mb-2">
-                          <span
-                            className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                              comment.label === 'pos'
-                                ? 'bg-emerald-500/20 text-emerald-300'
-                                : comment.label === 'neg'
-                                ? 'bg-rose-500/20 text-rose-300'
-                                : 'bg-slate-500/20 text-slate-200'
-                            }`}
-                          >
-                            {comment.label?.toUpperCase() || 'NEU'}
-                          </span>
-                          <span className="text-white/60 text-xs">
-                            👍 {comment.like_count?.toLocaleString() || 0}
-                          </span>
-                        </div>
-                        <p className="text-white/80 text-sm leading-relaxed">{comment.text}</p>
-                      </div>
+              <div className="rounded-2xl bg-[#11172b]/90 border border-white/5 p-6 text-white">
+                <p className="text-sm text-white/70 mb-1">댓글 3줄 요약</p>
+                <h3 className="text-lg font-semibold mb-4">시청자가 말해준 핵심 포인트</h3>
+                {summaryComments.length > 0 ? (
+                  <ul className="space-y-3 text-sm text-white/80">
+                    {summaryComments.map((summary, index) => (
+                      <li key={`${summary}-${index}`} className="flex items-start gap-2 leading-relaxed">
+                        <span className="text-blue-300 mt-0.5">•</span>
+                        <span>{summary}</span>
+                      </li>
                     ))}
-                  </div>
+                  </ul>
                 ) : (
-                  <p className="text-white/50 text-sm">상위 댓글 데이터가 없습니다.</p>
+                  <p className="text-white/50 text-sm">요약할 댓글이 부족합니다.</p>
                 )}
               </div>
             </div>
