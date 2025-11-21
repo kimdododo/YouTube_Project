@@ -154,31 +154,54 @@ jobs:
           fi
           
           # 서비스 계정 확인 및 권한 부여
-          echo "Checking service accounts..."
+          echo "=========================================="
+          echo "🔐 Setting up IAM permissions for Cloud SQL"
+          echo "=========================================="
           SA_EMAIL="github-actions@${{ env.PROJECT_ID }}.iam.gserviceaccount.com"
-          if gcloud iam service-accounts describe $SA_EMAIL --project=${{ env.PROJECT_ID }} 2>/dev/null; then
-            echo "✅ Service account exists: $SA_EMAIL"
-            
-            # Cloud SQL Client 역할 확인 및 부여
-            echo "Checking Cloud SQL Client role..."
+          SQL_INSTANCE="${{ env.PROJECT_ID }}:asia-northeast3:youtube"
+          
+          # 서비스 계정 존재 확인
+          if ! gcloud iam service-accounts describe $SA_EMAIL --project=${{ env.PROJECT_ID }} 2>/dev/null; then
+            echo "❌ ERROR: Service account $SA_EMAIL does not exist!"
+            echo "Please create it first:"
+            echo "  gcloud iam service-accounts create github-actions --display-name='GitHub Actions Service Account' --project=${{ env.PROJECT_ID }}"
+            exit 1
+          fi
+          echo "✅ Service account exists: $SA_EMAIL"
+          
+          # Cloud SQL Client 역할 부여 (강제)
+          echo "Granting roles/cloudsql.client to service account..."
+          if gcloud projects add-iam-policy-binding ${{ env.PROJECT_ID }} \
+            --member="serviceAccount:$SA_EMAIL" \
+            --role="roles/cloudsql.client" \
+            --condition=None 2>&1; then
+            echo "✅ Successfully granted roles/cloudsql.client"
+          else
+            echo "⚠️ Failed to grant roles/cloudsql.client (may already exist or need manual setup)"
+            # 이미 존재하는지 확인
             if gcloud projects get-iam-policy ${{ env.PROJECT_ID }} \
               --flatten="bindings[].members" \
               --filter="bindings.members:serviceAccount:$SA_EMAIL AND bindings.role:roles/cloudsql.client" \
               --format="value(bindings.role)" 2>/dev/null | grep -q "roles/cloudsql.client"; then
               echo "✅ Service account already has roles/cloudsql.client"
             else
-              echo "⚠️ Service account does not have roles/cloudsql.client, granting..."
-              gcloud projects add-iam-policy-binding ${{ env.PROJECT_ID }} \
-                --member="serviceAccount:$SA_EMAIL" \
-                --role="roles/cloudsql.client" \
-                --condition=None 2>/dev/null || echo "⚠️ Failed to grant role (may need manual setup)"
-              echo "✅ Cloud SQL Client role granted (or already exists)"
+              echo "❌ WARNING: Service account may not have required permissions!"
+              echo "Please manually grant roles/cloudsql.client to $SA_EMAIL"
             fi
-          else
-            echo "⚠️ Service account verification skipped (IAM API may not be enabled)"
-            echo "Deployment will use: $SA_EMAIL"
-            echo "⚠️ Please ensure $SA_EMAIL has roles/cloudsql.client role"
           fi
+          
+          # Cloud SQL 인스턴스에 서비스 계정을 사용자로 추가 (Cloud SQL Connector 사용 시 필요)
+          echo "Checking Cloud SQL instance user permissions..."
+          if gcloud sql instances describe youtube --project=${{ env.PROJECT_ID }} --format="value(state)" 2>/dev/null | grep -q "RUNNABLE"; then
+            echo "✅ Cloud SQL instance is running"
+            # 서비스 계정이 이미 사용자로 추가되어 있는지 확인 (MySQL의 경우)
+            # 참고: Cloud SQL Connector는 IAM 인증을 사용하므로 별도 사용자 추가가 필요 없을 수 있음
+            echo "ℹ️ Cloud SQL Connector uses IAM authentication - no manual user setup needed"
+          else
+            echo "⚠️ Cloud SQL instance may not be running or accessible"
+          fi
+          
+          echo "=========================================="
           
           # Cloud Run 서비스 확인
           echo "Checking Cloud Run services..."
@@ -254,7 +277,6 @@ jobs:
               --service-account github-actions@${{ env.PROJECT_ID }}.iam.gserviceaccount.com \
               --set-env-vars="DB_NAME=${{ env.DB_NAME }},DB_USER=${{ env.DB_USER }},DB_PORT=${{ env.DB_PORT }},DB_HOST=${{ env.DB_HOST }},CLOUD_SQL_INSTANCE=${{ env.CLOUD_SQL_INSTANCE }},USE_CLOUD_SQL_CONNECTOR=${{ env.USE_CLOUD_SQL_CONNECTOR }},REDIS_URL=${{ env.REDIS_URL }},JWT_ALGO=HS256,JWT_ACCESS_MINUTES=60,SMTP_HOST=${{ env.SMTP_HOST }},SMTP_PORT=${{ env.SMTP_PORT }},SMTP_USERNAME=${{ env.SMTP_USERNAME }},SMTP_FROM_EMAIL=${{ env.SMTP_FROM_EMAIL }},SMTP_FROM_NAME=${{ env.SMTP_FROM_NAME }},EMAIL_VERIFICATION_CODE_EXPIRY_MINUTES=${{ env.EMAIL_VERIFICATION_CODE_EXPIRY_MINUTES }},EMAIL_VERIFICATION_CODE_LENGTH=${{ env.EMAIL_VERIFICATION_CODE_LENGTH }},EMAIL_VERIFICATION_MAX_ATTEMPTS=${{ env.EMAIL_VERIFICATION_MAX_ATTEMPTS }},LLM_MODEL=${{ env.LLM_MODEL }},LLM_TEMPERATURE=${{ env.LLM_TEMPERATURE }},LLM_MAX_TOKENS=${{ env.LLM_MAX_TOKENS }},BENTO_BASE_URL=${{ env.BENTO_BASE_URL }}" \
               --set-secrets="DB_PASSWORD=db-password:latest,JWT_SECRET=jwt-secret:latest,SMTP_PASSWORD=smtp-password:latest,OPENAI_API_KEY=openai-api-key:latest" \
-              --cpu-boost \
               --execution-environment gen2
           else
             echo "Updating existing Cloud Run service..."
@@ -284,7 +306,6 @@ jobs:
               --service-account github-actions@${{ env.PROJECT_ID }}.iam.gserviceaccount.com \
               --update-env-vars="DB_NAME=${{ env.DB_NAME }},DB_USER=${{ env.DB_USER }},DB_PORT=${{ env.DB_PORT }},DB_HOST=${{ env.DB_HOST }},CLOUD_SQL_INSTANCE=${{ env.CLOUD_SQL_INSTANCE }},USE_CLOUD_SQL_CONNECTOR=${{ env.USE_CLOUD_SQL_CONNECTOR }},REDIS_URL=${{ env.REDIS_URL }},JWT_ALGO=HS256,JWT_ACCESS_MINUTES=60,SMTP_HOST=${{ env.SMTP_HOST }},SMTP_PORT=${{ env.SMTP_PORT }},SMTP_USERNAME=${{ env.SMTP_USERNAME }},SMTP_FROM_EMAIL=${{ env.SMTP_FROM_EMAIL }},SMTP_FROM_NAME=${{ env.SMTP_FROM_NAME }},EMAIL_VERIFICATION_CODE_EXPIRY_MINUTES=${{ env.EMAIL_VERIFICATION_CODE_EXPIRY_MINUTES }},EMAIL_VERIFICATION_CODE_LENGTH=${{ env.EMAIL_VERIFICATION_CODE_LENGTH }},EMAIL_VERIFICATION_MAX_ATTEMPTS=${{ env.EMAIL_VERIFICATION_MAX_ATTEMPTS }},LLM_MODEL=${{ env.LLM_MODEL }},LLM_TEMPERATURE=${{ env.LLM_TEMPERATURE }},LLM_MAX_TOKENS=${{ env.LLM_MAX_TOKENS }},BENTO_BASE_URL=${{ env.BENTO_BASE_URL }}" \
               --update-secrets="DB_PASSWORD=db-password:latest,JWT_SECRET=jwt-secret:latest,SMTP_PASSWORD=smtp-password:latest,OPENAI_API_KEY=openai-api-key:latest" \
-              --cpu-boost \
               --execution-environment gen2
           fi
           

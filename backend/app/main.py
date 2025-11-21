@@ -166,5 +166,8 @@ async def get_comments(
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    import os
+    # Cloud Run은 PORT 환경 변수를 제공하므로 이를 사용 (기본값 8080)
+    port = int(os.getenv("PORT", "8080"))
+    uvicorn.run(app, host="0.0.0.0", port=port)
 
