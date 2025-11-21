@@ -166,7 +166,7 @@ def debug_crud_check():
             import app.crud.user as user_module
             if hasattr(user_module, '__file__'):
                 user_py_path = user_module.__file__
-        except:
+        except Exception:
             pass
     
     # Import 테스트
@@ -710,37 +710,32 @@ async def get_keyword_embeddings(
     키워드 목록을 임베딩 벡터로 변환 (word2vec 기반 키워드 클라우드용)
     [DEPRECATED] 이 엔드포인트는 유지하되, 새로운 /my_keywords 사용 권장
     """
-    try:
-        if not keywords or len(keywords) == 0:
-            return ok({"embeddings": []}).model_dump()
-        
-        # 키워드를 한글로 변환 (키워드 ID -> 한글 라벨)
-        keyword_labels = {
-            'solo': '혼자여행',
-            'budget': '가성비여행',
-            'vlog': '브이로그',
-            'aesthetic': '감성여행',
-            'domestic': '국내여행',
-            'global': '해외여행',
-            'oneday': '당일치기',
-            'food': '맛집투어',
-            'stay': '숙소리뷰',
-            'camping': '캠핑',
-            'cafe': '카페투어'
-        }
-        
-        # 키워드 ID를 한글 라벨로 변환
-        texts = [keyword_labels.get(kw, kw) for kw in keywords]
-        
-        # ML API 서버 제거됨 - 임베딩 기능 비활성화
-        # 빈 배열 반환 (프론트엔드에서 폴백 처리)
-        print(f"[WARN] Keyword embeddings disabled (ML API server removed)")
+    # 키워드가 비어 있으면 바로 빈 배열 반환
+    if not keywords:
         return ok({"embeddings": []}).model_dump()
-    except Exception as e:
-        print(f"[ERROR] Error getting keyword embeddings: {str(e)}")
-        print(f"[ERROR] Traceback: {traceback.format_exc()}")
-        # 에러 발생 시 빈 배열 반환 (프론트엔드에서 폴백 처리)
-        return ok({"embeddings": []}).model_dump()
+    
+    # 키워드를 한글로 변환 (키워드 ID -> 한글 라벨)
+    keyword_labels = {
+        "solo": "혼자여행",
+        "budget": "가성비여행",
+        "vlog": "브이로그",
+        "aesthetic": "감성여행",
+        "domestic": "국내여행",
+        "global": "해외여행",
+        "oneday": "당일치기",
+        "food": "맛집투어",
+        "stay": "숙소리뷰",
+        "camping": "캠핑",
+        "cafe": "카페투어",
+    }
+    
+    # 키워드 ID를 한글 라벨로 변환 (디버깅용)
+    texts = [keyword_labels.get(kw, kw) for kw in keywords]
+    
+    # ML API 서버 제거됨 - 임베딩 기능 비활성화
+    # 빈 배열 반환 (프론트엔드에서 폴백 처리)
+    print(f"[WARN] Keyword embeddings disabled (ML API server removed). texts={texts}")
+    return ok({"embeddings": []}).model_dump()
 
 
 @router.get("/my_keywords")
