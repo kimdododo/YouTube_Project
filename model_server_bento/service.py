@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 import bentoml
+from bentoml import io
 import numpy as np
 import onnxruntime as ort
 from pydantic import BaseModel, Field, validator
@@ -353,7 +354,10 @@ class SimCSEService:
             )
         return {"results": results}
 
-    @bentoml.api(route="/v1/video-detail")
+    @bentoml.api(
+        route="/v1/video-detail",
+        input_spec=io.JSON(pydantic_model=VideoDetailRequest),
+    )
     def video_detail(self, request: VideoDetailRequest) -> Dict[str, Any]:
         """
         Analyze video comments and return sentiment ratio, top comments, and keywords.
