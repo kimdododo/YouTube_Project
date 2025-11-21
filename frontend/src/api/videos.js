@@ -119,7 +119,18 @@ export const fetchVideoDetail = async (videoId) => {
     throw new Error('videoId is required')
   }
 
-  const response = await fetch(`${API_BASE_URL}/videos/${videoId}`)
+  // JWT 토큰이 있으면 헤더에 포함
+  const token = localStorage.getItem('access_token') || localStorage.getItem('token')
+  const headers = {
+    'Content-Type': 'application/json'
+  }
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+
+  const response = await fetch(`${API_BASE_URL}/videos/${videoId}`, {
+    headers
+  })
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({ detail: response.statusText }))
     throw new Error(errorData.detail || 'Failed to fetch video detail')

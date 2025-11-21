@@ -80,11 +80,11 @@ function VideoDetail() {
       setAnalysis(detail.analysis || null)
       
       // 시청 기록에 추가
-      if (data && data.id) {
+      if (detail.video && detail.video.id) {
         addToWatchHistory({
-          ...data,
-          views: data.view_count ? formatViews(data.view_count) : '0회',
-          category: data.keyword || data.region || '기타'
+          ...detail.video,
+          views: detail.video.view_count ? formatViews(detail.video.view_count) : '0회',
+          category: detail.video.keyword || detail.video.region || '기타'
         })
       }
     } catch (err) {
