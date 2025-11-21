@@ -15,4 +15,20 @@ from app.models.comment_sentiment import CommentSentimentSummary
 from app.models.user_persona import UserPersonaVector
 from app.models.user_video_event import UserVideoEvent
 
-__all__ = ["User", "Video", "Channel", "LoginHistory", "UserTravelPreference", "UserTravelKeyword", "EmailVerification", "SearchHistory", "Comment", "VideoSummary", "UserPreference", "VideoStatic", "CommentSentimentSummary", "UserPersonaVector", "UserVideoEvent"]
+__all__ = [
+    "User",
+    "Video",
+    "Channel",
+    "LoginHistory",
+    "UserTravelPreference",
+    "UserTravelKeyword",
+    "EmailVerification",
+    "SearchHistory",
+    "Comment",
+    "VideoSummary",
+    "UserPreference",
+    "VideoStatic",
+    "CommentSentimentSummary",
+    "UserPersonaVector",
+    "UserVideoEvent",
+]
