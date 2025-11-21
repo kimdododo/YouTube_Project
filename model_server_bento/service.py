@@ -16,12 +16,12 @@ import os
 import re
 from collections import Counter
 from pathlib import Path
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List
 
 import bentoml
 import numpy as np
 import onnxruntime as ort
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, validator, ConfigDict
 from transformers import AutoTokenizer
 from google.cloud import storage
 
@@ -269,7 +269,7 @@ class VideoDetailRequest(BaseModel):
     video_id: str
     title: str = ""
     description: str = ""
-    comments: List[Dict[str, Any]] = Field(default_factory=list)
+    comments: List[Dict[str, Any]] = Field(default_factory=list)  # 백엔드와 호환성을 위해 Dict 유지
 
 
 # ---------------------------------------------------------------------------
@@ -314,25 +314,41 @@ class SimCSEService:
         """
         Batch embeddings (useful for offline pipelines).
         """
-        embeddings = self.embed_bundle.encode(request.texts)
-        return {
-            "vectors": embeddings.tolist(),
-            "count": len(request.texts),
-            "dim": embeddings.shape[-1],
-            "normalized": NORMALIZE,
-        }
+        import logging
+        import traceback
+        logger = logging.getLogger(__name__)
+        try:
+            embeddings = self.embed_bundle.encode(request.texts)
+            return {
+                "vectors": embeddings.tolist(),
+                "count": len(request.texts),
+                "dim": embeddings.shape[-1],
+                "normalized": NORMALIZE,
+            }
+        except Exception as e:
+            error_trace = traceback.format_exc()
+            logger.error("[BentoService] Error in predict_batch: %s\n%s", str(e), error_trace)
+            raise
 
     @bentoml.api(route="/similarity")
     def similarity(self, request: SimilarityRequest) -> Dict[str, Any]:
         """
         Cosine similarity between two texts (same semantics as legacy server).
         """
-        embeddings = self.embed_bundle.encode([request.text1, request.text2])
-        vec1, vec2 = embeddings[0], embeddings[1]
-        sim = float(
-            np.dot(vec1, vec2) / (np.linalg.norm(vec1) * np.linalg.norm(vec2) + 1e-9)
-        )
-        return {"similarity": sim}
+        import logging
+        import traceback
+        logger = logging.getLogger(__name__)
+        try:
+            embeddings = self.embed_bundle.encode([request.text1, request.text2])
+            vec1, vec2 = embeddings[0], embeddings[1]
+            sim = float(
+                np.dot(vec1, vec2) / (np.linalg.norm(vec1) * np.linalg.norm(vec2) + 1e-9)
+            )
+            return {"similarity": sim}
+        except Exception as e:
+            error_trace = traceback.format_exc()
+            logger.error("[BentoService] Error in similarity: %s\n%s", str(e), error_trace)
+            raise
 
     @bentoml.api(route="/sentiment")
     def sentiment(self, request: SentimentRequest) -> Dict[str, Any]:
@@ -368,128 +384,147 @@ class SimCSEService:
             }
         """
         import logging
+        import traceback
         logger = logging.getLogger(__name__)
         
-        logger.info("[BentoService] video_detail called: video_id=%s, comments_count=%d", 
-                   request.video_id, len(request.comments) if request.comments else 0)
+        try:
+            logger.info("[BentoService] video_detail called: video_id=%s, comments_count=%d", 
+                       request.video_id, len(request.comments) if request.comments else 0)
         
-        # Convert comment dicts to CommentItem objects for easier access
-        comment_items = []
-        for c in request.comments:
-            if isinstance(c, dict):
-                comment_items.append(CommentItem(
-                    comment_id=str(c.get("comment_id", "")),
-                    text=str(c.get("text", "")),
-                    like_count=int(c.get("like_count", 0))
-                ))
-            else:
-                # Already a CommentItem (shouldn't happen, but handle it)
-                comment_items.append(c)
-        
-        if not comment_items:
-            logger.warning("[BentoService] No comments provided for video %s", request.video_id)
-            return {
-                "video_id": request.video_id,
-                "sentiment_ratio": {"pos": 0.0, "neu": 0.0, "neg": 0.0},
-                "top_comments": [],
-                "top_keywords": [],
-                "model": {"sentiment_model": "sentiment_onnx", "version": "v1"},
-            }
-        
-        # Extract comment texts and keep track of valid comment indices
-        valid_comments = []
-        comment_texts = []
-        for i, c in enumerate(comment_items):
-            text = c.text
-            if text and text.strip():
-                valid_comments.append((i, c))
-                comment_texts.append(text)
-        
-        logger.info("[BentoService] Valid comments: %d/%d (with non-empty text)", 
-                   len(comment_texts), len(comment_items))
-        
-        if not comment_texts:
-            logger.warning("[BentoService] No valid comment texts found for video %s (all empty or whitespace)", request.video_id)
-            return {
-                "video_id": request.video_id,
-                "sentiment_ratio": {"pos": 0.0, "neu": 0.0, "neg": 0.0},
-                "top_comments": [],
-                "top_keywords": [],
-                "model": {"sentiment_model": "sentiment_onnx", "version": "v1"},
-            }
-        
-        # Perform sentiment analysis
-        logger.info("[BentoService] Performing sentiment analysis on %d comments", len(comment_texts))
-        logits = self.sentiment_bundle.logits(comment_texts)
-        probs = softmax(logits, axis=1)
-        logger.info("[BentoService] Sentiment analysis completed, processing results...")
-        
-        # Calculate sentiment ratio
-        sentiment_counts = {"pos": 0, "neu": 0, "neg": 0}
-        comment_results = []
-        
-        # Map SENTIMENT_LABELS to short labels
-        label_map = {"positive": "pos", "neutral": "neu", "negative": "neg"}
-        
-        for (orig_idx, comment), prob_row in zip(valid_comments, probs):
-            idx = int(np.argmax(prob_row))
-            label_long = SENTIMENT_LABELS[idx]
-            label_short = label_map.get(label_long, "neu")
-            sentiment_counts[label_short] += 1
+            # Convert comment dicts to CommentItem objects for easier access
+            comment_items = []
+            for c in request.comments:
+                try:
+                    if isinstance(c, dict):
+                        comment_items.append(CommentItem(
+                            comment_id=str(c.get("comment_id", "")),
+                            text=str(c.get("text", "")),
+                            like_count=int(c.get("like_count", 0))
+                        ))
+                    elif isinstance(c, CommentItem):
+                        comment_items.append(c)
+                    else:
+                        logger.warning("[BentoService] Unexpected comment type: %s", type(c))
+                except Exception as e:
+                    logger.error("[BentoService] Failed to parse comment: %s, error: %s", c, e)
+                    continue
             
-            comment_results.append({
-                "comment_id": comment.comment_id,
-                "text": comment.text,
-                "like_count": comment.like_count,
-                "label": label_short,
-                "score": float(prob_row[idx]),
-            })
-        
-        total = len(comment_texts)
-        sentiment_ratio = {
-            "pos": sentiment_counts["pos"] / total if total > 0 else 0.0,
-            "neu": sentiment_counts["neu"] / total if total > 0 else 0.0,
-            "neg": sentiment_counts["neg"] / total if total > 0 else 0.0,
-        }
-        
-        # Get top comments (sorted by like_count, then by sentiment score)
-        top_comments = sorted(
-            comment_results,
-            key=lambda x: (x["like_count"], x["score"]),
-            reverse=True
-        )[:10]  # Top 10 comments
-        
-        # Extract keywords from comment texts (simple frequency-based)
-        # For now, we'll use a simple approach: extract common words
-        # In production, you might want to use more sophisticated keyword extraction
-        
-        # Extract Korean and English words
-        words = []
-        for text in comment_texts:
-            # Simple word extraction (Korean + English)
-            word_pattern = r'[\uac00-\ud7a3]+|[a-zA-Z]+'
-            words.extend(re.findall(word_pattern, text.lower()))
-        
-        # Filter out common stop words (simple list)
-        stop_words = {"이", "가", "을", "를", "의", "에", "와", "과", "도", "로", "으로", "는", "은", "the", "a", "an", "and", "or", "but"}
-        filtered_words = [w for w in words if len(w) > 1 and w not in stop_words]
-        
-        # Count word frequencies
-        word_counts = Counter(filtered_words)
-        top_keywords = [
-            {"keyword": word, "weight": float(count)}
-            for word, count in word_counts.most_common(12)
-        ]
-        
-        logger.info("[BentoService] Results: sentiment_ratio=%s, top_comments=%d, top_keywords=%d",
-                   sentiment_ratio, len(top_comments), len(top_keywords))
-        
-        return {
-            "video_id": request.video_id,
-            "sentiment_ratio": sentiment_ratio,
-            "top_comments": top_comments,
-            "top_keywords": top_keywords,
-            "model": {"sentiment_model": "sentiment_onnx", "version": "v1"},
-        }
+            if not comment_items:
+                logger.warning("[BentoService] No comments provided for video %s", request.video_id)
+                return {
+                    "video_id": request.video_id,
+                    "sentiment_ratio": {"pos": 0.0, "neu": 0.0, "neg": 0.0},
+                    "top_comments": [],
+                    "top_keywords": [],
+                    "model": {"sentiment_model": "sentiment_onnx", "version": "v1"},
+                }
+            
+            # Extract comment texts and keep track of valid comment indices
+            valid_comments = []
+            comment_texts = []
+            for i, c in enumerate(comment_items):
+                text = c.text
+                if text and text.strip():
+                    valid_comments.append((i, c))
+                    comment_texts.append(text)
+            
+            logger.info("[BentoService] Valid comments: %d/%d (with non-empty text)", 
+                       len(comment_texts), len(comment_items))
+            
+            if not comment_texts:
+                logger.warning("[BentoService] No valid comment texts found for video %s (all empty or whitespace)", request.video_id)
+                return {
+                    "video_id": request.video_id,
+                    "sentiment_ratio": {"pos": 0.0, "neu": 0.0, "neg": 0.0},
+                    "top_comments": [],
+                    "top_keywords": [],
+                    "model": {"sentiment_model": "sentiment_onnx", "version": "v1"},
+                }
+            
+            # Perform sentiment analysis
+            logger.info("[BentoService] Performing sentiment analysis on %d comments", len(comment_texts))
+            logits = self.sentiment_bundle.logits(comment_texts)
+            probs = softmax(logits, axis=1)
+            logger.info("[BentoService] Sentiment analysis completed, processing results...")
+            
+            # Calculate sentiment ratio
+            sentiment_counts = {"pos": 0, "neu": 0, "neg": 0}
+            comment_results = []
+            
+            # Map SENTIMENT_LABELS to short labels
+            label_map = {"positive": "pos", "neutral": "neu", "negative": "neg"}
+            
+            for (orig_idx, comment), prob_row in zip(valid_comments, probs):
+                idx = int(np.argmax(prob_row))
+                label_long = SENTIMENT_LABELS[idx]
+                label_short = label_map.get(label_long, "neu")
+                sentiment_counts[label_short] += 1
+                
+                comment_results.append({
+                    "comment_id": comment.comment_id,
+                    "text": comment.text,
+                    "like_count": comment.like_count,
+                    "label": label_short,
+                    "score": float(prob_row[idx]),
+                })
+            
+            total = len(comment_texts)
+            sentiment_ratio = {
+                "pos": sentiment_counts["pos"] / total if total > 0 else 0.0,
+                "neu": sentiment_counts["neu"] / total if total > 0 else 0.0,
+                "neg": sentiment_counts["neg"] / total if total > 0 else 0.0,
+            }
+            
+            # Get top comments (sorted by like_count, then by sentiment score)
+            top_comments = sorted(
+                comment_results,
+                key=lambda x: (x["like_count"], x["score"]),
+                reverse=True
+            )[:10]  # Top 10 comments
+            
+            # Extract keywords from comment texts (simple frequency-based)
+            # For now, we'll use a simple approach: extract common words
+            # In production, you might want to use more sophisticated keyword extraction
+            
+            # Extract Korean and English words
+            words = []
+            for text in comment_texts:
+                # Simple word extraction (Korean + English)
+                word_pattern = r'[\uac00-\ud7a3]+|[a-zA-Z]+'
+                words.extend(re.findall(word_pattern, text.lower()))
+            
+            # Filter out common stop words (simple list)
+            stop_words = {"이", "가", "을", "를", "의", "에", "와", "과", "도", "로", "으로", "는", "은", "the", "a", "an", "and", "or", "but"}
+            filtered_words = [w for w in words if len(w) > 1 and w not in stop_words]
+            
+            # Count word frequencies
+            word_counts = Counter(filtered_words)
+            top_keywords = [
+                {"keyword": word, "weight": float(count)}
+                for word, count in word_counts.most_common(12)
+            ]
+            
+            logger.info("[BentoService] Results: sentiment_ratio=%s, top_comments=%d, top_keywords=%d",
+                       sentiment_ratio, len(top_comments), len(top_keywords))
+            
+            return {
+                "video_id": request.video_id,
+                "sentiment_ratio": sentiment_ratio,
+                "top_comments": top_comments,
+                "top_keywords": top_keywords,
+                "model": {"sentiment_model": "sentiment_onnx", "version": "v1"},
+            }
+        except Exception as e:
+            error_trace = traceback.format_exc()
+            logger.error("[BentoService] Error in video_detail for %s: %s\n%s", request.video_id, str(e), error_trace)
+            # Return default response on error
+            return {
+                "video_id": request.video_id,
+                "sentiment_ratio": {"pos": 0.0, "neu": 0.0, "neg": 0.0},
+                "top_comments": [],
+                "top_keywords": [],
+                "model": {"sentiment_model": "sentiment_onnx", "version": "v1"},
+                "error": str(e)  # Include error message for debugging
+            }
 
 
