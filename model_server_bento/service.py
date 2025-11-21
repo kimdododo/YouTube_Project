@@ -183,8 +183,11 @@ class ClassificationBundle:
         self.tokenizer = AutoTokenizer.from_pretrained(
             tokenizer_path, use_fast=True, trust_remote_code=True
         )
+        # ONNX 입력 이름 미리 캐싱 (token_type_ids 필요 여부 확인용)
+        self.input_names = {inp.name for inp in self.session.get_inputs()}
 
     def logits(self, texts: List[str]) -> np.ndarray:
+        # 토크나이저 호출
         encoded = self.tokenizer(
             texts,
             return_tensors="np",
@@ -192,10 +195,22 @@ class ClassificationBundle:
             truncation=True,
             max_length=MAX_SEQ_LENGTH,
         )
-        inputs = {
-            "input_ids": encoded["input_ids"].astype(np.int64),
-            "attention_mask": encoded["attention_mask"].astype(np.int64),
-        }
+
+        # 일부 토크나이저는 token_type_ids를 안 돌려줄 수 있으므로 직접 생성
+        if "token_type_ids" not in encoded:
+            encoded["token_type_ids"] = np.zeros_like(encoded["input_ids"])
+
+        # ONNX에 맞게 int64로 변환
+        inputs: Dict[str, np.ndarray] = {}
+
+        if "input_ids" in self.input_names:
+            inputs["input_ids"] = encoded["input_ids"].astype(np.int64)
+        if "attention_mask" in self.input_names:
+            inputs["attention_mask"] = encoded["attention_mask"].astype(np.int64)
+        if "token_type_ids" in self.input_names:
+            inputs["token_type_ids"] = encoded["token_type_ids"].astype(np.int64)
+
+        # 실제 추론
         outputs = self.session.run(None, inputs)
         return outputs[0].astype(np.float32)
 
