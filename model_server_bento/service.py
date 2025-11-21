@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 import bentoml
+from bentoml.io import JSON
 import numpy as np
 import onnxruntime as ort
 from pydantic import BaseModel, Field, validator, ConfigDict
@@ -384,8 +385,8 @@ class SimCSEService:
             )
         return {"results": results}
 
-    @bentoml.api(route="/v1/video-detail")
-    def video_detail(self, request: VideoDetailRequest) -> Dict[str, Any]:
+    @bentoml.api(route="/v1/video-detail", input=JSON())
+    def video_detail(self, request: Dict[str, Any]) -> Dict[str, Any]:
         """
         Analyze video comments and return sentiment ratio, top comments, and keywords.
         
@@ -403,12 +404,22 @@ class SimCSEService:
         logger = logging.getLogger(__name__)
         
         try:
+            # 요청 본문을 수동으로 VideoDetailRequest로 파싱
+            # BentoML이 복잡한 중첩 구조(List[Dict])를 자동 파싱하지 못하는 경우를 대비
+            if isinstance(request, dict):
+                parsed_request = VideoDetailRequest(**request)
+            elif isinstance(request, VideoDetailRequest):
+                parsed_request = request
+            else:
+                # BentoML이 다른 형식으로 전달할 수 있음
+                parsed_request = VideoDetailRequest.model_validate(request)
+            
             logger.info("[BentoService] video_detail called: video_id=%s, comments_count=%d", 
-                       request.video_id, len(request.comments) if request.comments else 0)
+                       parsed_request.video_id, len(parsed_request.comments) if parsed_request.comments else 0)
         
             # Convert comment dicts to CommentItem objects for easier access
             comment_items = []
-            for c in request.comments:
+            for c in parsed_request.comments:
                 try:
                     if isinstance(c, dict):
                         comment_items.append(CommentItem(
@@ -425,9 +436,9 @@ class SimCSEService:
                     continue
             
             if not comment_items:
-                logger.warning("[BentoService] No comments provided for video %s", request.video_id)
+                logger.warning("[BentoService] No comments provided for video %s", parsed_request.video_id)
                 return {
-                    "video_id": request.video_id,
+                    "video_id": parsed_request.video_id,
                     "sentiment_ratio": {"pos": 0.0, "neu": 0.0, "neg": 0.0},
                     "top_comments": [],
                     "top_keywords": [],
@@ -447,9 +458,9 @@ class SimCSEService:
                        len(comment_texts), len(comment_items))
             
             if not comment_texts:
-                logger.warning("[BentoService] No valid comment texts found for video %s (all empty or whitespace)", request.video_id)
+                logger.warning("[BentoService] No valid comment texts found for video %s (all empty or whitespace)", parsed_request.video_id)
                 return {
-                    "video_id": request.video_id,
+                    "video_id": parsed_request.video_id,
                     "sentiment_ratio": {"pos": 0.0, "neu": 0.0, "neg": 0.0},
                     "top_comments": [],
                     "top_keywords": [],
@@ -523,7 +534,7 @@ class SimCSEService:
                        sentiment_ratio, len(top_comments), len(top_keywords))
             
             return {
-                "video_id": request.video_id,
+                "video_id": parsed_request.video_id,
                 "sentiment_ratio": sentiment_ratio,
                 "top_comments": top_comments,
                 "top_keywords": top_keywords,
@@ -531,10 +542,11 @@ class SimCSEService:
             }
         except Exception as e:
             error_trace = traceback.format_exc()
-            logger.error("[BentoService] Error in video_detail for %s: %s\n%s", request.video_id, str(e), error_trace)
+            video_id = request.get("video_id", "unknown") if isinstance(request, dict) else getattr(request, "video_id", "unknown")
+            logger.error("[BentoService] Error in video_detail for %s: %s\n%s", video_id, str(e), error_trace)
             # Return default response on error
             return {
-                "video_id": request.video_id,
+                "video_id": video_id,
                 "sentiment_ratio": {"pos": 0.0, "neu": 0.0, "neg": 0.0},
                 "top_comments": [],
                 "top_keywords": [],
