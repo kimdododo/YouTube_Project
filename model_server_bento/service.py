@@ -258,11 +258,18 @@ class SentimentRequest(BaseModel):
         return filtered
 
 
+class CommentItem(BaseModel):
+    """Individual comment item for video detail analysis."""
+    comment_id: str
+    text: str
+    like_count: int = 0
+
+
 class VideoDetailRequest(BaseModel):
     video_id: str
     title: str = ""
     description: str = ""
-    comments: List[Dict[str, Any]] = Field(default_factory=list)
+    comments: List[CommentItem] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -380,7 +387,7 @@ class SimCSEService:
         valid_comments = []
         comment_texts = []
         for i, c in enumerate(request.comments):
-            text = c.get("text", "")
+            text = c.text
             if text and text.strip():
                 valid_comments.append((i, c))
                 comment_texts.append(text)
@@ -418,9 +425,9 @@ class SimCSEService:
             sentiment_counts[label_short] += 1
             
             comment_results.append({
-                "comment_id": comment.get("comment_id", str(orig_idx)),
-                "text": comment.get("text", ""),
-                "like_count": comment.get("like_count", 0),
+                "comment_id": comment.comment_id,
+                "text": comment.text,
+                "like_count": comment.like_count,
                 "label": label_short,
                 "score": float(prob_row[idx]),
             })
