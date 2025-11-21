@@ -79,6 +79,16 @@ function VideoDetail() {
       setVideo(detail.video)
       setAnalysis(detail.analysis || null)
       
+      // 디버깅: analysis 데이터 확인
+      console.log('[VideoDetail] Analysis data:', detail.analysis)
+      if (detail.analysis) {
+        console.log('[VideoDetail] Sentiment ratio:', detail.analysis.sentiment_ratio)
+        console.log('[VideoDetail] Top keywords:', detail.analysis.top_keywords)
+        console.log('[VideoDetail] Top comments:', detail.analysis.top_comments)
+      } else {
+        console.warn('[VideoDetail] No analysis data received')
+      }
+      
       // 시청 기록에 추가
       if (detail.video && detail.video.id) {
         addToWatchHistory({
@@ -500,7 +510,98 @@ function VideoDetail() {
           </div>
         </div>
 
-ㅇ
+        {/* 댓글 분석 섹션 */}
+        <div className="mb-12">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold text-white">댓글 분석</h2>
+            {analysis?.model?.sentiment_model && (
+              <span className="text-xs text-white/50">
+                모델: {analysis.model.sentiment_model} · {analysis.model.version || 'v1'}
+              </span>
+            )}
+          </div>
+
+          {analysis ? (
+            <div className="grid gap-6 lg:grid-cols-3">
+              {/* 감정 비율 */}
+              <div className="bg-[#11172b]/80 backdrop-blur border border-white/5 rounded-xl p-6 shadow-xl lg:col-span-1">
+                <h3 className="text-white font-semibold mb-4">댓글 감정 비율</h3>
+                <div className="space-y-4">
+                  {sentimentBars.map(({ label, value, color }) => (
+                    <div key={label}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-white/70 text-sm">{label}</span>
+                        <span className="text-white font-semibold text-sm">{value}%</span>
+                      </div>
+                      <div className="w-full h-2.5 bg-white/5 rounded-full overflow-hidden">
+                        <div
+                          className={`${color} h-full rounded-full transition-all`}
+                          style={{ width: `${Math.min(100, Math.max(0, value))}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 상위 키워드 */}
+              <div className="bg-[#11172b]/80 backdrop-blur border border-white/5 rounded-xl p-6 shadow-xl lg:col-span-1">
+                <h3 className="text-white font-semibold mb-4">좋아요 높은 키워드</h3>
+                {topKeywords.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {topKeywords.map((keyword) => (
+                      <div
+                        key={keyword.keyword}
+                        className="px-3 py-1.5 rounded-full bg-blue-600/20 text-blue-100 text-sm flex items-center gap-2"
+                      >
+                        <span>#{keyword.keyword}</span>
+                        <span className="text-white/60 text-xs">{keyword.weight?.toFixed(1)}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-white/50 text-sm">분석된 키워드가 없습니다.</p>
+                )}
+              </div>
+
+              {/* 상위 댓글 */}
+              <div className="bg-[#11172b]/80 backdrop-blur border border-white/5 rounded-xl p-6 shadow-xl lg:col-span-1">
+                <h3 className="text-white font-semibold mb-4">좋아요 상위 댓글</h3>
+                {topComments.length > 0 ? (
+                  <div className="space-y-4">
+                    {topComments.map((comment) => (
+                      <div key={comment.comment_id} className="p-3 rounded-lg bg-white/5">
+                        <div className="flex items-center justify-between mb-2">
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                              comment.label === 'pos'
+                                ? 'bg-emerald-500/20 text-emerald-300'
+                                : comment.label === 'neg'
+                                ? 'bg-rose-500/20 text-rose-300'
+                                : 'bg-slate-500/20 text-slate-200'
+                            }`}
+                          >
+                            {comment.label?.toUpperCase() || 'NEU'}
+                          </span>
+                          <span className="text-white/60 text-xs">
+                            👍 {comment.like_count?.toLocaleString() || 0}
+                          </span>
+                        </div>
+                        <p className="text-white/80 text-sm leading-relaxed">{comment.text}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-white/50 text-sm">상위 댓글 데이터가 없습니다.</p>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="bg-[#11172b]/70 border border-dashed border-white/10 rounded-xl p-6 text-white/60 text-sm">
+              분석 데이터가 아직 준비되지 않았습니다. 잠시 후 다시 확인해주세요.
+            </div>
+          )}
+        </div>
 
         {/* 추천 영상 섹션 - 무한루프 슬라이더 */}
         {similarVideos.length > 0 && (
