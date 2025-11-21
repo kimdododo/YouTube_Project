@@ -454,12 +454,37 @@ export const getTrendVideos = async (limit = 100, skip = 0) => {
     return videos.map(video => {
       const videoId = video.id || video.video_id
       const isShorts = video.is_shorts || false
+      const publishedAt =
+        video.published_at ||
+        video.publishedAt ||
+        video.created_at ||
+        video.createdAt ||
+        null
+      const viewCount =
+        video.view_count ??
+        video.viewCount ??
+        video.views ??
+        video.statistics?.viewCount ??
+        0
+      const likeCount =
+        video.like_count ??
+        video.likeCount ??
+        video.statistics?.likeCount ??
+        0
       return {
         id: videoId,
+        video_id: video.video_id || videoId,
+        channel_id: video.channel_id || video.channelId || null,
+        channel_name: video.channel_name || video.channelName || video.channel_title || video.channel || null,
         thumbnail_url: optimizeThumbnailUrl(video.thumbnail_url, videoId, isShorts), // 고화질 썸네일로 최적화
         title: video.title,
         description: video.description,
-        published_at: video.published_at, // period 필터링을 위해 추가
+        keyword: video.keyword,
+        region: video.region,
+        category: video.category || video.keyword || video.region || null,
+        view_count: viewCount,
+        like_count: likeCount,
+        published_at: publishedAt, // period 필터링을 위해 추가
         rating: video.rating || 5, // 기본값
         showRating: true,
         youtube_url: createYouTubeUrl(videoId), // YouTube URL 생성

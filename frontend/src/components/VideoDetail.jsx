@@ -308,12 +308,30 @@ function VideoDetail() {
     [analysis]
   )
 
+  const [expandedComments, setExpandedComments] = useState({})
+
+  const getCommentPreview = useCallback((text, maxChars = 90) => {
+    if (!text) return ''
+    return text.length > maxChars ? `${text.slice(0, maxChars)}...` : text
+  }, [])
+
+  const toggleCommentExpand = useCallback((commentId) => {
+    if (!commentId) return
+    setExpandedComments((prev) => ({
+      ...prev,
+      [commentId]: !prev[commentId],
+    }))
+  }, [])
+
   const positiveCommentHighlights = useMemo(() => {
     if (!topComments.length) return []
     return topComments
       .filter((comment) => comment.label === 'pos')
-      .map((comment) => comment.text?.trim())
-      .filter(Boolean)
+      .map((comment) => ({
+        id: comment.comment_id || `${comment.text?.slice(0, 20)}-pos`,
+        text: comment.text?.trim() || '',
+      }))
+      .filter((comment) => comment.text.length > 0)
       .slice(0, 4)
   }, [topComments])
 
@@ -321,8 +339,11 @@ function VideoDetail() {
     if (!topComments.length) return []
     return topComments
       .filter((comment) => comment.label === 'neg')
-      .map((comment) => comment.text?.trim())
-      .filter(Boolean)
+      .map((comment) => ({
+        id: comment.comment_id || `${comment.text?.slice(0, 20)}-neg`,
+        text: comment.text?.trim() || '',
+      }))
+      .filter((comment) => comment.text.length > 0)
       .slice(0, 4)
   }, [topComments])
 
@@ -551,13 +572,33 @@ function VideoDetail() {
                 </div>
                 <h3 className="text-3xl font-bold mb-4">{sentimentPercentages?.positive ?? 0}%</h3>
                 {positiveCommentHighlights.length > 0 ? (
-                  <ul className="space-y-2 text-white/80 text-sm">
-                    {positiveCommentHighlights.map((comment) => (
-                      <li key={comment} className="flex items-start gap-2">
-                        <span className="w-2 h-2 rounded-full bg-blue-300" />
-                        <span>{comment}</span>
-                      </li>
-                    ))}
+                  <ul className="space-y-3 text-white/80 text-sm">
+                    {positiveCommentHighlights.map((comment) => {
+                      const isExpanded = expandedComments[comment.id]
+                      const shouldShowToggle = comment.text.length > 90
+                      return (
+                        <li key={comment.id} className="flex flex-col gap-1">
+                          <div className="flex items-start gap-2">
+                            <span className="w-2 h-2 rounded-full bg-blue-300 mt-2" />
+                            <p
+                              className={`text-white/80 text-sm leading-relaxed ${
+                                isExpanded ? '' : 'line-clamp-2'
+                              }`}
+                            >
+                              {isExpanded ? comment.text : getCommentPreview(comment.text)}
+                            </p>
+                          </div>
+                          {shouldShowToggle && (
+                            <button
+                              onClick={() => toggleCommentExpand(comment.id)}
+                              className="text-blue-300 text-xs self-start ml-4 hover:text-blue-200 transition-colors"
+                            >
+                              {isExpanded ? '간략히' : '더보기'}
+                            </button>
+                          )}
+                        </li>
+                      )
+                    })}
                   </ul>
                 ) : (
                   <p className="text-white/50 text-sm">긍정적인 반응이 부족합니다.</p>
@@ -571,13 +612,33 @@ function VideoDetail() {
                 </div>
                 <h3 className="text-3xl font-bold mb-4">{sentimentPercentages?.negative ?? 0}%</h3>
                 {negativeCommentHighlights.length > 0 ? (
-                  <ul className="space-y-2 text-white/80 text-sm">
-                    {negativeCommentHighlights.map((comment) => (
-                      <li key={comment} className="flex items-start gap-2">
-                        <span className="w-2 h-2 rounded-full bg-rose-300" />
-                        <span>{comment}</span>
-                      </li>
-                    ))}
+                  <ul className="space-y-3 text-white/80 text-sm">
+                    {negativeCommentHighlights.map((comment) => {
+                      const isExpanded = expandedComments[comment.id]
+                      const shouldShowToggle = comment.text.length > 90
+                      return (
+                        <li key={comment.id} className="flex flex-col gap-1">
+                          <div className="flex items-start gap-2">
+                            <span className="w-2 h-2 rounded-full bg-rose-300 mt-2" />
+                            <p
+                              className={`text-white/80 text-sm leading-relaxed ${
+                                isExpanded ? '' : 'line-clamp-2'
+                              }`}
+                            >
+                              {isExpanded ? comment.text : getCommentPreview(comment.text)}
+                            </p>
+                          </div>
+                          {shouldShowToggle && (
+                            <button
+                              onClick={() => toggleCommentExpand(comment.id)}
+                              className="text-rose-300 text-xs self-start ml-4 hover:text-rose-200 transition-colors"
+                            >
+                              {isExpanded ? '간략히' : '더보기'}
+                            </button>
+                          )}
+                        </li>
+                      )
+                    })}
                   </ul>
                 ) : (
                   <p className="text-white/50 text-sm">부정적인 반응이 부족합니다.</p>

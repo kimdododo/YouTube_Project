@@ -87,8 +87,30 @@ function TrendRankingCard({ rank, video, change }) {
     )
   }
 
-  const channelName = (video.keyword || video.region || video.channel_id || '여행러버').replace(/^channel:\s*/i, '')
-  const viewCount = video.view_count || video.views || 0
+  const rawChannelName =
+    video.channel_name ||
+    video.channelTitle ||
+    video.channel_title ||
+    video.channel ||
+    video.keyword ||
+    video.region ||
+    ''
+  const isYoutubeChannelId = (value) => {
+    if (!value || typeof value !== 'string') return false
+    return /^UC[a-zA-Z0-9_-]{22}$/.test(value)
+  }
+  const channelName = rawChannelName
+    ? rawChannelName.replace(/^channel:\s*/i, '')
+    : !isYoutubeChannelId(video.channel_id)
+      ? video.channel_id
+      : '여행러버'
+
+  const viewCount =
+    video.view_count ??
+    video.views ??
+    video.viewCount ??
+    video.statistics?.viewCount ??
+    0
 
   return (
     <div className="bg-[#1a1f3a]/80 backdrop-blur-sm rounded-lg p-4 border border-blue-900/30 hover:border-blue-600/50 transition-all duration-300 ease-out hover:-translate-y-2 cursor-pointer hover:shadow-xl" onClick={handleClick}>
