@@ -267,7 +267,26 @@ def get_comment_payloads_for_video(
     """
     Fetch comment payloads (id/text/like_count) for Bento analysis.
     """
+    import logging
+    logger = logging.getLogger(__name__)
+    
     try:
+        # 먼저 전체 댓글 개수 확인 (디버깅용)
+        count_query = text("SELECT COUNT(*) FROM travel_comments WHERE video_id = :video_id")
+        total_count = db.execute(count_query, {"video_id": video_id}).scalar()
+        logger.info("[CRUD] Total comments in DB for video %s: %d", video_id, total_count)
+        
+        # 텍스트가 있는 댓글 개수 확인
+        valid_count_query = text("""
+            SELECT COUNT(*) FROM travel_comments 
+            WHERE video_id = :video_id 
+            AND text IS NOT NULL 
+            AND text != ''
+        """)
+        valid_count = db.execute(valid_count_query, {"video_id": video_id}).scalar()
+        logger.info("[CRUD] Valid comments (with text) for video %s: %d", video_id, valid_count)
+        
+        # 실제 댓글 조회
         query = text(
             """
             SELECT id, text, COALESCE(like_count, 0) AS like_count
@@ -280,6 +299,8 @@ def get_comment_payloads_for_video(
         """
         )
         rows = db.execute(query, {"video_id": video_id, "limit": limit}).fetchall()
+        logger.info("[CRUD] Retrieved %d comment rows for video %s", len(rows), video_id)
+        
         payloads: List[dict] = []
         for row in rows:
             payloads.append(
@@ -289,11 +310,18 @@ def get_comment_payloads_for_video(
                     "like_count": int(row[2]) if row[2] is not None else 0,
                 }
             )
+        
+        if payloads:
+            logger.info("[CRUD] Sample payload (first): comment_id=%s, text_len=%d, like_count=%d",
+                       payloads[0].get("comment_id"), len(payloads[0].get("text", "")), payloads[0].get("like_count"))
+        else:
+            logger.warning("[CRUD] No valid comment payloads for video %s (total in DB: %d, valid: %d)", 
+                          video_id, total_count, valid_count)
+        
         return payloads
     except Exception as e:
-        import logging
-
-        logger = logging.getLogger(__name__)
-        logger.error("[CRUD] Error building comment payloads for %s: %s", video_id, e)
+        import traceback
+        error_trace = traceback.format_exc()
+        logger.error("[CRUD] Error building comment payloads for %s: %s\n%s", video_id, e, error_trace)
         return []
 

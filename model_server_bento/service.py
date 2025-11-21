@@ -360,7 +360,14 @@ class SimCSEService:
                 "model": {"sentiment_model": str, "version": str}
             }
         """
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        logger.info("[BentoService] video_detail called: video_id=%s, comments_count=%d", 
+                   request.video_id, len(request.comments) if request.comments else 0)
+        
         if not request.comments:
+            logger.warning("[BentoService] No comments provided for video %s", request.video_id)
             return {
                 "video_id": request.video_id,
                 "sentiment_ratio": {"pos": 0.0, "neu": 0.0, "neg": 0.0},
@@ -378,7 +385,11 @@ class SimCSEService:
                 valid_comments.append((i, c))
                 comment_texts.append(text)
         
+        logger.info("[BentoService] Valid comments: %d/%d (with non-empty text)", 
+                   len(comment_texts), len(request.comments))
+        
         if not comment_texts:
+            logger.warning("[BentoService] No valid comment texts found for video %s (all empty or whitespace)", request.video_id)
             return {
                 "video_id": request.video_id,
                 "sentiment_ratio": {"pos": 0.0, "neu": 0.0, "neg": 0.0},
@@ -388,8 +399,10 @@ class SimCSEService:
             }
         
         # Perform sentiment analysis
+        logger.info("[BentoService] Performing sentiment analysis on %d comments", len(comment_texts))
         logits = self.sentiment_bundle.logits(comment_texts)
         probs = softmax(logits, axis=1)
+        logger.info("[BentoService] Sentiment analysis completed, processing results...")
         
         # Calculate sentiment ratio
         sentiment_counts = {"pos": 0, "neu": 0, "neg": 0}
@@ -447,6 +460,9 @@ class SimCSEService:
             {"keyword": word, "weight": float(count)}
             for word, count in word_counts.most_common(12)
         ]
+        
+        logger.info("[BentoService] Results: sentiment_ratio=%s, top_comments=%d, top_keywords=%d",
+                   sentiment_ratio, len(top_comments), len(top_keywords))
         
         return {
             "video_id": request.video_id,

@@ -521,27 +521,31 @@ function VideoDetail() {
             )}
           </div>
 
-          {analysis ? (
+          {analysis && analysis.sentiment_ratio ? (
             <div className="grid gap-6 lg:grid-cols-3">
               {/* 감정 비율 */}
               <div className="bg-[#11172b]/80 backdrop-blur border border-white/5 rounded-xl p-6 shadow-xl lg:col-span-1">
                 <h3 className="text-white font-semibold mb-4">댓글 감정 비율</h3>
-                <div className="space-y-4">
-                  {sentimentBars.map(({ label, value, color }) => (
-                    <div key={label}>
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-white/70 text-sm">{label}</span>
-                        <span className="text-white font-semibold text-sm">{value}%</span>
+                {sentimentPercentages && (sentimentPercentages.positive > 0 || sentimentPercentages.neutral > 0 || sentimentPercentages.negative > 0) ? (
+                  <div className="space-y-4">
+                    {sentimentBars.map(({ label, value, color }) => (
+                      <div key={label}>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-white/70 text-sm">{label}</span>
+                          <span className="text-white font-semibold text-sm">{value}%</span>
+                        </div>
+                        <div className="w-full h-2.5 bg-white/5 rounded-full overflow-hidden">
+                          <div
+                            className={`${color} h-full rounded-full transition-all`}
+                            style={{ width: `${Math.min(100, Math.max(0, value))}%` }}
+                          />
+                        </div>
                       </div>
-                      <div className="w-full h-2.5 bg-white/5 rounded-full overflow-hidden">
-                        <div
-                          className={`${color} h-full rounded-full transition-all`}
-                          style={{ width: `${Math.min(100, Math.max(0, value))}%` }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-white/50 text-sm">분석할 댓글이 없습니다.</p>
+                )}
               </div>
 
               {/* 상위 키워드 */}

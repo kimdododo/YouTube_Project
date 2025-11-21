@@ -506,7 +506,16 @@ async def get_video(video_id: str, db: Session = Depends(get_db)):
         analysis_payload: Optional[VideoAnalysis] = None
 
         comments = crud_video.get_comment_payloads_for_video(db, video_id=video_id, limit=150)
+        logger.info("[VideoDetail] Retrieved %d comments for video %s", len(comments) if comments else 0, video_id)
+        
         if comments:
+            # 댓글 데이터 샘플 로깅 (처음 3개만)
+            sample_comments = comments[:3]
+            logger.info("[VideoDetail] Sample comments (first 3): %s", [
+                {"comment_id": c.get("comment_id"), "text_preview": (c.get("text", "")[:50] + "...") if len(c.get("text", "")) > 50 else c.get("text", ""), "like_count": c.get("like_count")}
+                for c in sample_comments
+            ])
+            
             try:
                 logger.info("[VideoDetail] Calling BentoML for video %s with %d comments", video_id, len(comments))
                 bento_result = await analyze_video_detail_for_bento(
@@ -516,6 +525,9 @@ async def get_video(video_id: str, db: Session = Depends(get_db)):
                     comments=comments,
                 )
                 logger.info("[VideoDetail] BentoML response received: %s", list(bento_result.keys()) if isinstance(bento_result, dict) else "not a dict")
+                logger.info("[VideoDetail] BentoML sentiment_ratio: %s", bento_result.get("sentiment_ratio") if isinstance(bento_result, dict) else "N/A")
+                logger.info("[VideoDetail] BentoML top_comments count: %d", len(bento_result.get("top_comments", [])) if isinstance(bento_result, dict) else 0)
+                logger.info("[VideoDetail] BentoML top_keywords count: %d", len(bento_result.get("top_keywords", [])) if isinstance(bento_result, dict) else 0)
                 analysis_payload = VideoAnalysis.model_validate(bento_result)
                 logger.info("[VideoDetail] Analysis payload validated successfully")
             except httpx.HTTPStatusError as exc:

@@ -55,7 +55,16 @@ async def analyze_video_detail_for_bento(
         "comments": comments,
     }
 
-    logger.debug("[BentoClient] POST %s payload_comment_count=%s", url, len(comments))
+    logger.info("[BentoClient] POST %s with %d comments", url, len(comments))
+    if comments:
+        # 댓글 샘플 로깅
+        sample = comments[:2]
+        logger.info("[BentoClient] Sample comments: %s", [
+            {"comment_id": c.get("comment_id"), "text_len": len(c.get("text", "")), "like_count": c.get("like_count")}
+            for c in sample
+        ])
+    else:
+        logger.warning("[BentoClient] No comments in payload!")
 
     async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
         response = await client.post(url, json=payload)
@@ -65,12 +74,17 @@ async def analyze_video_detail_for_bento(
             logger.error(
                 "[BentoClient] Bento request failed: status=%s body=%s",
                 exc.response.status_code,
-                exc.response.text,
+                exc.response.text[:500] if exc.response.text else "no body",
             )
             raise
 
     data = response.json()
-    logger.debug("[BentoClient] Received keys: %s", list(data.keys()))
+    logger.info("[BentoClient] Response received: keys=%s, sentiment_ratio=%s, top_comments=%d, top_keywords=%d",
+        list(data.keys()) if isinstance(data, dict) else "not a dict",
+        data.get("sentiment_ratio") if isinstance(data, dict) else "N/A",
+        len(data.get("top_comments", [])) if isinstance(data, dict) else 0,
+        len(data.get("top_keywords", [])) if isinstance(data, dict) else 0,
+    )
     return data
 
 
