@@ -34,6 +34,15 @@ python -c "import uvicorn; print('✅ uvicorn imported')" || { echo "❌ uvicorn
 
 echo "Running database migrations (this will test database connection)..."
 echo "=========================================="
+
+# 데이터베이스에 잘못된 revision이 기록되어 있는지 확인하고 수정
+echo "Checking and fixing alembic_version table if needed..."
+if python fix_alembic_version.py 2>&1; then
+  echo "[INFO] Alembic version check completed"
+else
+  echo "[WARN] Failed to check alembic_version table, but continuing..."
+fi
+
 MIGRATION_OUTPUT=$(alembic upgrade head 2>&1)
 MIGRATION_EXIT_CODE=$?
 if [ $MIGRATION_EXIT_CODE -eq 0 ]; then
