@@ -385,7 +385,7 @@ class SimCSEService:
         return {"results": results}
 
     @bentoml.api(route="/v1/video-detail")
-    def video_detail(self, request: Dict[str, Any]) -> Dict[str, Any]:
+    def video_detail(self, request: VideoDetailRequest) -> Dict[str, Any]:
         """
         Analyze video comments and return sentiment ratio, top comments, and keywords.
         
@@ -403,15 +403,8 @@ class SimCSEService:
         logger = logging.getLogger(__name__)
         
         try:
-            # 요청 본문을 수동으로 VideoDetailRequest로 파싱
-            # BentoML이 복잡한 중첩 구조(List[Dict])를 자동 파싱하지 못하는 경우를 대비
-            if isinstance(request, dict):
-                parsed_request = VideoDetailRequest(**request)
-            elif isinstance(request, VideoDetailRequest):
-                parsed_request = request
-            else:
-                # BentoML이 다른 형식으로 전달할 수 있음
-                parsed_request = VideoDetailRequest.model_validate(request)
+            # BentoML이 자동으로 VideoDetailRequest로 파싱함 (다른 엔드포인트와 동일한 패턴)
+            parsed_request = request
             
             logger.info("[BentoService] video_detail called: video_id=%s, comments_count=%d", 
                        parsed_request.video_id, len(parsed_request.comments) if parsed_request.comments else 0)
