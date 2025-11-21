@@ -513,7 +513,7 @@ class SimCSEService:
             probs = softmax(logits, axis=1)
             logger.info("[BentoService] Sentiment analysis completed, processing results...")
             
-            # Calculate sentiment ratio
+            # Calculate sentiment ratio (binary: positive / negative only)
             sentiment_counts = {"pos": 0, "neu": 0, "neg": 0}
             comment_results = []
             
@@ -534,19 +534,28 @@ class SimCSEService:
                     "score": float(prob_row[idx]),
                 })
             
-            total = len(comment_texts)
+            binary_comments = [c for c in comment_results if c["label"] in {"pos", "neg"}]
+            binary_total = len(binary_comments)
+            if binary_total == 0:
+                binary_total = len(comment_results)
+                binary_comments = comment_results[:]
+            
+            pos_count = sum(1 for c in binary_comments if c["label"] == "pos")
+            neg_count = sum(1 for c in binary_comments if c["label"] == "neg")
+            total_binary = pos_count + neg_count
             sentiment_ratio = {
-                "pos": sentiment_counts["pos"] / total if total > 0 else 0.0,
-                "neu": sentiment_counts["neu"] / total if total > 0 else 0.0,
-                "neg": sentiment_counts["neg"] / total if total > 0 else 0.0,
+                "pos": pos_count / total_binary if total_binary > 0 else 0.0,
+                "neu": 0.0,
+                "neg": neg_count / total_binary if total_binary > 0 else 0.0,
             }
             
-            # Get top comments (sorted by like_count, then by sentiment score)
+            # Get top comments (binary first, fallback to all)
+            top_source = binary_comments if binary_comments else comment_results
             top_comments = sorted(
-                comment_results,
+                top_source,
                 key=lambda x: (x["like_count"], x["score"]),
                 reverse=True
-            )[:10]  # Top 10 comments
+            )[:10]
             
             # Extract keywords from comment texts (simple frequency-based)
             # For now, we'll use a simple approach: extract common words
