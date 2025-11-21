@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef, startTransition } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Star, ChevronLeft, ChevronRight, Bookmark } from 'lucide-react'
 import { useBookmark } from '../contexts/BookmarkContext'
@@ -11,6 +11,10 @@ import { fetchVideoDetail as fetchVideoDetailApi } from '../api/videos'
 const API_BASE_URL = import.meta.env?.VITE_API_URL || '/api'
 const SIMILAR_LIMIT = 12
 const SECONDARY_FETCH_DELAY = 250
+
+const SkeletonBox = ({ className = '' }) => (
+  <div className={`animate-pulse bg-[#1f243d]/80 rounded-lg ${className}`} />
+)
 
 function VideoDetail() {
   const { videoId } = useParams()
@@ -77,13 +81,15 @@ function VideoDetail() {
         throw new Error('비디오를 찾을 수 없습니다.')
       }
       setVideo(detail.video)
-      const sanitizedAnalysis = detail.analysis
-        ? (() => {
-            const { model, ...rest } = detail.analysis
-            return rest
-          })()
-        : null
-      setAnalysis(sanitizedAnalysis)
+      startTransition(() => {
+        const sanitizedAnalysis = detail.analysis
+          ? (() => {
+              const { model, ...rest } = detail.analysis
+              return rest
+            })()
+          : null
+        setAnalysis(sanitizedAnalysis)
+      })
       
       // 디버깅: analysis 데이터 확인
       console.log('[VideoDetail] Analysis data:', detail.analysis)
@@ -117,7 +123,9 @@ function VideoDetail() {
       if (response.ok) {
         const result = await response.json()
         const videos = result.videos || result
-        setSimilarVideos(videos)
+        startTransition(() => {
+          setSimilarVideos(videos)
+        })
       }
     } catch (err) {
       console.error('[VideoDetail] Failed to fetch similar videos:', err)
@@ -220,43 +228,40 @@ function VideoDetail() {
     return () => window.removeEventListener('resize', updateVisibleCards)
   }, [])
 
-  const slideNext = useCallback(() => {
-    if (isTransitioning || similarVideos.length === 0) return
-    setIsTransitioning(true)
-    trackEvent('similar_videos_carousel', {
-      direction: 'next',
-      video_id: video?.id || video?.video_id || videoId
-    })
-    setCurrentIndex((prev) => {
-      const nextIndex = prev + visibleCards
-      // 무한루프: 마지막 카드 다음은 첫 번째로
-      return nextIndex >= similarVideos.length ? 0 : nextIndex
-    })
-    // 이전 timeout 정리
-    if (slideTimeoutRef.current) {
-      clearTimeout(slideTimeoutRef.current)
-    }
-    slideTimeoutRef.current = setTimeout(() => setIsTransitioning(false), 500)
-  }, [isTransitioning, similarVideos.length, visibleCards])
+  const carouselCooldown = useRef(false)
 
-  const slidePrev = useCallback(() => {
-    if (isTransitioning || similarVideos.length === 0) return
-    setIsTransitioning(true)
-    trackEvent('similar_videos_carousel', {
-      direction: 'prev',
-      video_id: video?.id || video?.video_id || videoId
-    })
-    setCurrentIndex((prev) => {
-      const prevIndex = prev - visibleCards
-      // 무한루프: 첫 번째 카드 이전은 마지막으로
-      return prevIndex < 0 ? Math.max(0, similarVideos.length - visibleCards) : prevIndex
-    })
-    // 이전 timeout 정리
-    if (slideTimeoutRef.current) {
-      clearTimeout(slideTimeoutRef.current)
-    }
-    slideTimeoutRef.current = setTimeout(() => setIsTransitioning(false), 500)
-  }, [isTransitioning, similarVideos.length, visibleCards])
+  const slideHandler = useCallback(
+    (direction) => {
+      if (carouselCooldown.current || isTransitioning || similarVideos.length === 0) {
+        return
+      }
+      carouselCooldown.current = true
+      setIsTransitioning(true)
+      trackEvent('similar_videos_carousel', {
+        direction,
+        video_id: video?.id || video?.video_id || videoId
+      })
+      setCurrentIndex((prev) => {
+        if (direction === 'next') {
+          const nextIndex = prev + visibleCards
+          return nextIndex >= similarVideos.length ? 0 : nextIndex
+        }
+        const prevIndex = prev - visibleCards
+        return prevIndex < 0 ? Math.max(0, similarVideos.length - visibleCards) : prevIndex
+      })
+      if (slideTimeoutRef.current) {
+        clearTimeout(slideTimeoutRef.current)
+      }
+      slideTimeoutRef.current = setTimeout(() => {
+        carouselCooldown.current = false
+        setIsTransitioning(false)
+      }, 500)
+    },
+    [isTransitioning, similarVideos.length, visibleCards, video?.id, video?.video_id, videoId]
+  )
+
+  const slideNext = useCallback(() => slideHandler('next'), [slideHandler])
+  const slidePrev = useCallback(() => slideHandler('prev'), [slideHandler])
 
   // cleanup timeout on unmount
   useEffect(() => {
@@ -314,21 +319,6 @@ function VideoDetail() {
     [analysis]
   )
 
-  const [expandedComments, setExpandedComments] = useState({})
-
-  const getCommentPreview = useCallback((text, maxChars = 90) => {
-    if (!text) return ''
-    return text.length > maxChars ? `${text.slice(0, maxChars)}...` : text
-  }, [])
-
-  const toggleCommentExpand = useCallback((commentId) => {
-    if (!commentId) return
-    setExpandedComments((prev) => ({
-      ...prev,
-      [commentId]: !prev[commentId],
-    }))
-  }, [])
-
   const positiveCommentHighlights = useMemo(() => {
     if (!topComments.length) return []
     return topComments
@@ -373,9 +363,24 @@ function VideoDetail() {
   if (loading) {
     return (
       <AppLayout>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="text-center py-12">
-            <div className="text-blue-300 animate-pulse">데이터를 불러오는 중...</div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <SkeletonBox className="w-full h-[360px] lg:h-[420px]" />
+            <div className="space-y-4">
+              <SkeletonBox className="h-10" />
+              <SkeletonBox className="h-5 w-2/3" />
+              <SkeletonBox className="h-24" />
+              <div className="flex gap-3">
+                <SkeletonBox className="h-8 w-20" />
+                <SkeletonBox className="h-8 w-28" />
+              </div>
+              <SkeletonBox className="h-28" />
+            </div>
+          </div>
+          <div className="grid gap-6 lg:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, idx) => (
+              <SkeletonBox key={idx} className="h-64" />
+            ))}
           </div>
         </div>
       </AppLayout>
@@ -410,8 +415,11 @@ function VideoDetail() {
             {thumbnailUrl ? (
               <img
                 src={thumbnailUrl}
+                decoding="async"
+                fetchpriority="high"
                 alt={video.title || 'Video'}
                 className="w-full h-full object-cover"
+                loading="eager"
               />
             ) : (
               <div className="w-full h-full bg-gradient-to-br from-blue-900/80 to-purple-900/80 flex items-center justify-center">
@@ -574,37 +582,18 @@ function VideoDetail() {
               <div className="rounded-2xl bg-[#11172b]/90 border border-white/10 p-6 text-white">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-sm text-white/80">긍정 댓글</p>
-                  <span className="text-xs text-white/50">비율 카드</span>
                 </div>
                 <h3 className="text-3xl font-bold mb-4">{sentimentPercentages?.positive ?? 0}%</h3>
                 {positiveCommentHighlights.length > 0 ? (
                   <ul className="space-y-3 text-white/80 text-sm">
-                    {positiveCommentHighlights.map((comment) => {
-                      const isExpanded = expandedComments[comment.id]
-                      const shouldShowToggle = comment.text.length > 90
-                      return (
-                        <li key={comment.id} className="flex flex-col gap-1">
-                          <div className="flex items-start gap-2">
-                            <span className="w-2 h-2 rounded-full bg-white/50 mt-2" />
-                            <p
-                              className={`text-white/80 text-sm leading-relaxed ${
-                                isExpanded ? '' : 'line-clamp-2'
-                              }`}
-                            >
-                              {isExpanded ? comment.text : getCommentPreview(comment.text)}
-                            </p>
-                          </div>
-                          {shouldShowToggle && (
-                            <button
-                              onClick={() => toggleCommentExpand(comment.id)}
-                              className="text-white/60 text-xs self-start ml-4 hover:text-white transition-colors"
-                            >
-                              {isExpanded ? '간략히' : '더보기'}
-                            </button>
-                          )}
-                        </li>
-                      )
-                    })}
+                    {positiveCommentHighlights.map((comment) => (
+                      <li key={comment.id} className="flex items-start gap-2">
+                        <span className="w-2 h-2 rounded-full bg-black mt-2" />
+                        <p className="text-white/80 text-sm leading-relaxed whitespace-pre-wrap break-words max-h-32 overflow-y-auto pr-1">
+                          {comment.text}
+                        </p>
+                      </li>
+                    ))}
                   </ul>
                 ) : (
                   <p className="text-white/50 text-sm">긍정적인 반응이 부족합니다.</p>
@@ -614,37 +603,18 @@ function VideoDetail() {
               <div className="rounded-2xl bg-[#11172b]/90 border border-white/10 p-6 text-white">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-sm text-white/80">부정 댓글</p>
-                  <span className="text-xs text-white/50">비율 카드</span>
                 </div>
                 <h3 className="text-3xl font-bold mb-4">{sentimentPercentages?.negative ?? 0}%</h3>
                 {negativeCommentHighlights.length > 0 ? (
                   <ul className="space-y-3 text-white/80 text-sm">
-                    {negativeCommentHighlights.map((comment) => {
-                      const isExpanded = expandedComments[comment.id]
-                      const shouldShowToggle = comment.text.length > 90
-                      return (
-                        <li key={comment.id} className="flex flex-col gap-1">
-                          <div className="flex items-start gap-2">
-                            <span className="w-2 h-2 rounded-full bg-white/50 mt-2" />
-                            <p
-                              className={`text-white/80 text-sm leading-relaxed ${
-                                isExpanded ? '' : 'line-clamp-2'
-                              }`}
-                            >
-                              {isExpanded ? comment.text : getCommentPreview(comment.text)}
-                            </p>
-                          </div>
-                          {shouldShowToggle && (
-                            <button
-                              onClick={() => toggleCommentExpand(comment.id)}
-                              className="text-white/60 text-xs self-start ml-4 hover:text-white transition-colors"
-                            >
-                              {isExpanded ? '간략히' : '더보기'}
-                            </button>
-                          )}
-                        </li>
-                      )
-                    })}
+                    {negativeCommentHighlights.map((comment) => (
+                      <li key={comment.id} className="flex items-start gap-2">
+                        <span className="w-2 h-2 rounded-full bg-black mt-2" />
+                        <p className="text-white/80 text-sm leading-relaxed whitespace-pre-wrap break-words max-h-32 overflow-y-auto pr-1">
+                          {comment.text}
+                        </p>
+                      </li>
+                    ))}
                   </ul>
                 ) : (
                   <p className="text-white/50 text-sm">부정적인 반응이 부족합니다.</p>
@@ -657,7 +627,7 @@ function VideoDetail() {
                   <ul className="space-y-3 text-sm text-white/80">
                     {summaryLines.map((summary, index) => (
                       <li key={`${summary}-${index}`} className="flex items-start gap-2 leading-relaxed">
-                        <span className="text-blue-300 mt-0.5">•</span>
+                        <span className="text-black mt-0.5">•</span>
                         <span>{summary}</span>
                       </li>
                     ))}
@@ -727,6 +697,8 @@ function VideoDetail() {
                             {thumbnailUrl ? (
                               <img
                                 src={thumbnailUrl}
+                                loading="lazy"
+                                decoding="async"
                                 alt={v.title || 'Video'}
                                 className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
                               />

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback, lazy, Suspense } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { User, Settings, X, LogOut, Bookmark, Bell, Lock, Eye, EyeOff, Clock } from 'lucide-react'
 import { useBookmark } from '../contexts/BookmarkContext'
@@ -7,15 +7,24 @@ import { getRecommendedVideos } from '../api/videos'
 import { getWatchHistory, formatWatchTime } from '../utils/watchHistory'
 import { changePassword, saveTravelPreferences, fetchTravelPreferences, getToken, logout as clearAuth, getCurrentUser, getMyKeywords, updateUserProfile } from '../api/auth'
 import { usePageTracking } from '../utils/analytics'
-import {
-  Chart as ChartJS,
-  ArcElement,
-  Tooltip,
-  Legend
-} from 'chart.js'
-import { Pie } from 'react-chartjs-2'
+let chartRegistered = false
+const LazyPieChart = lazy(async () => {
+  const [{ Chart, ArcElement, Tooltip, Legend }, reactChart] = await Promise.all([
+    import('chart.js'),
+    import('react-chartjs-2')
+  ])
+  if (!chartRegistered) {
+    Chart.register(ArcElement, Tooltip, Legend)
+    chartRegistered = true
+  }
+  return { default: reactChart.Pie }
+})
 
-ChartJS.register(ArcElement, Tooltip, Legend)
+const ChartFallback = () => (
+  <div className="relative w-80 h-80 flex items-center justify-center">
+    <div className="w-16 h-16 border-4 border-white/20 border-t-white/70 rounded-full animate-spin" />
+  </div>
+)
 
 const DEFAULT_PREFERENCE_SUMMARY = ''
 const DEFAULT_KEYWORD_SUMMARY = ''
@@ -1114,9 +1123,11 @@ function MyPage() {
                       </div>
                     ) : (
                       <>
-                        <div className="relative w-80 h-80 flex items-center justify-center">
-                          <Pie data={pieChartData} options={pieChartOptions} />
-                        </div>
+                        <Suspense fallback={<ChartFallback />}>
+                          <div className="relative w-80 h-80 flex items-center justify-center">
+                            <LazyPieChart data={pieChartData} options={pieChartOptions} />
+                          </div>
+                        </Suspense>
                         <div className="w-full">
                           <div className="flex flex-wrap justify-center items-center gap-x-3 gap-y-2.5 px-2">
                             {contentPreferenceData.map((item) => (
