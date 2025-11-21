@@ -3,7 +3,9 @@ Video API 라우터
 비디오 관련 REST API 엔드포인트
 """
 import logging
+import traceback
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
@@ -495,27 +497,64 @@ def get_most_liked_videos(
 @router.get("/{video_id}", response_model=VideoDetailResponse)
 async def get_video(video_id: str, db: Session = Depends(get_db)):
     """특정 비디오 조회 + Bento 분석 결과"""
-    db_video = crud_video.get_video(db, video_id=video_id)
-    if db_video is None:
-        raise HTTPException(status_code=404, detail="Video not found")
+    try:
+        db_video = crud_video.get_video(db, video_id=video_id)
+        if db_video is None:
+            raise HTTPException(status_code=404, detail="Video not found")
 
-    video_payload = VideoResponse.model_validate(db_video)
-    analysis_payload: Optional[VideoAnalysis] = None
+        video_payload = VideoResponse.model_validate(db_video)
+        analysis_payload: Optional[VideoAnalysis] = None
 
-    comments = crud_video.get_comment_payloads_for_video(db, video_id=video_id, limit=150)
-    if comments:
-        try:
-            bento_result = await analyze_video_detail_for_bento(
-                video_id=video_id,
-                title=db_video.title or "",
-                description=db_video.description or "",
-                comments=comments,
-            )
-            analysis_payload = VideoAnalysis.model_validate(bento_result)
-        except Exception as exc:
-            logger.warning("[VideoDetail] Bento analysis failed for %s: %s", video_id, exc)
+        comments = crud_video.get_comment_payloads_for_video(db, video_id=video_id, limit=150)
+        if comments:
+            try:
+                logger.info("[VideoDetail] Calling BentoML for video %s with %d comments", video_id, len(comments))
+                bento_result = await analyze_video_detail_for_bento(
+                    video_id=video_id,
+                    title=db_video.title or "",
+                    description=db_video.description or "",
+                    comments=comments,
+                )
+                logger.info("[VideoDetail] BentoML response received: %s", list(bento_result.keys()) if isinstance(bento_result, dict) else "not a dict")
+                analysis_payload = VideoAnalysis.model_validate(bento_result)
+                logger.info("[VideoDetail] Analysis payload validated successfully")
+            except httpx.HTTPStatusError as exc:
+                logger.error(
+                    "[VideoDetail] BentoML HTTP error for %s: status=%s, body=%s",
+                    video_id,
+                    exc.response.status_code,
+                    exc.response.text[:500] if exc.response.text else "no body",
+                )
+                # BentoML 호출 실패해도 비디오 정보는 반환
+                analysis_payload = None
+            except Exception as exc:
+                error_trace = traceback.format_exc()
+                logger.error(
+                    "[VideoDetail] Bento analysis failed for %s: %s\n%s",
+                    video_id,
+                    str(exc),
+                    error_trace,
+                )
+                # BentoML 호출 실패해도 비디오 정보는 반환
+                analysis_payload = None
+        else:
+            logger.info("[VideoDetail] No comments found for video %s", video_id)
 
-    return VideoDetailResponse(video=video_payload, analysis=analysis_payload)
+        return VideoDetailResponse(video=video_payload, analysis=analysis_payload)
+    except HTTPException:
+        raise
+    except Exception as e:
+        error_trace = traceback.format_exc()
+        logger.error(
+            "[VideoDetail] Unexpected error for video %s: %s\n%s",
+            video_id,
+            str(e),
+            error_trace,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error fetching video detail: {str(e)}"
+        )
 
 
 @router.get("/{video_id}/keywords")
