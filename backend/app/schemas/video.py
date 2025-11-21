@@ -82,6 +82,7 @@ class VideoAnalysis(BaseModel):
     top_comments: list[TopComment] = Field(default_factory=list)
     top_keywords: list[TopKeyword] = Field(default_factory=list)
     model: Optional[dict[str, Any]] = None
+    summary_lines: list[str] = Field(default_factory=list)
 
     class Config:
         extra = "allow"

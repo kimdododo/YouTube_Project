@@ -22,6 +22,7 @@ from app.crud import video as crud_video
 from app.recommendations import ContentBasedRecommender
 # ML API 서버 제거됨 - 재랭킹 기능 비활성화
 from app.services.comment_summary import generate_comment_summary
+from app.services.comment_summary_llm import generate_comment_three_line_summary
 from app.services.sentiment_summary import summarize_sentiment
 from app.clients.bento import analyze_video_detail_for_bento
 
@@ -507,7 +508,8 @@ async def get_video(video_id: str, db: Session = Depends(get_db)):
 
         comments = crud_video.get_comment_payloads_for_video(db, video_id=video_id, limit=150)
         logger.info("[VideoDetail] Retrieved %d comments for video %s", len(comments) if comments else 0, video_id)
-        
+        summary_lines: List[str] = []
+
         if comments:
             # 댓글 데이터 샘플 로깅 (처음 3개만)
             sample_comments = comments[:3]
@@ -516,6 +518,13 @@ async def get_video(video_id: str, db: Session = Depends(get_db)):
                 for c in sample_comments
             ])
             
+            comment_texts = [c.get("text", "") for c in comments if c.get("text")]
+            if comment_texts:
+                try:
+                    summary_lines = generate_comment_three_line_summary(comment_texts)
+                except Exception as exc:
+                    logger.warning("[VideoDetail] Comment summary generation failed: %s", exc)
+
             try:
                 logger.info("[VideoDetail] Calling BentoML for video %s with %d comments", video_id, len(comments))
                 bento_result = await analyze_video_detail_for_bento(
@@ -524,6 +533,8 @@ async def get_video(video_id: str, db: Session = Depends(get_db)):
                     description=db_video.description or "",
                     comments=comments,
                 )
+                if summary_lines:
+                    bento_result["summary_lines"] = summary_lines
                 logger.info("[VideoDetail] BentoML response received: %s", list(bento_result.keys()) if isinstance(bento_result, dict) else "not a dict")
                 logger.info("[VideoDetail] BentoML sentiment_ratio: %s", bento_result.get("sentiment_ratio") if isinstance(bento_result, dict) else "N/A")
                 logger.info("[VideoDetail] BentoML top_comments count: %d", len(bento_result.get("top_comments", [])) if isinstance(bento_result, dict) else 0)
