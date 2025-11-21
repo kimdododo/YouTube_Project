@@ -11,6 +11,7 @@ class VideoBase(BaseModel):
     """비디오 기본 스키마"""
     id: Optional[str] = Field(None, description="YouTube 비디오 ID")
     channel_id: Optional[str] = Field(None, description="채널 ID")
+    channel_name: Optional[str] = Field(None, description="채널명")
     title: Optional[str] = Field(None, description="비디오 제목")
     description: Optional[str] = Field(None, description="비디오 설명")
     published_at: Optional[datetime] = Field(None, description="게시일시")

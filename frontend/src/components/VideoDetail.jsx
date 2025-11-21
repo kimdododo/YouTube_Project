@@ -77,7 +77,13 @@ function VideoDetail() {
         throw new Error('비디오를 찾을 수 없습니다.')
       }
       setVideo(detail.video)
-      setAnalysis(detail.analysis || null)
+      const sanitizedAnalysis = detail.analysis
+        ? (() => {
+            const { model, ...rest } = detail.analysis
+            return rest
+          })()
+        : null
+      setAnalysis(sanitizedAnalysis)
       
       // 디버깅: analysis 데이터 확인
       console.log('[VideoDetail] Analysis data:', detail.analysis)
@@ -565,10 +571,10 @@ function VideoDetail() {
 
           {analysis && analysis.sentiment_ratio ? (
             <div className="grid gap-6 lg:grid-cols-3">
-              <div className="rounded-2xl bg-gradient-to-br from-blue-900/60 to-blue-600/30 border border-blue-600/30 p-6 text-white">
+              <div className="rounded-2xl bg-[#11172b]/90 border border-white/10 p-6 text-white">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-sm text-white/80">긍정 댓글</p>
-                  <span className="text-xs text-white/60">비율 카드</span>
+                  <span className="text-xs text-white/50">비율 카드</span>
                 </div>
                 <h3 className="text-3xl font-bold mb-4">{sentimentPercentages?.positive ?? 0}%</h3>
                 {positiveCommentHighlights.length > 0 ? (
@@ -579,7 +585,7 @@ function VideoDetail() {
                       return (
                         <li key={comment.id} className="flex flex-col gap-1">
                           <div className="flex items-start gap-2">
-                            <span className="w-2 h-2 rounded-full bg-blue-300 mt-2" />
+                            <span className="w-2 h-2 rounded-full bg-white/50 mt-2" />
                             <p
                               className={`text-white/80 text-sm leading-relaxed ${
                                 isExpanded ? '' : 'line-clamp-2'
@@ -591,7 +597,7 @@ function VideoDetail() {
                           {shouldShowToggle && (
                             <button
                               onClick={() => toggleCommentExpand(comment.id)}
-                              className="text-blue-300 text-xs self-start ml-4 hover:text-blue-200 transition-colors"
+                              className="text-white/60 text-xs self-start ml-4 hover:text-white transition-colors"
                             >
                               {isExpanded ? '간략히' : '더보기'}
                             </button>
@@ -605,10 +611,10 @@ function VideoDetail() {
                 )}
               </div>
 
-              <div className="rounded-2xl bg-gradient-to-br from-rose-900/60 to-rose-600/30 border border-rose-600/30 p-6 text-white">
+              <div className="rounded-2xl bg-[#11172b]/90 border border-white/10 p-6 text-white">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-sm text-white/80">부정 댓글</p>
-                  <span className="text-xs text-white/60">비율 카드</span>
+                  <span className="text-xs text-white/50">비율 카드</span>
                 </div>
                 <h3 className="text-3xl font-bold mb-4">{sentimentPercentages?.negative ?? 0}%</h3>
                 {negativeCommentHighlights.length > 0 ? (
@@ -619,7 +625,7 @@ function VideoDetail() {
                       return (
                         <li key={comment.id} className="flex flex-col gap-1">
                           <div className="flex items-start gap-2">
-                            <span className="w-2 h-2 rounded-full bg-rose-300 mt-2" />
+                            <span className="w-2 h-2 rounded-full bg-white/50 mt-2" />
                             <p
                               className={`text-white/80 text-sm leading-relaxed ${
                                 isExpanded ? '' : 'line-clamp-2'
@@ -631,7 +637,7 @@ function VideoDetail() {
                           {shouldShowToggle && (
                             <button
                               onClick={() => toggleCommentExpand(comment.id)}
-                              className="text-rose-300 text-xs self-start ml-4 hover:text-rose-200 transition-colors"
+                              className="text-white/60 text-xs self-start ml-4 hover:text-white transition-colors"
                             >
                               {isExpanded ? '간략히' : '더보기'}
                             </button>

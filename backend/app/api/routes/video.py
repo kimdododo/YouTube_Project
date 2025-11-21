@@ -8,7 +8,7 @@ import traceback
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import Dict, List, Optional
 from app.core.database import get_db
 from app.schemas.video import (
     VideoCreate,
@@ -20,6 +20,7 @@ from app.schemas.video import (
 from app.schemas.recommendation import UserPreferenceRequest, RecommendationResponse
 from app.crud import video as crud_video
 from app.recommendations import ContentBasedRecommender
+from app.models.channel import Channel
 # ML API 서버 제거됨 - 재랭킹 기능 비활성화
 from app.services.comment_summary import generate_comment_summary
 from app.services.comment_summary_llm import generate_comment_three_line_summary
@@ -28,6 +29,15 @@ from app.clients.bento import analyze_video_detail_for_bento
 
 router = APIRouter(prefix="/api/videos", tags=["videos"])
 logger = logging.getLogger(__name__)
+
+
+def _build_channel_name_map(db: Session, videos: List[object]) -> Dict[str, Optional[str]]:
+    """영상 목록에서 채널명을 일괄 조회하여 매핑"""
+    channel_ids = {getattr(v, "channel_id", None) for v in videos if getattr(v, "channel_id", None)}
+    if not channel_ids:
+        return {}
+    rows = db.query(Channel.id, Channel.title).filter(Channel.id.in_(channel_ids)).all()
+    return {channel_id: title for channel_id, title in rows}
 # 채널 다양화 추천 (정적 경로 - 동적보다 먼저)
 @router.get("/diversified", response_model=VideoListResponse)
 def get_diversified_videos(
@@ -39,6 +49,7 @@ def get_diversified_videos(
     import traceback
     try:
         videos = crud_video.get_diversified_videos(db, total=total, max_per_channel=max_per_channel)
+        channel_name_map = _build_channel_name_map(db, videos)
 
         video_responses = []
         for v in videos:
@@ -46,6 +57,7 @@ def get_diversified_videos(
                 video_dict = {
                     "id": v.id,
                     "channel_id": v.channel_id,
+                    "channel_name": channel_name_map.get(v.channel_id),
                     "title": v.title,
                     "description": v.description,
                     "published_at": v.published_at,
@@ -124,6 +136,7 @@ async def get_recommended_videos(
         fetch_limit = limit * 2 if use_rerank and query else limit
         videos = crud_video.get_recommended_videos(db, skip=skip, limit=fetch_limit)
         print(f"[DEBUG] Found {len(videos)} videos (4min+)")
+        channel_name_map = _build_channel_name_map(db, videos)
         
         # 2. 총 개수 조회 생략 (성능 최적화)
         # total = crud_video.get_videos_count(db)
@@ -136,6 +149,7 @@ async def get_recommended_videos(
                 video_dict = {
                     "id": v.id,
                     "channel_id": v.channel_id,
+                    "channel_name": channel_name_map.get(v.channel_id),
                     "title": v.title,
                     "description": v.description,
                     "published_at": v.published_at,
@@ -194,6 +208,7 @@ def get_trend_videos(
         # 1. 데이터베이스에서 비디오 조회 (4분 이상만)
         videos = crud_video.get_trend_videos(db, skip=skip, limit=limit)
         print(f"[DEBUG] Found {len(videos)} trend videos (4min+)")
+        channel_name_map = _build_channel_name_map(db, videos)
         
         # 2. 총 개수 조회 생략 (성능 최적화)
         # total = crud_video.get_videos_count(db)
@@ -208,6 +223,7 @@ def get_trend_videos(
                 video_dict = {
                     "id": v.id,
                     "channel_id": v.channel_id,
+                    "channel_name": channel_name_map.get(v.channel_id),
                     "title": v.title,
                     "description": v.description,
                     "published_at": v.published_at,
