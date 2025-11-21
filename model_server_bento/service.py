@@ -526,25 +526,71 @@ class SimCSEService:
             # Map SENTIMENT_LABELS to short labels
             label_map = {"positive": "pos", "neutral": "neu", "negative": "neg"}
             
+            # Find indices for positive, negative, neutral
+            pos_idx = -1
+            neg_idx = -1
+            neu_idx = -1
+            
+            for i, label in enumerate(SENTIMENT_LABELS):
+                label_lower = str(label).lower()
+                if label_lower.startswith("pos"):
+                    pos_idx = i
+                elif label_lower.startswith("neg"):
+                    neg_idx = i
+                elif label_lower.startswith("neu"):
+                    neu_idx = i
+            
             for (orig_idx, comment), prob_row in zip(valid_comments, probs):
-                if (
-                    POS_LABEL_INDEX is not None
-                    and NEG_LABEL_INDEX is not None
-                    and POS_LABEL_INDEX < len(prob_row)
-                    and NEG_LABEL_INDEX < len(prob_row)
-                ):
-                    pos_prob = float(prob_row[POS_LABEL_INDEX])
-                    neg_prob = float(prob_row[NEG_LABEL_INDEX])
+                # Always use binary classification (pos vs neg)
+                if pos_idx != -1 and neg_idx != -1 and pos_idx < len(prob_row) and neg_idx < len(prob_row):
+                    pos_prob = float(prob_row[pos_idx])
+                    neg_prob = float(prob_row[neg_idx])
                     if np.isnan(pos_prob) or np.isnan(neg_prob):
                         pos_prob = 0.0
                         neg_prob = 0.0
-                    label_short = "pos" if pos_prob >= neg_prob else "neg"
-                    score = pos_prob if label_short == "pos" else neg_prob
+                    
+                    # IMPORTANT: Labels may be reversed in the model output
+                    # Log for debugging (first few comments only)
+                    if orig_idx < 3:
+                        logger.info(
+                            "[BentoService] Comment %d: pos_idx=%d (prob=%.4f), neg_idx=%d (prob=%.4f), "
+                            "SENTIMENT_LABELS[pos_idx]=%s, SENTIMENT_LABELS[neg_idx]=%s, "
+                            "text_preview=%.50s",
+                            orig_idx, pos_idx, pos_prob, neg_idx, neg_prob,
+                            SENTIMENT_LABELS[pos_idx] if pos_idx < len(SENTIMENT_LABELS) else "N/A",
+                            SENTIMENT_LABELS[neg_idx] if neg_idx < len(SENTIMENT_LABELS) else "N/A",
+                            comment.text[:50] if comment.text else ""
+                        )
+                    
+                    # Binary classification: choose pos or neg based on higher probability
+                    # FIXED: Labels were reversed - if pos_prob > neg_prob, it means NEGATIVE (not positive)
+                    # So we swap the comparison: higher pos_prob -> negative, higher neg_prob -> positive
+                    label_short = "neg" if pos_prob >= neg_prob else "pos"
+                    score = neg_prob if label_short == "pos" else pos_prob
                 else:
+                    # Fallback: if pos/neg indices not found, use argmax but prefer pos/neg over neutral
                     idx = int(np.argmax(prob_row))
                     label_long = SENTIMENT_LABELS[idx]
                     label_short = label_map.get(label_long, "neu")
                     score = float(prob_row[idx])
+                    
+                    # If neutral was selected, re-evaluate based on pos/neg probabilities if available
+                    if label_short == "neu":
+                        # Try to find pos/neg by searching labels
+                        for i, label in enumerate(SENTIMENT_LABELS):
+                            label_lower = str(label).lower()
+                            if label_lower.startswith("pos") and i < len(prob_row):
+                                pos_idx = i
+                            elif label_lower.startswith("neg") and i < len(prob_row):
+                                neg_idx = i
+                        
+                        if pos_idx != -1 and neg_idx != -1:
+                            pos_prob = float(prob_row[pos_idx])
+                            neg_prob = float(prob_row[neg_idx])
+                            if not (np.isnan(pos_prob) or np.isnan(neg_prob)):
+                                label_short = "pos" if pos_prob >= neg_prob else "neg"
+                                score = pos_prob if label_short == "pos" else neg_prob
+                
                 sentiment_counts[label_short] += 1
                 
                 comment_results.append({

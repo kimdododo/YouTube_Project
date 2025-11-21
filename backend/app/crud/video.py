@@ -301,12 +301,16 @@ def get_comment_payloads_for_video(
         rows = db.execute(query, {"video_id": video_id, "limit": limit}).fetchall()
         logger.info("[CRUD] Retrieved %d comment rows for video %s", len(rows), video_id)
         
+        from app.utils.text_utils import sanitize_comment_text
+        
         payloads: List[dict] = []
         for row in rows:
+            raw_text = row[1]
+            cleaned_text = sanitize_comment_text(raw_text)
             payloads.append(
                 {
                     "comment_id": str(row[0]),
-                    "text": row[1],
+                    "text": cleaned_text,
                     "like_count": int(row[2]) if row[2] is not None else 0,
                 }
             )
