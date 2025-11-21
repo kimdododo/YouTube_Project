@@ -21,7 +21,7 @@ if not DB_USER:
     raise ValueError("DB_USER 환경 변수가 설정되지 않았습니다. .env 파일을 확인하세요.")
 if not DB_PASSWORD:
     raise ValueError("DB_PASSWORD 환경 변수가 설정되지 않았습니다. .env 파일을 확인하세요.")
-if not DB_HOST:
+if not DB_HOST and not USE_CLOUD_SQL_CONNECTOR:
     raise ValueError("DB_HOST 환경 변수가 설정되지 않았습니다. .env 파일을 확인하세요.")
 
 # SQLAlchemy 연결 URL 생성 (특수 문자 URL 인코딩)
@@ -32,8 +32,10 @@ encoded_name = quote_plus(str(DB_NAME))
 encoded_port = quote_plus(str(DB_PORT or "3306"))
 masked_password = "*" * len(str(DB_PASSWORD))
 
-# Cloud SQL Unix 소켓 여부 판단
-USE_UNIX_SOCKET = DB_HOST.startswith("/cloudsql/") or (DB_HOST.startswith("/") and ":" not in DB_HOST)
+# Cloud SQL Unix 소켓 여부 판단 (DB_HOST가 있을 때만)
+USE_UNIX_SOCKET = False
+if DB_HOST:
+    USE_UNIX_SOCKET = DB_HOST.startswith("/cloudsql/") or (DB_HOST.startswith("/") and ":" not in DB_HOST)
 
 if USE_UNIX_SOCKET:
     DATABASE_URL = f"mysql+pymysql://{encoded_user}:{encoded_password}@/{encoded_name}?charset=utf8mb4"
@@ -58,39 +60,109 @@ engine_kwargs = dict(
     pool_recycle=3600,
     pool_size=10,
     max_overflow=20,
-    pool_timeout=30,  # Cloud SQL Connector 사용 시 연결 시간이 더 걸릴 수 있으므로 증가
+    pool_timeout=60,  # Cloud SQL Connector 사용 시 연결 시간이 더 걸릴 수 있으므로 증가
     echo=False,
 )
 
 connector = None
 
 def _init_cloud_sql_connector():
-    """Cloud SQL Python Connector 초기화"""
-    from google.cloud.sql.connector import Connector
-    import atexit
-
-    conn = Connector()
-    atexit.register(conn.close)
-    return conn
+    """Cloud SQL Python Connector 초기화 (lazy initialization)"""
+    global connector
+    if connector is None:
+        try:
+            from google.cloud.sql.connector import Connector
+            import atexit
+            print("[DEBUG] Initializing Cloud SQL Python Connector...")
+            connector = Connector()
+            atexit.register(connector.close)
+            print("[DEBUG] ✅ Cloud SQL Python Connector initialized")
+        except ImportError as e:
+            raise ImportError(
+                "cloud-sql-python-connector 패키지가 설치되지 않았습니다. "
+                "pip install 'cloud-sql-python-connector[pymysql]'를 실행하세요."
+            ) from e
+        except Exception as e:
+            print(f"[ERROR] Cloud SQL Connector 초기화 실패: {e}")
+            import traceback
+            traceback.print_exc()
+            raise
+    return connector
 
 
 def _cloud_sql_creator():
     """Cloud SQL Python Connector로 MySQL 연결 생성"""
     from google.cloud.sql.connector import IPTypes
+    import google.auth.exceptions
 
     if not CLOUD_SQL_INSTANCE:
         raise ValueError("CLOUD_SQL_INSTANCE 환경 변수가 필요합니다.")
     
+    # Connector 초기화 (lazy initialization)
+    global connector
+    if connector is None:
+        connector = _init_cloud_sql_connector()
+    
     # PRIVATE IP 사용 (VPC 내부 연결 - 더 빠르고 안정적)
-    print(f"[DEBUG] Connecting to Cloud SQL instance: {CLOUD_SQL_INSTANCE} using PRIVATE IP")
-    return connector.connect(
-        CLOUD_SQL_INSTANCE,
-        "pymysql",
-        user=DB_USER,
-        password=DB_PASSWORD,
-        db=DB_NAME,
-        ip_type=IPTypes.PRIVATE,  # VPC 내부 연결 사용 (Cloud Run에서 권장)
-    )
+    # Cloud Run에서 VPC egress가 private-ranges-only이면 PRIVATE IP 사용
+    print(f"[DEBUG] Connecting to Cloud SQL instance: {CLOUD_SQL_INSTANCE}")
+    print(f"[DEBUG] Using PRIVATE IP connection (VPC internal)")
+    print(f"[DEBUG] DB_USER: {DB_USER}, DB_NAME: {DB_NAME}")
+    
+    try:
+        connection = connector.connect(
+            CLOUD_SQL_INSTANCE,
+            "pymysql",
+            user=DB_USER,
+            password=DB_PASSWORD,
+            db=DB_NAME,
+            ip_type=IPTypes.PRIVATE,  # VPC 내부 연결 사용 (Cloud Run에서 권장)
+            timeout=30,  # 연결 타임아웃 증가
+        )
+        print(f"[DEBUG] ✅ Successfully connected to Cloud SQL instance")
+        return connection
+    except google.auth.exceptions.DefaultCredentialsError as e:
+        error_msg = (
+            f"❌ Cloud SQL 연결 실패: 인증 정보를 찾을 수 없습니다.\n"
+            f"   서비스 계정이 올바르게 설정되어 있는지 확인하세요.\n"
+            f"   에러: {e}"
+        )
+        print(f"[ERROR] {error_msg}")
+        import traceback
+        traceback.print_exc()
+        raise RuntimeError(error_msg) from e
+    except Exception as e:
+        error_type = type(e).__name__
+        error_msg = str(e)
+        
+        # IAM 권한 관련 에러인지 확인
+        if "permission" in error_msg.lower() or "forbidden" in error_msg.lower() or "403" in error_msg:
+            detailed_error = (
+                f"❌ Cloud SQL 연결 실패: IAM 권한 문제로 보입니다.\n"
+                f"   서비스 계정에 'roles/cloudsql.client' 역할이 부여되어 있는지 확인하세요.\n"
+                f"   Cloud SQL 인스턴스: {CLOUD_SQL_INSTANCE}\n"
+                f"   에러 타입: {error_type}\n"
+                f"   에러 메시지: {error_msg}"
+            )
+        elif "timeout" in error_msg.lower() or "timed out" in error_msg.lower():
+            detailed_error = (
+                f"❌ Cloud SQL 연결 실패: 타임아웃 발생.\n"
+                f"   VPC 연결 설정을 확인하세요.\n"
+                f"   Cloud SQL 인스턴스가 실행 중인지 확인하세요.\n"
+                f"   에러 타입: {error_type}\n"
+                f"   에러 메시지: {error_msg}"
+            )
+        else:
+            detailed_error = (
+                f"❌ Cloud SQL 연결 실패: {error_type}\n"
+                f"   에러 메시지: {error_msg}\n"
+                f"   Cloud SQL 인스턴스: {CLOUD_SQL_INSTANCE}"
+            )
+        
+        print(f"[ERROR] {detailed_error}")
+        import traceback
+        traceback.print_exc()
+        raise RuntimeError(detailed_error) from e
 
 # Cloud SQL Connector가 최우선순위 (USE_CLOUD_SQL_CONNECTOR가 True이고 CLOUD_SQL_INSTANCE가 설정되어 있으면 무조건 사용)
 # 이 경우 DB_HOST는 무시됨
@@ -103,7 +175,8 @@ if USE_CLOUD_SQL_CONNECTOR:
     print("[DEBUG] Using Cloud SQL Python Connector for database connections")
     print(f"[DEBUG] CLOUD_SQL_INSTANCE: {CLOUD_SQL_INSTANCE}")
     print("[DEBUG] DB_HOST는 무시됩니다 (Cloud SQL Connector 사용)")
-    connector = _init_cloud_sql_connector()
+    # Connector는 lazy initialization (첫 연결 시점에 초기화)
+    # 모듈 레벨에서 초기화하지 않고, _cloud_sql_creator에서 필요 시 초기화
     engine = create_engine(
         "mysql+pymysql://",
         creator=_cloud_sql_creator,
@@ -138,7 +211,7 @@ elif USE_UNIX_SOCKET:
             database=DB_NAME,
             charset="utf8mb4",
             sql_mode="TRADITIONAL",
-            connect_timeout=5,
+            connect_timeout=10,  # Cloud SQL 연결 시간 증가
             read_timeout=30,
             write_timeout=30,
         )
