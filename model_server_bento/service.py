@@ -19,7 +19,6 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 import bentoml
-from bentoml import io
 import numpy as np
 import onnxruntime as ort
 from pydantic import BaseModel, Field, validator
@@ -270,7 +269,7 @@ class VideoDetailRequest(BaseModel):
     video_id: str
     title: str = ""
     description: str = ""
-    comments: List[CommentItem] = Field(default_factory=list)
+    comments: List[Dict[str, Any]] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -354,10 +353,7 @@ class SimCSEService:
             )
         return {"results": results}
 
-    @bentoml.api(
-        route="/v1/video-detail",
-        input_spec=io.JSON(pydantic_model=VideoDetailRequest),
-    )
+    @bentoml.api(route="/v1/video-detail")
     def video_detail(self, request: VideoDetailRequest) -> Dict[str, Any]:
         """
         Analyze video comments and return sentiment ratio, top comments, and keywords.
@@ -377,7 +373,20 @@ class SimCSEService:
         logger.info("[BentoService] video_detail called: video_id=%s, comments_count=%d", 
                    request.video_id, len(request.comments) if request.comments else 0)
         
-        if not request.comments:
+        # Convert comment dicts to CommentItem objects for easier access
+        comment_items = []
+        for c in request.comments:
+            if isinstance(c, dict):
+                comment_items.append(CommentItem(
+                    comment_id=str(c.get("comment_id", "")),
+                    text=str(c.get("text", "")),
+                    like_count=int(c.get("like_count", 0))
+                ))
+            else:
+                # Already a CommentItem (shouldn't happen, but handle it)
+                comment_items.append(c)
+        
+        if not comment_items:
             logger.warning("[BentoService] No comments provided for video %s", request.video_id)
             return {
                 "video_id": request.video_id,
@@ -390,14 +399,14 @@ class SimCSEService:
         # Extract comment texts and keep track of valid comment indices
         valid_comments = []
         comment_texts = []
-        for i, c in enumerate(request.comments):
+        for i, c in enumerate(comment_items):
             text = c.text
             if text and text.strip():
                 valid_comments.append((i, c))
                 comment_texts.append(text)
         
         logger.info("[BentoService] Valid comments: %d/%d (with non-empty text)", 
-                   len(comment_texts), len(request.comments))
+                   len(comment_texts), len(comment_items))
         
         if not comment_texts:
             logger.warning("[BentoService] No valid comment texts found for video %s (all empty or whitespace)", request.video_id)
