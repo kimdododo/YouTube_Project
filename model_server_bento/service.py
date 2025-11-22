@@ -12,18 +12,26 @@ that the backend (FastAPI) and frontend clients do not need any changes.
 """
 from __future__ import annotations
 
+import logging
 import os
 import re
+import traceback
 from collections import Counter
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Union
 
 import bentoml
 import numpy as np
 import onnxruntime as ort
-from pydantic import BaseModel, Field, validator, ConfigDict
+from pydantic import BaseModel, Field, validator
 from transformers import AutoTokenizer, AutoConfig
 from google.cloud import storage
+
+# ---------------------------------------------------------------------------
+# Logging setup
+# ---------------------------------------------------------------------------
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -64,6 +72,10 @@ def _get_storage_client() -> storage.Client:
 
 
 def _download_from_gcs(gcs_uri: str, cache_subdir: str, is_file: bool) -> Path:
+    """
+    Download from GCS with caching to reduce cold start overhead.
+    Returns cached path if already downloaded, otherwise downloads and caches.
+    """
     if not gcs_uri.startswith("gs://"):
         raise ValueError(f"Invalid GCS URI: {gcs_uri}")
 
@@ -76,6 +88,19 @@ def _download_from_gcs(gcs_uri: str, cache_subdir: str, is_file: bool) -> Path:
     cache_dir.mkdir(parents=True, exist_ok=True)
 
     target_root = cache_dir / Path(object_path).name
+
+    # 1) Check if already cached
+    if is_file:
+        if target_root.exists():
+            logger.info(f"[GCS Cache] Reusing cached file: {target_root}")
+            return target_root
+    else:
+        if target_root.exists() and any(target_root.rglob("*")):
+            logger.info(f"[GCS Cache] Reusing cached directory: {target_root}")
+            return target_root
+
+    # 2) Download from GCS if not cached
+    logger.info(f"[GCS Cache] Downloading from GCS: {gcs_uri}")
     client = _get_storage_client()
     bucket = client.bucket(bucket_name)
 
@@ -144,6 +169,8 @@ class ModelBundle:
             tokenizer_path, use_fast=True, trust_remote_code=True
         )
         self.hidden_dim = self.session.get_outputs()[0].shape[-1]
+        # Cache input names for dynamic input handling
+        self.input_names = {inp.name for inp in self.session.get_inputs()}
 
     def encode(self, texts: List[str]) -> np.ndarray:
         encoded = self.tokenizer(
@@ -153,11 +180,14 @@ class ModelBundle:
             truncation=True,
             max_length=MAX_SEQ_LENGTH,
         )
-        # onnxruntime only accepts int64 for ids/masks
-        inputs = {
-            "input_ids": encoded["input_ids"].astype(np.int64),
-            "attention_mask": encoded["attention_mask"].astype(np.int64),
-        }
+        # Build inputs dynamically based on model requirements
+        inputs: Dict[str, np.ndarray] = {}
+        if "input_ids" in self.input_names:
+            inputs["input_ids"] = encoded["input_ids"].astype(np.int64)
+        if "attention_mask" in self.input_names and "attention_mask" in encoded:
+            inputs["attention_mask"] = encoded["attention_mask"].astype(np.int64)
+        if "token_type_ids" in self.input_names and "token_type_ids" in encoded:
+            inputs["token_type_ids"] = encoded["token_type_ids"].astype(np.int64)
         outputs = self.session.run(None, inputs)
 
         if len(outputs) > 1 and outputs[1] is not None:
@@ -275,6 +305,36 @@ NEG_LABEL_INDEX = next(
 )
 
 
+def _binary_sentiment_from_probs(prob_row: np.ndarray, labels: List[str]) -> tuple[str, float]:
+    """
+    Extract binary sentiment (pos/neg) from probability row.
+    Always returns pos or neg, never neutral.
+    """
+    # Find pos/neg indices
+    pos_idx = next((i for i, l in enumerate(labels) if str(l).lower().startswith("pos")), -1)
+    neg_idx = next((i for i, l in enumerate(labels) if str(l).lower().startswith("neg")), -1)
+    
+    if pos_idx != -1 and neg_idx != -1 and pos_idx < len(prob_row) and neg_idx < len(prob_row):
+        pos_prob = float(prob_row[pos_idx])
+        neg_prob = float(prob_row[neg_idx])
+        if np.isnan(pos_prob) or np.isnan(neg_prob):
+            return "pos", 0.5
+        if pos_prob >= neg_prob:
+            return "pos", pos_prob
+        return "neg", neg_prob
+    
+    # Fallback: use argmax and map to pos/neg
+    idx = int(np.argmax(prob_row))
+    label = str(labels[idx]).lower()
+    if label.startswith("pos"):
+        return "pos", float(prob_row[idx])
+    if label.startswith("neg"):
+        return "neg", float(prob_row[idx])
+    
+    # Default to positive if cannot determine
+    return "pos", 0.5
+
+
 EMBED_BUNDLE = ModelBundle(MODEL_PATH, TOKENIZER_PATH)
 SENTIMENT_BUNDLE = ClassificationBundle(
     SENTIMENT_MODEL_PATH, SENTIMENT_TOKENIZER_PATH
@@ -338,7 +398,7 @@ class VideoDetailRequest(BaseModel):
     video_id: str
     title: str = ""
     description: str = ""
-    comments: List[Dict[str, Any]] = Field(default_factory=list)  # 백엔드와 호환성을 위해 Dict 유지
+    comments: List[Union[Dict[str, Any], CommentItem]] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -383,9 +443,6 @@ class SimCSEService:
         """
         Batch embeddings (useful for offline pipelines).
         """
-        import logging
-        import traceback
-        logger = logging.getLogger(__name__)
         try:
             embeddings = self.embed_bundle.encode(request.texts)
             return {
@@ -404,9 +461,6 @@ class SimCSEService:
         """
         Cosine similarity between two texts (same semantics as legacy server).
         """
-        import logging
-        import traceback
-        logger = logging.getLogger(__name__)
         try:
             embeddings = self.embed_bundle.encode([request.text1, request.text2])
             vec1, vec2 = embeddings[0], embeddings[1]
@@ -452,10 +506,6 @@ class SimCSEService:
                 "model": {"sentiment_model": str, "version": str}
             }
         """
-        import logging
-        import traceback
-        logger = logging.getLogger(__name__)
-        
         try:
             # BentoML이 자동으로 VideoDetailRequest로 파싱함 (다른 엔드포인트와 동일한 패턴)
             parsed_request = request
@@ -519,17 +569,16 @@ class SimCSEService:
             probs = softmax(logits, axis=1)
             logger.info("[BentoService] Sentiment analysis completed, processing results...")
             
-            # Calculate sentiment ratio (binary: positive / negative only)
-            sentiment_counts = {"pos": 0, "neu": 0, "neg": 0}
+            # Calculate sentiment ratio (binary: positive / negative only, no neutral)
+            sentiment_counts = {"pos": 0, "neg": 0}
             comment_results = []
             
-            # Map SENTIMENT_LABELS to short labels
-            label_map = {"positive": "pos", "neutral": "neu", "negative": "neg"}
+            # Map SENTIMENT_LABELS to short labels (only pos/neg, no neutral)
+            label_map = {"positive": "pos", "negative": "neg"}
             
-            # Find indices for positive, negative, neutral
+            # Find indices for positive and negative only (no neutral)
             pos_idx = -1
             neg_idx = -1
-            neu_idx = -1
             
             for i, label in enumerate(SENTIMENT_LABELS):
                 label_lower = str(label).lower()
@@ -537,62 +586,18 @@ class SimCSEService:
                     pos_idx = i
                 elif label_lower.startswith("neg"):
                     neg_idx = i
-                elif label_lower.startswith("neu"):
-                    neu_idx = i
+                # Skip neutral - we don't predict it
             
             for (orig_idx, comment), prob_row in zip(valid_comments, probs):
-                # Always use binary classification (pos vs neg)
-                if pos_idx != -1 and neg_idx != -1 and pos_idx < len(prob_row) and neg_idx < len(prob_row):
-                    pos_prob = float(prob_row[pos_idx])
-                    neg_prob = float(prob_row[neg_idx])
-                    if np.isnan(pos_prob) or np.isnan(neg_prob):
-                        pos_prob = 0.0
-                        neg_prob = 0.0
-                    
-                    # IMPORTANT: Labels may be reversed in the model output
-                    # Log for debugging (first few comments only)
-                    if orig_idx < 3:
-                        logger.info(
-                            "[BentoService] Comment %d: pos_idx=%d (prob=%.4f), neg_idx=%d (prob=%.4f), "
-                            "SENTIMENT_LABELS[pos_idx]=%s, SENTIMENT_LABELS[neg_idx]=%s, "
-                            "text_preview=%.50s",
-                            orig_idx, pos_idx, pos_prob, neg_idx, neg_prob,
-                            SENTIMENT_LABELS[pos_idx] if pos_idx < len(SENTIMENT_LABELS) else "N/A",
-                            SENTIMENT_LABELS[neg_idx] if neg_idx < len(SENTIMENT_LABELS) else "N/A",
-                            comment.text[:50] if comment.text else ""
-                        )
-                    
-                    # Binary classification: choose pos or neg based on higher probability
-                    # FIXED: Labels were reversed - if pos_prob > neg_prob, it means NEGATIVE (not positive)
-                    # So we swap the comparison: higher pos_prob -> negative, higher neg_prob -> positive
-                    label_short = "neg" if pos_prob >= neg_prob else "pos"
-                    score = neg_prob if label_short == "pos" else pos_prob
-                else:
-                    # Fallback: if pos/neg indices not found, use argmax but prefer pos/neg over neutral
-                    idx = int(np.argmax(prob_row))
-                    label_long = SENTIMENT_LABELS[idx]
-                    label_short = label_map.get(label_long, "neu")
-                    score = float(prob_row[idx])
-                    
-                    # If neutral was selected, re-evaluate based on pos/neg probabilities if available
-                    if label_short == "neu":
-                        # Try to find pos/neg by searching labels
-                        temp_pos_idx = -1
-                        temp_neg_idx = -1
-                        for i, label in enumerate(SENTIMENT_LABELS):
-                            label_lower = str(label).lower()
-                            if label_lower.startswith("pos") and i < len(prob_row):
-                                temp_pos_idx = i
-                            elif label_lower.startswith("neg") and i < len(prob_row):
-                                temp_neg_idx = i
-                        
-                        if temp_pos_idx != -1 and temp_neg_idx != -1:
-                            temp_pos_prob = float(prob_row[temp_pos_idx])
-                            temp_neg_prob = float(prob_row[temp_neg_idx])
-                            if not (np.isnan(temp_pos_prob) or np.isnan(temp_neg_prob)):
-                                # FIXED: Labels are reversed - swap the comparison
-                                label_short = "neg" if temp_pos_prob >= temp_neg_prob else "pos"
-                                score = temp_neg_prob if label_short == "pos" else temp_pos_prob
+                # Use helper function for binary sentiment classification
+                label_short, score = _binary_sentiment_from_probs(prob_row, SENTIMENT_LABELS)
+                
+                # Log for debugging (first few comments only)
+                if orig_idx < 3:
+                    logger.info(
+                        "[BentoService] Comment %d: label=%s, score=%.4f, text_preview=%.50s",
+                        orig_idx, label_short, score, comment.text[:50] if comment.text else ""
+                    )
                 
                 sentiment_counts[label_short] += 1
                 
@@ -661,7 +666,10 @@ class SimCSEService:
             }
         except Exception as e:
             error_trace = traceback.format_exc()
-            video_id = request.get("video_id", "unknown") if isinstance(request, dict) else getattr(request, "video_id", "unknown")
+            try:
+                video_id = getattr(request, "video_id", "unknown")
+            except Exception:
+                video_id = "unknown"
             logger.error("[BentoService] Error in video_detail for %s: %s\n%s", video_id, str(e), error_trace)
             # Return default response on error
             return {

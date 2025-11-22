@@ -336,7 +336,7 @@ function VideoDetail() {
     }))
     const withText = mapped.filter((comment) => comment.text.length > 0)
     console.log('[VideoDetail] Positive comments with text:', withText.length)
-    return withText.slice(0, 20)
+    return withText.slice(0, 4)
   }, [topComments])
 
   const negativeCommentHighlights = useMemo(() => {
@@ -352,7 +352,7 @@ function VideoDetail() {
     }))
     const withText = mapped.filter((comment) => comment.text.length > 0)
     console.log('[VideoDetail] Negative comments with text:', withText.length)
-    return withText.slice(0, 20)
+    return withText.slice(0, 4)
   }, [topComments])
 
   const summaryLines = useMemo(() => {
@@ -589,7 +589,13 @@ function VideoDetail() {
             <h2 className="text-2xl font-bold text-white">댓글 분석</h2>
           </div>
 
-          {analysis && analysis.sentiment_ratio ? (
+          {loading ? (
+            <div className="grid gap-6 lg:grid-cols-3">
+              {Array.from({ length: 3 }).map((_, idx) => (
+                <SkeletonBox key={idx} className="h-64" />
+              ))}
+            </div>
+          ) : analysis && analysis.sentiment_ratio ? (
             <div className="grid gap-6 lg:grid-cols-3">
               <div className="rounded-2xl bg-[#11172b]/90 border border-white/10 p-6 text-white">
                 <div className="flex items-center justify-between mb-2">
@@ -649,9 +655,13 @@ function VideoDetail() {
                 )}
               </div>
             </div>
-          ) : (
+          ) : analysis ? (
             <div className="bg-[#11172b]/70 border border-dashed border-white/10 rounded-xl p-6 text-white/60 text-sm">
               분석 데이터가 아직 준비되지 않았습니다. 잠시 후 다시 확인해주세요.
+            </div>
+          ) : (
+            <div className="bg-[#11172b]/70 border border-dashed border-white/10 rounded-xl p-6 text-white/60 text-sm">
+              댓글 분석을 준비 중입니다... 잠시만 기다려주세요.
             </div>
           )}
         </div>
