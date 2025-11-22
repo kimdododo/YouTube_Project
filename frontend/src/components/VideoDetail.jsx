@@ -34,6 +34,9 @@ function VideoDetail() {
   
   // timeout refs for cleanup
   const slideTimeoutRef = useRef(null)
+  // fetch functions refs to avoid TDZ issues
+  const fetchVideoDetailRef = useRef(null)
+  const fetchSimilarVideosRef = useRef(null)
 
   usePageTracking('VideoDetail')
   
@@ -189,6 +192,9 @@ function VideoDetail() {
       setLoading(false)
     }
   }, [videoId, formatViews])
+  
+  // ref에 함수 저장 (TDZ 방지)
+  fetchVideoDetailRef.current = fetchVideoDetail
 
   const fetchSimilarVideos = useCallback(async () => {
     try {
@@ -204,6 +210,9 @@ function VideoDetail() {
       console.error('[VideoDetail] Failed to fetch similar videos:', err)
     }
   }, [videoId])
+  
+  // ref에 함수 저장 (TDZ 방지)
+  fetchSimilarVideosRef.current = fetchSimilarVideos
 
   const fetchAiSummary = useCallback(async (targetVideoId) => {
     if (!targetVideoId) return
@@ -233,18 +242,24 @@ function VideoDetail() {
     
     const runFetches = async () => {
       try {
-        await Promise.all([
-          fetchVideoDetail().catch(err => {
-            if (isMounted) {
-              console.error('[VideoDetail] Error in fetchVideoDetail:', err)
-            }
-          }),
-          fetchSimilarVideos().catch(err => {
-            if (isMounted) {
-              console.error('[VideoDetail] Error in fetchSimilarVideos:', err)
-            }
-          })
-        ])
+        // ref를 통해 함수 호출 (TDZ 방지)
+        const fetchVideoDetailFn = fetchVideoDetailRef.current
+        const fetchSimilarVideosFn = fetchSimilarVideosRef.current
+        
+        if (fetchVideoDetailFn && fetchSimilarVideosFn) {
+          await Promise.all([
+            fetchVideoDetailFn().catch(err => {
+              if (isMounted) {
+                console.error('[VideoDetail] Error in fetchVideoDetail:', err)
+              }
+            }),
+            fetchSimilarVideosFn().catch(err => {
+              if (isMounted) {
+                console.error('[VideoDetail] Error in fetchSimilarVideos:', err)
+              }
+            })
+          ])
+        }
       } catch (err) {
         if (isMounted) {
           console.error('[VideoDetail] Error in parallel fetches:', err)
@@ -258,7 +273,7 @@ function VideoDetail() {
     return () => {
       isMounted = false
     }
-  }, [videoId, fetchVideoDetail, fetchSimilarVideos])
+  }, [videoId]) // 의존성 배열에서 함수 제거 - videoId만 의존
 
   useEffect(() => {
     if (!videoId) return
@@ -468,14 +483,6 @@ function VideoDetail() {
     }
   }, [topComments])
 
-  const displayedPositiveComments = useMemo(() => {
-    return positiveCommentHighlights.slice(0, 4)
-  }, [positiveCommentHighlights])
-
-  const displayedNegativeComments = useMemo(() => {
-    return negativeCommentHighlights.slice(0, 4)
-  }, [negativeCommentHighlights])
-
   const negativeCommentHighlights = useMemo(() => {
     try {
       if (!topComments || !Array.isArray(topComments) || !topComments.length) {
@@ -502,6 +509,26 @@ function VideoDetail() {
       return []
     }
   }, [topComments])
+
+  const displayedPositiveComments = useMemo(() => {
+    try {
+      if (!positiveCommentHighlights || !Array.isArray(positiveCommentHighlights)) return []
+      return positiveCommentHighlights.slice(0, 4)
+    } catch (e) {
+      console.warn('[VideoDetail] Error processing displayed positive comments:', e)
+      return []
+    }
+  }, [positiveCommentHighlights])
+
+  const displayedNegativeComments = useMemo(() => {
+    try {
+      if (!negativeCommentHighlights || !Array.isArray(negativeCommentHighlights)) return []
+      return negativeCommentHighlights.slice(0, 4)
+    } catch (e) {
+      console.warn('[VideoDetail] Error processing displayed negative comments:', e)
+      return []
+    }
+  }, [negativeCommentHighlights])
 
   const summaryLines = useMemo(() => {
     try {
