@@ -1,11 +1,12 @@
-import { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef, startTransition } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef, startTransition } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Star, ChevronLeft, ChevronRight, Bookmark } from 'lucide-react'
 import { useBookmark } from '../contexts/BookmarkContext'
 import AppLayout from './layouts/AppLayout'
 import { optimizeThumbnailUrl } from '../utils/imageUtils'
 import { addToWatchHistory } from '../utils/watchHistory'
-import { trackEvent } from '../utils/analytics'
+// 순환 의존성 방지를 위해 analytics-core에서 직접 import
+import { trackEvent } from '../utils/analytics-core'
 import { fetchVideoDetail as fetchVideoDetailApi } from '../api/videos'
 
 const API_BASE_URL = import.meta.env?.VITE_API_URL || '/api'
@@ -34,9 +35,6 @@ function VideoDetail() {
   
   // timeout refs for cleanup
   const slideTimeoutRef = useRef(null)
-  // fetch functions refs to avoid TDZ issues
-  const fetchVideoDetailRef = useRef(null)
-  const fetchSimilarVideosRef = useRef(null)
 
   // 페이지 추적을 useEffect 내부로 이동 (TDZ 방지)
   useEffect(() => {
@@ -102,135 +100,7 @@ function VideoDetail() {
     return `${count.toLocaleString()}회`
   }, [])
 
-  // fetch 함수들을 useCallback으로 메모이제이션
-  const fetchVideoDetail = useCallback(async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      const detail = await fetchVideoDetailApi(videoId)
-      if (!detail.video) {
-        throw new Error('비디오를 찾을 수 없습니다.')
-      }
-      
-      // LCP 최적화: 비디오 정보를 먼저 표시 (analysis는 나중에)
-      setVideo(detail.video)
-      setLoading(false) // 비디오 정보가 있으면 즉시 로딩 해제
-      
-      // 메인 썸네일 이미지 preload (LCP 요소)
-      if (detail.video.thumbnail_url) {
-        const img = new Image()
-        const optimizedUrl = optimizeThumbnailUrl(detail.video.thumbnail_url, detail.video.id, detail.video.is_shorts || false)
-        img.src = optimizedUrl
-      }
-      
-      // Analysis는 별도로 비동기 처리 (블로킹하지 않음)
-      startTransition(() => {
-        try {
-          if (detail.analysis && typeof detail.analysis === 'object') {
-            // 안전하게 model 필드 제거
-            const { model, ...rest } = detail.analysis
-            // sentiment_ratio 안전성 검사
-            if (rest.sentiment_ratio && typeof rest.sentiment_ratio === 'object') {
-              // top_comments가 배열인지 확인
-              if (rest.top_comments && !Array.isArray(rest.top_comments)) {
-                rest.top_comments = []
-              }
-              // top_keywords가 배열인지 확인
-              if (rest.top_keywords && !Array.isArray(rest.top_keywords)) {
-                rest.top_keywords = []
-              }
-            }
-            setAnalysis(rest)
-          } else {
-            setAnalysis(null)
-          }
-        } catch (e) {
-          console.warn('[VideoDetail] Error sanitizing analysis:', e)
-          setAnalysis(null)
-        }
-      })
-      
-      // 디버깅: analysis 데이터 확인 (비동기로 처리)
-      if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-        if (detail.analysis) {
-          window.requestIdleCallback(() => {
-            console.log('[VideoDetail] Analysis data:', detail.analysis)
-            console.log('[VideoDetail] Sentiment ratio:', detail.analysis.sentiment_ratio)
-            console.log('[VideoDetail] Top keywords:', detail.analysis.top_keywords)
-            console.log('[VideoDetail] Top comments:', detail.analysis.top_comments)
-            if (detail.analysis.top_comments) {
-              console.log('[VideoDetail] Top comments count:', detail.analysis.top_comments.length)
-              console.log('[VideoDetail] Top comments labels:', detail.analysis.top_comments.map(c => ({ label: c.label, text_preview: c.text?.substring(0, 30) })))
-            }
-          }, { timeout: 100 })
-        } else {
-          console.warn('[VideoDetail] No analysis data received')
-        }
-      } else {
-        // requestIdleCallback이 없으면 즉시 실행
-        if (detail.analysis) {
-          console.log('[VideoDetail] Analysis data:', detail.analysis)
-        } else {
-          console.warn('[VideoDetail] No analysis data received')
-        }
-      }
-      
-      // 시청 기록에 추가 (비동기로 처리)
-      if (detail.video && detail.video.id) {
-        const videoForHistory = {
-          ...detail.video,
-          views: detail.video.view_count ? formatViews(detail.video.view_count) : '0회',
-          category: detail.video.keyword || detail.video.region || '기타'
-        }
-        
-        if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-          window.requestIdleCallback(() => {
-            try {
-              addToWatchHistory(videoForHistory)
-            } catch (e) {
-              console.warn('[VideoDetail] Error adding to watch history:', e)
-            }
-          }, { timeout: 500 })
-        } else {
-          // requestIdleCallback이 없으면 즉시 실행
-          try {
-            addToWatchHistory(videoForHistory)
-          } catch (e) {
-            console.warn('[VideoDetail] Error adding to watch history:', e)
-          }
-        }
-      }
-    } catch (err) {
-      console.error('[VideoDetail] Failed to fetch video:', err)
-      setError(err.message || '비디오를 불러오는데 실패했습니다.')
-      setLoading(false)
-    }
-  }, [videoId, formatViews])
-
-  // ref 업데이트를 useLayoutEffect로 분리 (TDZ 방지 - 동기적으로 처리)
-  useLayoutEffect(() => {
-    fetchVideoDetailRef.current = fetchVideoDetail
-  }, [fetchVideoDetail])
-
-  const fetchSimilarVideos = useCallback(async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/videos/${videoId}/similar?limit=${SIMILAR_LIMIT}`)
-      if (response.ok) {
-        const result = await response.json()
-        const videos = result.videos || result
-        startTransition(() => {
-          setSimilarVideos(videos)
-        })
-      }
-    } catch (err) {
-      console.error('[VideoDetail] Failed to fetch similar videos:', err)
-    }
-  }, [videoId])
-
-  // ref 업데이트를 useLayoutEffect로 분리 (TDZ 방지 - 동기적으로 처리)
-  useLayoutEffect(() => {
-    fetchSimilarVideosRef.current = fetchSimilarVideos
-  }, [fetchSimilarVideos])
+  // fetch 함수들을 useEffect 내부로 이동하여 TDZ 방지
 
   const fetchAiSummary = useCallback(async (targetVideoId) => {
     if (!targetVideoId) return
@@ -258,40 +128,155 @@ function VideoDetail() {
     // 안전한 함수 호출을 위한 래퍼
     let isMounted = true
     
-    const runFetches = async () => {
+    // fetchVideoDetail 함수를 useEffect 내부에서 정의 (TDZ 방지)
+    const fetchVideoDetail = async () => {
       try {
-        // ref를 통해 함수 호출 (TDZ 방지)
-        const fetchVideoDetailFn = fetchVideoDetailRef.current
-        const fetchSimilarVideosFn = fetchSimilarVideosRef.current
+        setLoading(true)
+        setError(null)
+        const detail = await fetchVideoDetailApi(videoId)
+        if (!detail.video) {
+          throw new Error('비디오를 찾을 수 없습니다.')
+        }
         
-        if (fetchVideoDetailFn && fetchSimilarVideosFn) {
-          await Promise.all([
-            fetchVideoDetailFn().catch(err => {
-              if (isMounted) {
-                console.error('[VideoDetail] Error in fetchVideoDetail:', err)
+        // LCP 최적화: 비디오 정보를 먼저 표시 (analysis는 나중에)
+        setVideo(detail.video)
+        setLoading(false) // 비디오 정보가 있으면 즉시 로딩 해제
+        
+        // 메인 썸네일 이미지 preload (LCP 요소)
+        if (detail.video.thumbnail_url) {
+          const img = new Image()
+          const optimizedUrl = optimizeThumbnailUrl(detail.video.thumbnail_url, detail.video.id, detail.video.is_shorts || false)
+          img.src = optimizedUrl
+        }
+        
+        // Analysis는 별도로 비동기 처리 (블로킹하지 않음)
+        startTransition(() => {
+          try {
+            if (detail.analysis && typeof detail.analysis === 'object') {
+              // 안전하게 model 필드 제거
+              const { model, ...rest } = detail.analysis
+              // sentiment_ratio 안전성 검사
+              if (rest.sentiment_ratio && typeof rest.sentiment_ratio === 'object') {
+                // top_comments가 배열인지 확인
+                if (rest.top_comments && !Array.isArray(rest.top_comments)) {
+                  rest.top_comments = []
+                }
+                // top_keywords가 배열인지 확인
+                if (rest.top_keywords && !Array.isArray(rest.top_keywords)) {
+                  rest.top_keywords = []
+                }
               }
-            }),
-            fetchSimilarVideosFn().catch(err => {
-              if (isMounted) {
-                console.error('[VideoDetail] Error in fetchSimilarVideos:', err)
+              setAnalysis(rest)
+            } else {
+              setAnalysis(null)
+            }
+          } catch (e) {
+            console.warn('[VideoDetail] Error sanitizing analysis:', e)
+            setAnalysis(null)
+          }
+        })
+        
+        // 디버깅: analysis 데이터 확인 (비동기로 처리)
+        if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+          if (detail.analysis) {
+            window.requestIdleCallback(() => {
+              console.log('[VideoDetail] Analysis data:', detail.analysis)
+              console.log('[VideoDetail] Sentiment ratio:', detail.analysis.sentiment_ratio)
+              console.log('[VideoDetail] Top keywords:', detail.analysis.top_keywords)
+              console.log('[VideoDetail] Top comments:', detail.analysis.top_comments)
+              if (detail.analysis.top_comments) {
+                console.log('[VideoDetail] Top comments count:', detail.analysis.top_comments.length)
+                console.log('[VideoDetail] Top comments labels:', detail.analysis.top_comments.map(c => ({ label: c.label, text_preview: c.text?.substring(0, 30) })))
               }
-            })
-          ])
+            }, { timeout: 100 })
+          } else {
+            console.warn('[VideoDetail] No analysis data received')
+          }
+        } else {
+          // requestIdleCallback이 없으면 즉시 실행
+          if (detail.analysis) {
+            console.log('[VideoDetail] Analysis data:', detail.analysis)
+          } else {
+            console.warn('[VideoDetail] No analysis data received')
+          }
+        }
+        
+        // 시청 기록에 추가 (비동기로 처리)
+        if (detail.video && detail.video.id) {
+          const videoForHistory = {
+            ...detail.video,
+            views: detail.video.view_count ? formatViews(detail.video.view_count) : '0회',
+            category: detail.video.keyword || detail.video.region || '기타'
+          }
+          
+          if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+            window.requestIdleCallback(() => {
+              try {
+                addToWatchHistory(videoForHistory)
+              } catch (e) {
+                console.warn('[VideoDetail] Error adding to watch history:', e)
+              }
+            }, { timeout: 500 })
+          } else {
+            // requestIdleCallback이 없으면 즉시 실행
+            try {
+              addToWatchHistory(videoForHistory)
+            } catch (e) {
+              console.warn('[VideoDetail] Error adding to watch history:', e)
+            }
+          }
         }
       } catch (err) {
         if (isMounted) {
-          console.error('[VideoDetail] Error in parallel fetches:', err)
+          console.error('[VideoDetail] Failed to fetch video:', err)
+          setError(err.message || '비디오를 불러오는데 실패했습니다.')
+          setLoading(false)
         }
       }
     }
     
-    runFetches()
+    // fetchSimilarVideos 함수를 useEffect 내부에서 정의 (TDZ 방지)
+    const fetchSimilarVideos = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/videos/${videoId}/similar?limit=${SIMILAR_LIMIT}`)
+        if (response.ok) {
+          const result = await response.json()
+          const videos = result.videos || result
+          startTransition(() => {
+            setSimilarVideos(videos)
+          })
+        }
+      } catch (err) {
+        if (isMounted) {
+          console.error('[VideoDetail] Failed to fetch similar videos:', err)
+        }
+      }
+    }
+    
+    // 함수들을 병렬로 실행
+    Promise.all([
+      fetchVideoDetail().catch(err => {
+        if (isMounted) {
+          console.error('[VideoDetail] Error in fetchVideoDetail:', err)
+        }
+      }),
+      fetchSimilarVideos().catch(err => {
+        if (isMounted) {
+          console.error('[VideoDetail] Error in fetchSimilarVideos:', err)
+        }
+      })
+    ]).catch(err => {
+      if (isMounted) {
+        console.error('[VideoDetail] Error in parallel fetches:', err)
+      }
+    })
+    
     setShowFullDescription(false)
     
     return () => {
       isMounted = false
     }
-  }, [videoId]) // videoId만 의존 - ref는 useLayoutEffect에서 업데이트됨
+  }, [videoId, formatViews]) // videoId와 formatViews만 의존
 
   useEffect(() => {
     if (!videoId) return
