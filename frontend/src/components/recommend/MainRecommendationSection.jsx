@@ -58,7 +58,7 @@ function MainRecommendationSection({ videos, loading, error, onRetry }) {
   const displayVideos = videos.slice(0, 6)
 
   return (
-    <div className="mb-16">
+    <div className="mb-16" style={{ overflow: 'visible' }}>
       {/* 반응형 그리드: PC 3열, 태블릿 2열, 모바일 1열 */}
       {/* 
         Tailwind 그리드 클래스 설명:
@@ -67,7 +67,7 @@ function MainRecommendationSection({ videos, loading, error, onRetry }) {
         - lg:grid-cols-3: 큰 화면(1024px+) 3열 (3열 2행 = 6개)
         - gap-4 sm:gap-5 lg:gap-6: 반응형 간격 (16px → 20px → 24px)
       */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 lg:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 lg:gap-6" style={{ overflow: 'visible' }}>
         {displayVideos.map((video) => (
           <VideoCard 
             key={video.id || video.video_id} 

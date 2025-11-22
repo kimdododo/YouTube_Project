@@ -303,10 +303,13 @@ function VideoCard({ video, simple = false, featured = false, hideBookmark = fal
         {/* 추천 이유 툴팁 */}
         {isHovered && featured && (
           <div 
-            className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-full mb-2 z-50 pointer-events-none tooltip-fade-in"
+            className="absolute -top-2 left-1/2 -translate-x-1/2 -translate-y-full z-[100] pointer-events-none tooltip-fade-in"
+            style={{
+              marginBottom: '8px'
+            }}
           >
             <div 
-              className="bg-[#111] bg-opacity-80 backdrop-blur-md text-white text-xs rounded-lg shadow-xl px-3 py-2 whitespace-nowrap"
+              className="bg-[#111] bg-opacity-80 backdrop-blur-md text-white text-xs rounded-lg shadow-xl px-3 py-2 whitespace-nowrap relative"
               style={{
                 color: '#ffff',
                 fontSize: '12px'
