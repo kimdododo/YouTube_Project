@@ -5,7 +5,7 @@ import { useBookmark } from '../contexts/BookmarkContext'
 import AppLayout from './layouts/AppLayout'
 import { optimizeThumbnailUrl } from '../utils/imageUtils'
 import { addToWatchHistory } from '../utils/watchHistory'
-import { usePageTracking, trackEvent } from '../utils/analytics'
+import { trackEvent } from '../utils/analytics'
 import { fetchVideoDetail as fetchVideoDetailApi } from '../api/videos'
 
 const API_BASE_URL = import.meta.env?.VITE_API_URL || '/api'
@@ -38,7 +38,21 @@ function VideoDetail() {
   const fetchVideoDetailRef = useRef(null)
   const fetchSimilarVideosRef = useRef(null)
 
-  usePageTracking('VideoDetail')
+  // 페이지 추적을 useEffect 내부로 이동 (TDZ 방지)
+  useEffect(() => {
+    // usePageTracking은 내부적으로 useLocation을 사용하므로 안전하게 처리
+    try {
+      // 직접 trackPageView 호출로 변경하여 useLocation 의존성 제거
+      if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
+        window.gtag('event', 'page_view', {
+          page_title: 'VideoDetail',
+          page_path: window.location.pathname + window.location.search
+        })
+      }
+    } catch (e) {
+      console.warn('[VideoDetail] Error tracking page view:', e)
+    }
+  }, [])
   
   // 헬퍼 함수들을 useCallback으로 메모이제이션
   const getDescriptionPreview = useCallback((text) => {
