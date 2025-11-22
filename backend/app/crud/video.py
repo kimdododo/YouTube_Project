@@ -306,14 +306,18 @@ def get_comment_payloads_for_video(
         payloads: List[dict] = []
         for row in rows:
             raw_text = row[1]
+            if not raw_text or not str(raw_text).strip():
+                continue  # Skip empty comments
             cleaned_text = sanitize_comment_text(raw_text)
-            payloads.append(
-                {
-                    "comment_id": str(row[0]),
-                    "text": cleaned_text,
-                    "like_count": int(row[2]) if row[2] is not None else 0,
-                }
-            )
+            # Only add if cleaned text is not empty
+            if cleaned_text and cleaned_text.strip():
+                payloads.append(
+                    {
+                        "comment_id": str(row[0]),
+                        "text": cleaned_text,
+                        "like_count": int(row[2]) if row[2] is not None else 0,
+                    }
+                )
         
         if payloads:
             logger.info("[CRUD] Sample payload (first): comment_id=%s, text_len=%d, like_count=%d",

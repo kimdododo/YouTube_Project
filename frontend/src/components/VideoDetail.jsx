@@ -97,6 +97,10 @@ function VideoDetail() {
         console.log('[VideoDetail] Sentiment ratio:', detail.analysis.sentiment_ratio)
         console.log('[VideoDetail] Top keywords:', detail.analysis.top_keywords)
         console.log('[VideoDetail] Top comments:', detail.analysis.top_comments)
+        if (detail.analysis.top_comments) {
+          console.log('[VideoDetail] Top comments count:', detail.analysis.top_comments.length)
+          console.log('[VideoDetail] Top comments labels:', detail.analysis.top_comments.map(c => ({ label: c.label, text_preview: c.text?.substring(0, 30) })))
+        }
       } else {
         console.warn('[VideoDetail] No analysis data received')
       }
@@ -320,27 +324,35 @@ function VideoDetail() {
   )
 
   const positiveCommentHighlights = useMemo(() => {
-    if (!topComments.length) return []
-    return topComments
-      .filter((comment) => comment.label === 'pos')
-      .map((comment) => ({
-        id: comment.comment_id || `${comment.text?.slice(0, 20)}-pos`,
-        text: comment.text?.trim() || '',
-      }))
-      .filter((comment) => comment.text.length > 0)
-      .slice(0, 20)
+    if (!topComments.length) {
+      console.log('[VideoDetail] No topComments available for positive highlights')
+      return []
+    }
+    const filtered = topComments.filter((comment) => comment.label === 'pos')
+    console.log('[VideoDetail] Positive comments filtered:', filtered.length, 'out of', topComments.length)
+    const mapped = filtered.map((comment) => ({
+      id: comment.comment_id || `${comment.text?.slice(0, 20)}-pos`,
+      text: comment.text?.trim() || '',
+    }))
+    const withText = mapped.filter((comment) => comment.text.length > 0)
+    console.log('[VideoDetail] Positive comments with text:', withText.length)
+    return withText.slice(0, 20)
   }, [topComments])
 
   const negativeCommentHighlights = useMemo(() => {
-    if (!topComments.length) return []
-    return topComments
-      .filter((comment) => comment.label === 'neg')
-      .map((comment) => ({
-        id: comment.comment_id || `${comment.text?.slice(0, 20)}-neg`,
-        text: comment.text?.trim() || '',
-      }))
-      .filter((comment) => comment.text.length > 0)
-      .slice(0, 20)
+    if (!topComments.length) {
+      console.log('[VideoDetail] No topComments available for negative highlights')
+      return []
+    }
+    const filtered = topComments.filter((comment) => comment.label === 'neg')
+    console.log('[VideoDetail] Negative comments filtered:', filtered.length, 'out of', topComments.length)
+    const mapped = filtered.map((comment) => ({
+      id: comment.comment_id || `${comment.text?.slice(0, 20)}-neg`,
+      text: comment.text?.trim() || '',
+    }))
+    const withText = mapped.filter((comment) => comment.text.length > 0)
+    console.log('[VideoDetail] Negative comments with text:', withText.length)
+    return withText.slice(0, 20)
   }, [topComments])
 
   const summaryLines = useMemo(() => {

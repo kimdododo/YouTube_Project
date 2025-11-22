@@ -577,19 +577,22 @@ class SimCSEService:
                     # If neutral was selected, re-evaluate based on pos/neg probabilities if available
                     if label_short == "neu":
                         # Try to find pos/neg by searching labels
+                        temp_pos_idx = -1
+                        temp_neg_idx = -1
                         for i, label in enumerate(SENTIMENT_LABELS):
                             label_lower = str(label).lower()
                             if label_lower.startswith("pos") and i < len(prob_row):
-                                pos_idx = i
+                                temp_pos_idx = i
                             elif label_lower.startswith("neg") and i < len(prob_row):
-                                neg_idx = i
+                                temp_neg_idx = i
                         
-                        if pos_idx != -1 and neg_idx != -1:
-                            pos_prob = float(prob_row[pos_idx])
-                            neg_prob = float(prob_row[neg_idx])
-                            if not (np.isnan(pos_prob) or np.isnan(neg_prob)):
-                                label_short = "pos" if pos_prob >= neg_prob else "neg"
-                                score = pos_prob if label_short == "pos" else neg_prob
+                        if temp_pos_idx != -1 and temp_neg_idx != -1:
+                            temp_pos_prob = float(prob_row[temp_pos_idx])
+                            temp_neg_prob = float(prob_row[temp_neg_idx])
+                            if not (np.isnan(temp_pos_prob) or np.isnan(temp_neg_prob)):
+                                # FIXED: Labels are reversed - swap the comparison
+                                label_short = "neg" if temp_pos_prob >= temp_neg_prob else "pos"
+                                score = temp_neg_prob if label_short == "pos" else temp_pos_prob
                 
                 sentiment_counts[label_short] += 1
                 

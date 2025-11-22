@@ -18,13 +18,14 @@ def sanitize_comment_text(text: Optional[str]) -> str:
         text: Raw comment text that may contain HTML entities and tags
         
     Returns:
-        Cleaned text string
+        Cleaned text string (returns original if cleaning results in empty string)
     """
     if not text:
         return ""
     
     # Convert to string if not already
-    text = str(text)
+    original_text = str(text)
+    text = original_text
     
     # Step 1: Decode HTML entities (&#39; -> ', &amp; -> &, etc.)
     text = html.unescape(text)
@@ -38,6 +39,18 @@ def sanitize_comment_text(text: Optional[str]) -> str:
     
     # Step 4: Strip leading/trailing whitespace
     text = text.strip()
+    
+    # If cleaning resulted in empty string, return original (to avoid losing all comments)
+    if not text:
+        # Fallback: just decode HTML entities and remove tags, but keep the text
+        text = html.unescape(original_text)
+        text = re.sub(r'<[^>]+>', ' ', text)  # Replace tags with space instead of removing
+        text = re.sub(r'\s+', ' ', text)
+        text = text.strip()
+        
+        # If still empty, return a placeholder or the original
+        if not text:
+            return original_text[:100] if original_text else ""  # Return first 100 chars as fallback
     
     return text
 
