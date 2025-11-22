@@ -622,11 +622,11 @@ function VideoDetail() {
                 <h3 className="text-3xl font-bold mb-4">{sentimentPercentages?.positive ?? 0}%</h3>
                 {positiveCommentHighlights.length > 0 ? (
                   <>
-                    <ul className="space-y-3 text-white/80 text-sm">
+                    <ul className="space-y-3 text-white/80 text-sm overflow-visible">
                       {displayedPositiveComments.map((comment) => (
-                        <li key={comment.id} className="flex items-start gap-2">
+                        <li key={comment.id} className="flex items-start gap-2 overflow-visible">
                           <span className="w-2 h-2 rounded-full bg-white/80 mt-2 flex-shrink-0" />
-                          <p className="text-white/80 text-sm leading-relaxed whitespace-pre-wrap break-words">
+                          <p className="text-white/80 text-sm leading-relaxed whitespace-pre-wrap break-words overflow-visible">
                             {comment.text}
                           </p>
                         </li>
@@ -653,11 +653,11 @@ function VideoDetail() {
                 <h3 className="text-3xl font-bold mb-4">{sentimentPercentages?.negative ?? 0}%</h3>
                 {negativeCommentHighlights.length > 0 ? (
                   <>
-                    <ul className="space-y-3 text-white/80 text-sm">
+                    <ul className="space-y-3 text-white/80 text-sm overflow-visible">
                       {displayedNegativeComments.map((comment) => (
-                        <li key={comment.id} className="flex items-start gap-2">
+                        <li key={comment.id} className="flex items-start gap-2 overflow-visible">
                           <span className="w-2 h-2 rounded-full bg-white/80 mt-2 flex-shrink-0" />
-                          <p className="text-white/80 text-sm leading-relaxed whitespace-pre-wrap break-words">
+                          <p className="text-white/80 text-sm leading-relaxed whitespace-pre-wrap break-words overflow-visible">
                             {comment.text}
                           </p>
                         </li>
