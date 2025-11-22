@@ -14,7 +14,7 @@ function ThemeSlider({ theme, cardWidth = 320, gap = 24, visibleCards = 4 }) {
   const slideTimeoutRef = useRef(null)
 
   // 디버깅: theme prop 확인
-  console.log('[ThemeSlider] ===== Component rendered =====')
+  console.log('[ThemeSlider] ===== Component rendered =====', new Error().stack?.split('\n').slice(0, 3).join('\n'))
   console.log('[ThemeSlider] Received theme:', {
     themeName: theme?.name,
     themeId: theme?.id,
@@ -25,7 +25,8 @@ function ThemeSlider({ theme, cardWidth = 320, gap = 24, visibleCards = 4 }) {
       id: v.id,
       video_id: v.video_id,
       title: v.title?.substring(0, 30),
-      view_count: v.view_count
+      view_count: v.view_count,
+      thumbnail_url: v.thumbnail_url
     })) : []
   })
 
@@ -140,72 +141,109 @@ function ThemeSlider({ theme, cardWidth = 320, gap = 24, visibleCards = 4 }) {
           }}
         >
           {/* 무한루프를 위한 카드 복제 */}
-          {renderedVideos && renderedVideos.length > 0 ? renderedVideos.map((v, index) => {
-            const actualIndex = index % (theme.videos?.length || 1)
-            const videoId = v.id || v.video_id
-            const thumbnailUrl = optimizeThumbnailUrl(v.thumbnail_url, videoId, v.is_shorts || false)
-            const categoryRaw = v.category || v.keyword || v.region || '여행'
-            const category = categoryRaw.toString().replace(/^channel:\s*/i, '')
-            const rating = v.rating || 5
-            const description = v.description || '여행의 감동을 잘 전달하는 영상이에요.'
+          {(() => {
+            console.log('[ThemeSlider] Rendering cards:', {
+              renderedVideosCount: renderedVideos.length,
+              renderedVideos: renderedVideos.slice(0, 3).map(v => ({
+                id: v.id || v.video_id,
+                title: v.title?.substring(0, 30),
+                thumbnail_url: v.thumbnail_url
+              }))
+            })
             
-            return (
-              <div 
-                key={`${videoId}-${index}`}
-                onClick={() => navigate(`/video/${videoId}`)}
-                className="flex-shrink-0 transition-all duration-300 hover:z-10 cursor-pointer group"
-                style={{ width: `${cardWidth}px` }}
-                title="" // 브라우저 기본 툴팁 방지
-              >
-                <div className="bg-[#0f1629]/40 backdrop-blur-sm rounded-xl overflow-hidden border border-black/50 hover:border-black/70 transition-all duration-300 ease-out hover:-translate-y-2 hover:shadow-2xl h-full flex flex-col" style={{ height: '460px' }}>
-                  {/* 카테고리 */}
-                  <div className="px-4 pt-4 pb-2">
-                    <span className="text-blue-400 text-xs font-medium">{category}</span>
-                  </div>
-                  
-                  {/* 썸네일 */}
-                  <div className="relative overflow-hidden flex-shrink-0" style={{ aspectRatio: '16/9' }}>
-                    {thumbnailUrl ? (
-                      <img
-                        src={thumbnailUrl}
-                        loading="lazy"
-                        decoding="async"
-                        alt={v.title || 'Video'}
-                        className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-blue-900/80 to-purple-900/80 flex items-center justify-center">
-                        <span className="text-white/40 text-sm">썸네일 없음</span>
-                      </div>
-                    )}
-                    {/* 평점 배지 */}
-                    <div className="absolute top-2 right-2 flex items-center space-x-1 bg-black/70 backdrop-blur-sm px-2 py-1 rounded-full z-10">
-                      <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-                      <span className="text-white text-xs font-bold">{rating}</span>
+            if (!renderedVideos || renderedVideos.length === 0) {
+              return (
+                <div className="text-center py-8 text-white/60">
+                  <p style={{ fontSize: '14px', fontFamily: 'Arial, sans-serif' }}>
+                    영상을 불러오는 중...
+                  </p>
+                </div>
+              )
+            }
+            
+            return renderedVideos.map((v, index) => {
+              const actualIndex = index % (theme.videos?.length || 1)
+              const videoId = v.id || v.video_id
+              const thumbnailUrl = optimizeThumbnailUrl(v.thumbnail_url, videoId, v.is_shorts || false)
+              const categoryRaw = v.category || v.keyword || v.region || '여행'
+              const category = categoryRaw.toString().replace(/^channel:\s*/i, '')
+              const rating = v.rating || 5
+              const description = v.description || '여행의 감동을 잘 전달하는 영상이에요.'
+              
+              // 디버깅: 첫 번째 카드 정보
+              if (index === 0) {
+                console.log('[ThemeSlider] First card rendering:', {
+                  videoId,
+                  thumbnailUrl,
+                  hasThumbnail: !!thumbnailUrl,
+                  title: v.title
+                })
+              }
+              
+              return (
+                <div 
+                  key={`${videoId}-${index}`}
+                  onClick={() => navigate(`/video/${videoId}`)}
+                  className="flex-shrink-0 transition-all duration-300 hover:z-10 cursor-pointer group"
+                  style={{ width: `${cardWidth}px` }}
+                  title="" // 브라우저 기본 툴팁 방지
+                >
+                  <div className="bg-[#0f1629]/40 backdrop-blur-sm rounded-xl overflow-hidden border border-black/50 hover:border-black/70 transition-all duration-300 ease-out hover:-translate-y-2 hover:shadow-2xl h-full flex flex-col" style={{ height: '460px' }}>
+                    {/* 카테고리 */}
+                    <div className="px-4 pt-4 pb-2">
+                      <span className="text-blue-400 text-xs font-medium">{category}</span>
                     </div>
-                    {/* 그라데이션 오버레이 */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
-                  </div>
-                  
-                  {/* 제목과 설명 */}
-                  <div className="px-4 py-4 flex-1 flex flex-col">
-                    <h3 className="text-white font-bold text-base leading-tight line-clamp-2 mb-3">
-                      {v.title || '제목 없음'}
-                    </h3>
-                    <p className="text-white/70 text-sm leading-relaxed line-clamp-3">
-                      {description.length > 120 ? `${description.substring(0, 120)}...` : description}
-                    </p>
+                    
+                    {/* 썸네일 */}
+                    <div className="relative overflow-hidden flex-shrink-0" style={{ aspectRatio: '16/9' }}>
+                      {thumbnailUrl ? (
+                        <img
+                          src={thumbnailUrl}
+                          loading="lazy"
+                          decoding="async"
+                          alt={v.title || 'Video'}
+                          className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
+                          onLoad={() => {
+                            if (index === 0) {
+                              console.log('[ThemeSlider] First image loaded successfully:', thumbnailUrl)
+                            }
+                          }}
+                          onError={(e) => {
+                            console.error('[ThemeSlider] Image load error:', {
+                              thumbnailUrl,
+                              videoId,
+                              index
+                            })
+                          }}
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-blue-900/80 to-purple-900/80 flex items-center justify-center">
+                          <span className="text-white/40 text-sm">썸네일 없음</span>
+                        </div>
+                      )}
+                      {/* 평점 배지 */}
+                      <div className="absolute top-2 right-2 flex items-center space-x-1 bg-black/70 backdrop-blur-sm px-2 py-1 rounded-full z-10">
+                        <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                        <span className="text-white text-xs font-bold">{rating}</span>
+                      </div>
+                      {/* 그라데이션 오버레이 */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
+                    </div>
+                    
+                    {/* 제목과 설명 */}
+                    <div className="px-4 py-4 flex-1 flex flex-col">
+                      <h3 className="text-white font-bold text-base leading-tight line-clamp-2 mb-3">
+                        {v.title || '제목 없음'}
+                      </h3>
+                      <p className="text-white/70 text-sm leading-relaxed line-clamp-3">
+                        {description.length > 120 ? `${description.substring(0, 120)}...` : description}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )
-          }) : (
-            <div className="text-center py-8 text-white/60">
-              <p style={{ fontSize: '14px', fontFamily: 'Arial, sans-serif' }}>
-                영상을 불러오는 중...
-              </p>
-            </div>
-          )}
+              )
+            })
+          })()}
         </div>
       </div>
 
