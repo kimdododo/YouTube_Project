@@ -49,7 +49,8 @@ function ThemeSlider({ theme, cardWidth = 320, gap = 24, visibleCards = 4 }) {
     console.log('[ThemeSlider] renderedVideos:', {
       sliderVideosCount: sliderVideos.length,
       themeVideosCount: theme.videos?.length || 0,
-      finalCount: result.length
+      finalCount: result.length,
+      result: result
     })
     return result
   }, [sliderVideos, theme.videos])
@@ -92,7 +93,14 @@ function ThemeSlider({ theme, cardWidth = 320, gap = 24, visibleCards = 4 }) {
     }
   }, [])
 
-  if (!theme.videos || theme.videos.length === 0) {
+  // 비디오가 없거나 renderedVideos가 비어있을 때
+  if (!theme.videos || theme.videos.length === 0 || renderedVideos.length === 0) {
+    console.warn('[ThemeSlider] No videos to render:', {
+      themeName: theme?.name,
+      themeVideosCount: theme.videos?.length || 0,
+      renderedVideosCount: renderedVideos.length,
+      sliderVideosCount: sliderVideos.length
+    })
     return (
       <div className="text-center py-8 text-white/60">
         <p style={{ fontSize: '14px', fontFamily: 'Arial, sans-serif' }}>
@@ -101,6 +109,13 @@ function ThemeSlider({ theme, cardWidth = 320, gap = 24, visibleCards = 4 }) {
       </div>
     )
   }
+
+  console.log('[ThemeSlider] Rendering videos:', {
+    renderedVideosCount: renderedVideos.length,
+    currentIndex,
+    cardStep,
+    transformValue: currentIndex * cardStep
+  })
 
   return (
     <div className="relative overflow-hidden">
@@ -125,7 +140,7 @@ function ThemeSlider({ theme, cardWidth = 320, gap = 24, visibleCards = 4 }) {
           }}
         >
           {/* 무한루프를 위한 카드 복제 */}
-          {renderedVideos.map((v, index) => {
+          {renderedVideos && renderedVideos.length > 0 ? renderedVideos.map((v, index) => {
             const actualIndex = index % (theme.videos?.length || 1)
             const videoId = v.id || v.video_id
             const thumbnailUrl = optimizeThumbnailUrl(v.thumbnail_url, videoId, v.is_shorts || false)
@@ -184,7 +199,13 @@ function ThemeSlider({ theme, cardWidth = 320, gap = 24, visibleCards = 4 }) {
                 </div>
               </div>
             )
-          })}
+          }) : (
+            <div className="text-center py-8 text-white/60">
+              <p style={{ fontSize: '14px', fontFamily: 'Arial, sans-serif' }}>
+                영상을 불러오는 중...
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -391,7 +412,13 @@ function ThemeRecommendationSection({ themes, userName = '' }) {
             </div>
 
             {/* 가로 슬라이더 카드 리스트 - VideoDetail.jsx 구조 적용 */}
-            <ThemeSlider theme={theme} cardWidth={320} gap={24} visibleCards={4} />
+            {(() => {
+              console.log('[ThemeRecommendationSection] About to render ThemeSlider for theme:', theme.name, {
+                videosCount: theme.videos?.length || 0,
+                hasVideos: !!(theme.videos && theme.videos.length > 0)
+              })
+              return <ThemeSlider theme={theme} cardWidth={320} gap={24} visibleCards={4} />
+            })()}
           </div>
         ))}
       </div>
