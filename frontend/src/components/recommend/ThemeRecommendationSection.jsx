@@ -212,6 +212,12 @@ function ThemeRecommendationSection({ themes, userName = '' }) {
                 <p style={{ fontSize: '14px', fontFamily: 'Arial, sans-serif' }}>
                   이 테마에 해당하는 영상이 없습니다.
                 </p>
+                {/* 디버깅: 테마 정보 출력 */}
+                {console.log('[ThemeRecommendationSection] Theme has no videos:', {
+                  themeName: theme.name,
+                  videosCount: theme.videos?.length || 0,
+                  videos: theme.videos
+                })}
               </div>
             )}
           </div>

@@ -115,27 +115,41 @@ function VideoCardSlider({ videos, cardWidth = 320, cardHeight = null, gap = 24,
   }, [isDragging, videos.length, cardStep, visibleCards])
 
   // 마우스 휠 이벤트 핸들러 (좌우 스크롤)
-  const handleWheel = (e) => {
+  // passive event listener 문제 해결을 위해 useEffect로 직접 등록
+  useEffect(() => {
     if (!sliderRef.current) return
-    e.preventDefault()
-    
-    const delta = e.deltaY || e.deltaX
-    if (Math.abs(delta) < 10) return // 너무 작은 움직임은 무시
-    
-    if (isTransitioning) return
-    
-    setIsTransitioning(true)
-    
-    if (delta > 0) {
-      // 아래로 스크롤 = 오른쪽으로 이동
-      slideNext()
-    } else {
-      // 위로 스크롤 = 왼쪽으로 이동
-      slidePrev()
+
+    const handleWheel = (e) => {
+      if (!sliderRef.current) return
+      
+      const delta = e.deltaY || e.deltaX
+      if (Math.abs(delta) < 10) return // 너무 작은 움직임은 무시
+      
+      if (isTransitioning) return
+      
+      e.preventDefault()
+      e.stopPropagation()
+      
+      setIsTransitioning(true)
+      
+      if (delta > 0) {
+        // 아래로 스크롤 = 오른쪽으로 이동
+        slideNext()
+      } else {
+        // 위로 스크롤 = 왼쪽으로 이동
+        slidePrev()
+      }
+      
+      setTimeout(() => setIsTransitioning(false), 500)
     }
-    
-    setTimeout(() => setIsTransitioning(false), 500)
-  }
+
+    const element = sliderRef.current
+    element.addEventListener('wheel', handleWheel, { passive: false })
+
+    return () => {
+      element.removeEventListener('wheel', handleWheel)
+    }
+  }, [isTransitioning, slideNext, slidePrev])
 
   // 터치 이벤트 지원
   const handleTouchStart = (e) => {
@@ -229,7 +243,6 @@ function VideoCardSlider({ videos, cardWidth = 320, cardHeight = null, gap = 24,
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        onWheel={handleWheel}
       >
         <div
           className="flex"
