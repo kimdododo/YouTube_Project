@@ -5,6 +5,7 @@ import ThemeRecommendationSection from './recommend/ThemeRecommendationSection'
 import useThemeVideos from '../hooks/useThemeVideos'
 import { getPersonalizedRecommendations, getRecommendedVideos, getTrendVideos, getMostLikedVideos, getAllVideos, getDiversifiedVideos, fetchPersonalizedRecommendations } from '../api/videos'
 import { usePageTracking, trackEvent } from '../utils/analytics'
+import { getCurrentUser } from '../api/auth'
 
 function RecommendedVideos() {
   const [loading, setLoading] = useState(true)
@@ -19,31 +20,18 @@ function RecommendedVideos() {
   // 테마별 비디오 데이터 가져오기
   const { themes, loading: themesLoading } = useThemeVideos()
 
-  // NEW: 사용자 ID 가져오기 (JWT 토큰 또는 /api/auth/me)
+  // NEW: 사용자 ID 가져오기 (getCurrentUser 사용 - 401 오류 자동 처리)
   useEffect(() => {
     const fetchUserId = async () => {
       try {
-        // JWT 토큰이 있으면 사용자 정보 조회
-        const token = localStorage.getItem('access_token') || localStorage.getItem('token')
-        if (token) {
-          const API_BASE_URL = import.meta.env?.VITE_API_URL || '/api'
-          const fixedUrl = API_BASE_URL.endsWith('/api') ? API_BASE_URL : `${API_BASE_URL}/api`
-          
-          const response = await fetch(`${fixedUrl}/auth/me`, {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          })
-          
-          if (response.ok) {
-            const userInfo = await response.json()
-            if (userInfo.id) {
-              setUserId(userInfo.id)
-              console.log('[RecommendedVideos] User ID from /auth/me:', userInfo.id)
-            }
-          }
+        // getCurrentUser는 401 오류를 자동으로 처리하고 null을 반환합니다
+        const userInfo = await getCurrentUser()
+        if (userInfo && userInfo.id) {
+          setUserId(userInfo.id)
+          console.log('[RecommendedVideos] User ID from getCurrentUser:', userInfo.id)
         }
       } catch (err) {
+        // getCurrentUser는 이미 401 오류를 처리하므로 여기서는 조용히 무시
         console.warn('[RecommendedVideos] Failed to get user ID:', err)
       }
     }
