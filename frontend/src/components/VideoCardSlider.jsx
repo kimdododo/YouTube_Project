@@ -7,6 +7,17 @@ import VideoCard from './VideoCard'
  * 4열 1행 레이아웃, 마우스 호버 시 휠로 좌우 이동 가능
  */
 function VideoCardSlider({ videos, cardWidth = 320, cardHeight = null, gap = 24, hideBookmark = false, themeColors = null }) {
+  // 디버깅: videos prop 확인
+  console.log('[VideoCardSlider] Received videos:', {
+    videosCount: videos?.length || 0,
+    videos: videos?.slice(0, 2).map(v => ({
+      id: v.id,
+      video_id: v.video_id,
+      title: v.title,
+      view_count: v.view_count
+    }))
+  })
+  
   const cardStep = cardWidth + gap
   const visibleCards = 4 // 한 번에 보여줄 카드 개수
   
@@ -188,6 +199,7 @@ function VideoCardSlider({ videos, cardWidth = 320, cardHeight = null, gap = 24,
   }
 
   if (!videos || videos.length === 0) {
+    console.warn('[VideoCardSlider] No videos provided or empty array')
     return null
   }
 

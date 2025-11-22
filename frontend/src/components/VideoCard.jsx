@@ -464,8 +464,12 @@ function VideoCard({ video, simple = false, featured = false, hideBookmark = fal
             {(() => {
               // 조회수 포맷팅 헬퍼 함수
               const formatViews = (count) => {
-                if (!count && count !== 0) return null
-                const num = typeof count === 'string' ? parseInt(count.replace(/[^0-9]/g, '')) : count
+                // null, undefined, 빈 문자열 체크
+                if (count === null || count === undefined || count === '') return null
+                // 숫자로 변환
+                const num = typeof count === 'string' ? parseInt(count.replace(/[^0-9]/g, '')) || 0 : (typeof count === 'number' ? count : 0)
+                // 0이거나 NaN이면 null 반환 (표시하지 않음)
+                if (num === 0 || isNaN(num)) return null
                 if (num >= 1000000) {
                   return `${(num / 1000000).toFixed(1)}M회`
                 }
@@ -475,19 +479,22 @@ function VideoCard({ video, simple = false, featured = false, hideBookmark = fal
                 return `${num.toLocaleString()}회`
               }
               
-              // 여러 필드에서 조회수 찾기
-              const viewCount = video.view_count ?? video.views ?? video.viewCount ?? 0
-              // 디버깅: 조회수가 0인 경우 로그 출력
-              if (featured && viewCount === 0 && video.id) {
-                console.warn('[VideoCard] View count is 0 for video:', {
+              // 여러 필드에서 조회수 찾기 (우선순위: view_count > views > viewCount)
+              const viewCount = video.view_count ?? video.views ?? video.viewCount
+              
+              // 디버깅: 조회수 정보 로그 출력
+              if (featured && video.id) {
+                console.log('[VideoCard] View count debug for video:', {
                   id: video.id,
                   video_id: video.video_id,
                   view_count: video.view_count,
                   views: video.views,
                   viewCount: video.viewCount,
+                  finalViewCount: viewCount,
                   title: video.title
                 })
               }
+              
               const formattedViews = formatViews(viewCount)
               
               return formattedViews ? (

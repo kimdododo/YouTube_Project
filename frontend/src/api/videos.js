@@ -42,6 +42,16 @@ export const fetchPersonalizedRecommendations = async (userId) => {
     const result = await response.json()
     console.log('[videos.js] Received personalized recommendations:', result.count || 0)
     
+    // 디버깅: 첫 번째 아이템의 view_count 확인
+    if (result.success && result.items && result.items.length > 0) {
+      console.log('[videos.js] Sample item from personalized API:', {
+        video_id: result.items[0].video_id,
+        view_count: result.items[0].view_count,
+        views: result.items[0].views,
+        title: result.items[0].title
+      })
+    }
+    
     // 백엔드 응답 형식을 프론트엔드 형식으로 변환
     if (result.success && result.items) {
       return result.items.map(item => ({

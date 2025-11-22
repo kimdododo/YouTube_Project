@@ -189,8 +189,18 @@ function useThemeVideos() {
               keyword: allVideos[0].keyword,
               region: allVideos[0].region,
               category: allVideos[0].category,
-              view_count: allVideos[0].view_count
+              view_count: allVideos[0].view_count,
+              description: allVideos[0].description
             })
+            // 첫 5개 비디오의 키워드/카테고리 확인
+            console.log('[useThemeVideos] First 5 videos keywords/categories:', 
+              allVideos.slice(0, 5).map(v => ({
+                title: v.title?.substring(0, 30),
+                keyword: v.keyword,
+                region: v.region,
+                category: v.category
+              }))
+            )
           }
           
           if (!allVideos || allVideos.length === 0) {
@@ -205,6 +215,7 @@ function useThemeVideos() {
           // 키워드 기반으로 테마별 비디오 필터링
           userThemes.forEach((theme) => {
             const keywords = theme.keywords || []
+            console.log(`[useThemeVideos] Filtering videos for theme "${theme.name}" with keywords:`, keywords)
             
             // 아직 할당되지 않은 비디오만 필터링
             let filteredVideos = allVideos
@@ -222,16 +233,28 @@ function useThemeVideos() {
                 const region = (video.region || '').toLowerCase()
                 
                 // 키워드 매칭 (더 관대한 매칭)
-                return keywords.some((kw) => {
+                const matches = keywords.some((kw) => {
                   const kwLower = kw.toLowerCase()
-                  return (
+                  const matched = (
                     title.includes(kwLower) || 
                     description.includes(kwLower) || 
                     keyword.includes(kwLower) ||
                     category.includes(kwLower) ||
                     region.includes(kwLower)
                   )
+                  if (matched) {
+                    console.log(`[useThemeVideos] Video matched for theme "${theme.name}":`, {
+                      videoTitle: video.title?.substring(0, 30),
+                      matchedKeyword: kw,
+                      matchType: title.includes(kwLower) ? 'title' : 
+                                description.includes(kwLower) ? 'description' :
+                                keyword.includes(kwLower) ? 'keyword' :
+                                category.includes(kwLower) ? 'category' : 'region'
+                    })
+                  }
+                  return matched
                 })
+                return matches
               })
             
             // 매칭된 비디오가 부족하면 추가 비디오 할당 (fallback)
