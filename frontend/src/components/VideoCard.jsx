@@ -1,6 +1,6 @@
 import { Star, Play, Bookmark } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useBookmark } from '../contexts/BookmarkContext'
 import { handleImageError, optimizeThumbnailUrl, getOptimizedImageStyles, handleImageLoadQuality } from '../utils/imageUtils'
 import { trackEvent } from '../utils/analytics-core'
@@ -10,46 +10,10 @@ function VideoCard({ video, simple = false, featured = false, hideBookmark = fal
   const { isBookmarked, toggleBookmark } = useBookmark()
   const thumbnailRef = useRef(null)
   const [isMobile, setIsMobile] = useState(false)
-  const [isHovered, setIsHovered] = useState(false)
   
   const videoId = video.id || video.video_id
   const bookmarked = isBookmarked(videoId)
   const eventContext = analyticsContext || (typeof window !== 'undefined' ? window.location.pathname : 'unknown')
-
-  // 추천 이유 목록
-  const recommendationReasons = useMemo(() => [
-    '최근 본 영상 기반',
-    '자주 시청한 채널 기반',
-    '북마크 기반',
-    '취향 유사 사용자 기반',
-    '트렌드 기반',
-    '시즌 기반',
-    '관련 콘텐츠 기반',
-    '실시간 인기 기반'
-  ], [])
-
-  // 비디오별 추천 이유 결정 (비디오 ID 기반으로 일관성 있게)
-  const getRecommendationReason = useCallback((videoId) => {
-    if (!videoId) {
-      console.warn('[VideoCard] No videoId provided for recommendation reason')
-      return recommendationReasons[0]
-    }
-    // 비디오 ID의 해시값을 사용하여 일관된 추천 이유 할당
-    const hash = videoId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
-    const reason = recommendationReasons[hash % recommendationReasons.length]
-    return reason
-  }, [recommendationReasons])
-
-  // featured가 true일 때만 추천 이유 계산 (Recommended 페이지에서만)
-  const recommendationReason = useMemo(() => {
-    // featured가 false이면 추천 이유를 계산하지 않음
-    if (!featured) {
-      return null
-    }
-    const reason = getRecommendationReason(videoId)
-    console.log('[VideoCard] Recommendation reason calculated:', { videoId, reason, featured })
-    return reason
-  }, [videoId, getRecommendationReason, featured])
 
   // 반응형 감지
   useEffect(() => {
@@ -289,30 +253,9 @@ function VideoCard({ video, simple = false, featured = false, hideBookmark = fal
         style={{
           transform: active ? 'scale(1.02) translateY(-8px)' : 'none',
           border: 'none',
-          borderColor: 'transparent',
-          zIndex: isHovered ? 50 : 'auto'
+          borderColor: 'transparent'
         }}
         onMouseEnter={(e) => {
-          // featured가 true일 때만 hover 상태 설정 (Recommended 페이지에서만 툴팁 표시)
-          if (featured) {
-            setIsHovered(true)
-            // 디버깅: 툴팁 조건 확인
-            if (recommendationReason) {
-              console.log('[VideoCard] Tooltip should show:', {
-                isHovered: true,
-                featured,
-                recommendationReason,
-                videoId
-              })
-            } else {
-              console.log('[VideoCard] Tooltip conditions not met:', {
-                isHovered: true,
-                featured,
-                recommendationReason,
-                videoId
-              })
-            }
-          }
           if (!active) {
             const thumbnailDiv = e.currentTarget.querySelector('.thumbnail-container')
             if (thumbnailDiv) {
@@ -322,10 +265,6 @@ function VideoCard({ video, simple = false, featured = false, hideBookmark = fal
           }
         }}
         onMouseLeave={(e) => {
-          // featured가 true일 때만 hover 상태 해제
-          if (featured) {
-            setIsHovered(false)
-          }
           if (!active) {
             const thumbnailDiv = e.currentTarget.querySelector('.thumbnail-container')
             if (thumbnailDiv) {
@@ -336,56 +275,6 @@ function VideoCard({ video, simple = false, featured = false, hideBookmark = fal
         }}
         onClick={handleClick}
       >
-        {/* 추천 이유 툴팁 */}
-        {isHovered && featured && recommendationReason ? (
-          <div 
-            className="absolute left-1/2 pointer-events-none"
-            style={{
-              top: '-10px',
-              transform: 'translateX(-50%) translateY(-100%)',
-              marginBottom: '8px',
-              zIndex: 99999,
-              opacity: 0,
-              animation: 'tooltipFadeIn 200ms ease-in-out forwards'
-            }}
-          >
-            <style>{`
-              @keyframes tooltipFadeIn {
-                from {
-                  opacity: 0;
-                  transform: translateX(-50%) translateY(-5px);
-                }
-                to {
-                  opacity: 1;
-                  transform: translateX(-50%) translateY(0);
-                }
-              }
-            `}</style>
-            <div 
-              className="text-white text-xs rounded-lg shadow-xl px-3 py-2 whitespace-nowrap relative"
-              style={{
-                color: '#ffff',
-                fontSize: '12px',
-                backgroundColor: 'rgba(17, 17, 17, 0.8)',
-                backdropFilter: 'blur(8px)',
-                WebkitBackdropFilter: 'blur(8px)',
-                boxShadow: '0 10px 15px rgba(0, 0, 0, 0.3)',
-                border: '1px solid rgba(255, 255, 255, 0.1)'
-              }}
-            >
-              {recommendationReason}
-              {/* 툴팁 화살표 */}
-              <div 
-                className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0"
-                style={{
-                  borderLeft: '6px solid transparent',
-                  borderRight: '6px solid transparent',
-                  borderTop: '6px solid rgba(17, 17, 17, 0.8)'
-                }}
-              ></div>
-            </div>
-          </div>
-        ) : null}
         <div 
           ref={thumbnailRef}
           className="relative overflow-hidden thumbnail-container rounded-xl border-solid" 

@@ -294,23 +294,35 @@ function useThemeVideos() {
             
             // 매칭된 비디오가 전혀 없으면 모든 비디오에서 랜덤하게 할당 (최후의 수단)
             if (filteredVideos.length === 0) {
+              console.warn(`[useThemeVideos] Theme "${theme.name}": No matching videos found, trying fallback`)
+              
               const unassignedVideos = allVideos.filter((video) => {
                 const videoId = video.id || video.video_id
                 return !assignedVideoIds.has(videoId)
               })
               
+              console.log(`[useThemeVideos] Theme "${theme.name}": Unassigned videos available:`, unassignedVideos.length)
+              
               // 최소 10개는 할당 (비디오가 충분하면)
               const minVideos = Math.min(10, unassignedVideos.length)
               if (minVideos > 0) {
                 filteredVideos = unassignedVideos.slice(0, minVideos)
-                console.warn(`[useThemeVideos] Theme "${theme.name}": No matching videos found, assigned ${filteredVideos.length} random videos as fallback`)
+                console.warn(`[useThemeVideos] Theme "${theme.name}": Assigned ${filteredVideos.length} random videos as fallback`)
               } else {
                 // 할당 가능한 비디오가 없으면 이미 할당된 비디오를 재사용 (중복 허용)
                 if (allVideos.length > 0) {
                   filteredVideos = allVideos.slice(0, Math.min(10, allVideos.length))
                   console.warn(`[useThemeVideos] Theme "${theme.name}": All videos assigned, reusing first ${filteredVideos.length} videos`)
+                } else {
+                  console.error(`[useThemeVideos] Theme "${theme.name}": No videos available at all!`)
                 }
               }
+            }
+            
+            // 최종 확인: 비디오가 여전히 없으면 강제로 할당
+            if (filteredVideos.length === 0 && allVideos.length > 0) {
+              console.error(`[useThemeVideos] Theme "${theme.name}": CRITICAL - No videos assigned, forcing assignment from all videos`)
+              filteredVideos = allVideos.slice(0, Math.min(10, allVideos.length))
             }
             
             // 각 테마당 최대 50개로 제한

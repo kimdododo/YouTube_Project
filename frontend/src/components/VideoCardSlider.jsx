@@ -8,8 +8,11 @@ import VideoCard from './VideoCard'
  */
 function VideoCardSlider({ videos, cardWidth = 320, cardHeight = null, gap = 24, hideBookmark = false, themeColors = null }) {
   // 디버깅: videos prop 확인
+  console.log('[VideoCardSlider] ===== Component rendered =====')
   console.log('[VideoCardSlider] Received videos:', {
     videosCount: videos?.length || 0,
+    videosType: typeof videos,
+    isArray: Array.isArray(videos),
     videos: videos?.slice(0, 2).map(v => ({
       id: v.id,
       video_id: v.video_id,
@@ -20,20 +23,26 @@ function VideoCardSlider({ videos, cardWidth = 320, cardHeight = null, gap = 24,
   
   // videos가 없거나 빈 배열인 경우 조기 반환
   if (!videos || videos.length === 0) {
-    console.warn('[VideoCardSlider] No videos provided:', {
+    console.error('[VideoCardSlider] ERROR: No videos provided!', {
       videos,
       videosType: typeof videos,
       isArray: Array.isArray(videos),
-      length: videos?.length
+      length: videos?.length,
+      videosValue: videos
     })
     return (
       <div className="text-center py-8 text-white/60">
         <p style={{ fontSize: '14px', fontFamily: 'Arial, sans-serif' }}>
           영상을 불러오는 중...
         </p>
+        <p className="text-xs mt-2 text-white/40">
+          (비디오 데이터가 없습니다)
+        </p>
       </div>
     )
   }
+  
+  console.log('[VideoCardSlider] Videos validated, proceeding with render. Count:', videos.length)
   
   const cardStep = cardWidth + gap
   const visibleCards = 4 // 한 번에 보여줄 카드 개수
