@@ -54,32 +54,52 @@ export const fetchPersonalizedRecommendations = async (userId) => {
     
     // 백엔드 응답 형식을 프론트엔드 형식으로 변환
     if (result.success && result.items) {
-      return result.items.map(item => ({
-        id: item.video_id,
-        video_id: item.video_id,
-        thumbnail_url: item.thumbnail_url,
-        title: item.title,
-        channel_title: item.channel_title,
-        channel_id: item.channel_id || null,
-        similarity_score: item.similarity_score,
-        reason: item.reason,
-        // 기존 형식과 호환성을 위한 필드
-        description: item.description || '',
-        // view_count를 보존하고 views도 포맷팅하여 제공
-        view_count: item.view_count || item.views || 0,
-        views: formatViews(item.view_count || item.views || 0),
-        like_count: item.like_count || item.likes || 0,
-        likes: formatViews(item.like_count || item.likes || 0),
-        rating: item.rating || 5,
-        showRating: item.rating != null,
-        type: 'personalized',
-        youtube_url: createYouTubeUrl(item.video_id),
-        is_shorts: item.is_shorts || false,
-        // 추가 필드 보존
-        keyword: item.keyword,
-        region: item.region,
-        category: item.keyword || item.region || '기타'
-      }))
+      return result.items.map(item => {
+        const videoId = item.video_id
+        const isShorts = item.is_shorts || false
+        // view_count 처리 (다른 함수들과 동일한 로직)
+        const viewCount = item.view_count ?? item.views ?? item.viewCount ?? 0
+        const likeCount = item.like_count ?? item.likes ?? item.likeCount ?? 0
+        
+        // 디버깅: view_count 값 확인
+        if (result.items.indexOf(item) === 0) {
+          console.log('[videos.js] fetchPersonalizedRecommendations - First item view_count:', {
+            video_id: videoId,
+            view_count: item.view_count,
+            views: item.views,
+            viewCount: item.viewCount,
+            finalViewCount: viewCount,
+            title: item.title
+          })
+        }
+        
+        return {
+          id: videoId,
+          video_id: videoId,
+          thumbnail_url: optimizeThumbnailUrl(item.thumbnail_url, videoId, isShorts),
+          title: item.title,
+          channel_title: item.channel_title,
+          channel_id: item.channel_id || null,
+          similarity_score: item.similarity_score,
+          reason: item.reason,
+          // 기존 형식과 호환성을 위한 필드
+          description: item.description || '',
+          // view_count를 보존하고 views도 포맷팅하여 제공 (다른 함수들과 동일한 로직)
+          view_count: typeof viewCount === 'number' ? viewCount : (typeof viewCount === 'string' ? parseInt(viewCount.replace(/[^0-9]/g, '')) || 0 : 0),
+          views: formatViews(viewCount),
+          like_count: typeof likeCount === 'number' ? likeCount : (typeof likeCount === 'string' ? parseInt(likeCount.replace(/[^0-9]/g, '')) || 0 : 0),
+          likes: formatViews(likeCount),
+          rating: item.rating || 5,
+          showRating: item.rating != null,
+          type: 'personalized',
+          youtube_url: createYouTubeUrl(videoId),
+          is_shorts: isShorts,
+          // 추가 필드 보존
+          keyword: item.keyword,
+          region: item.region,
+          category: item.keyword || item.region || '기타'
+        }
+      })
     }
     
     return []
