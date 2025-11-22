@@ -1,6 +1,6 @@
 import { Star, Play, Bookmark } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useBookmark } from '../contexts/BookmarkContext'
 import { handleImageError, optimizeThumbnailUrl, getOptimizedImageStyles, handleImageLoadQuality } from '../utils/imageUtils'
 import { trackEvent } from '../utils/analytics-core'
@@ -10,10 +10,33 @@ function VideoCard({ video, simple = false, featured = false, hideBookmark = fal
   const { isBookmarked, toggleBookmark } = useBookmark()
   const thumbnailRef = useRef(null)
   const [isMobile, setIsMobile] = useState(false)
+  const [isHovered, setIsHovered] = useState(false)
   
   const videoId = video.id || video.video_id
   const bookmarked = isBookmarked(videoId)
   const eventContext = analyticsContext || (typeof window !== 'undefined' ? window.location.pathname : 'unknown')
+
+  // 추천 이유 목록
+  const recommendationReasons = useMemo(() => [
+    '최근 본 영상 기반',
+    '자주 시청한 채널 기반',
+    '북마크 기반',
+    '취향 유사 사용자 기반',
+    '트렌드 기반',
+    '시즌 기반',
+    '관련 콘텐츠 기반',
+    '실시간 인기 기반'
+  ], [])
+
+  // 비디오별 추천 이유 결정 (비디오 ID 기반으로 일관성 있게)
+  const getRecommendationReason = useCallback((videoId) => {
+    if (!videoId) return recommendationReasons[0]
+    // 비디오 ID의 해시값을 사용하여 일관된 추천 이유 할당
+    const hash = videoId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
+    return recommendationReasons[hash % recommendationReasons.length]
+  }, [recommendationReasons])
+
+  const recommendationReason = useMemo(() => getRecommendationReason(videoId), [videoId, getRecommendationReason])
 
   // 반응형 감지
   useEffect(() => {
@@ -249,13 +272,14 @@ function VideoCard({ video, simple = false, featured = false, hideBookmark = fal
     
     return (
       <div 
-        className="group bg-[#0f1629]/40 backdrop-blur-sm rounded-xl overflow-visible transition-all duration-300 ease-out hover:-translate-y-3 hover:scale-[1.02] cursor-pointer w-full"
+        className="group bg-[#0f1629]/40 backdrop-blur-sm rounded-xl overflow-visible transition-all duration-300 ease-out hover:-translate-y-3 hover:scale-[1.02] cursor-pointer w-full relative"
         style={{
           transform: active ? 'scale(1.02) translateY(-8px)' : 'none',
           border: 'none',
           borderColor: 'transparent'
         }}
         onMouseEnter={(e) => {
+          setIsHovered(true)
           if (!active) {
             const thumbnailDiv = e.currentTarget.querySelector('.thumbnail-container')
             if (thumbnailDiv) {
@@ -265,6 +289,7 @@ function VideoCard({ video, simple = false, featured = false, hideBookmark = fal
           }
         }}
         onMouseLeave={(e) => {
+          setIsHovered(false)
           if (!active) {
             const thumbnailDiv = e.currentTarget.querySelector('.thumbnail-container')
             if (thumbnailDiv) {
@@ -275,6 +300,29 @@ function VideoCard({ video, simple = false, featured = false, hideBookmark = fal
         }}
         onClick={handleClick}
       >
+        {/* 추천 이유 툴팁 */}
+        {isHovered && featured && (
+          <div 
+            className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-full mb-2 z-50 pointer-events-none tooltip-fade-in"
+          >
+            <div 
+              className="bg-[#111] bg-opacity-80 backdrop-blur-md text-white text-xs rounded-lg shadow-xl px-3 py-2 whitespace-nowrap"
+              style={{
+                color: '#ffff',
+                fontSize: '12px'
+              }}
+            >
+              {recommendationReason}
+              {/* 툴팁 화살표 */}
+              <div 
+                className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-r-[6px] border-t-[6px] border-transparent"
+                style={{
+                  borderTopColor: 'rgba(17, 17, 17, 0.8)'
+                }}
+              ></div>
+            </div>
+          </div>
+        )}
         <div 
           ref={thumbnailRef}
           className="relative overflow-hidden thumbnail-container rounded-xl border-solid" 

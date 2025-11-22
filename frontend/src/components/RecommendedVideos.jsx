@@ -214,6 +214,22 @@ function RecommendedVideos() {
 
   return (
     <AppLayout>
+      {/* 툴팁 fade-in 애니메이션 */}
+      <style>{`
+        @keyframes tooltipFadeIn {
+          from {
+            opacity: 0;
+            transform: translateX(-50%) translateY(-5px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+          }
+        }
+        .tooltip-fade-in {
+          animation: tooltipFadeIn 200ms ease-in-out;
+        }
+      `}</style>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Title Section */}
         <div className="mb-12 text-left">
