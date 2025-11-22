@@ -166,7 +166,17 @@ function VideoCard({ video, simple = false, featured = false, hideBookmark = fal
   if (simple) {
     return (
       <div className="group relative cursor-pointer transition-all duration-300 ease-out hover:-translate-y-3 hover:scale-[1.02] hover:shadow-2xl hover:shadow-black/50 w-full" onClick={handleClick}>
-        <div className="relative rounded-lg overflow-hidden bg-gray-900 border border-black/50 group-hover:border-black/70 transition-all duration-300" style={{ aspectRatio: '9/16' }}>
+        <div 
+          className="relative rounded-lg overflow-hidden bg-gray-900 border border-black/50 group-hover:border-black/70 transition-all duration-300" 
+          style={{ 
+            ...(cardWidth && cardHeight ? {
+              width: `${cardWidth}px`,
+              height: `${cardHeight}px`
+            } : {
+              aspectRatio: '9/16'
+            })
+          }}
+        >
           {thumbnailUrl ? (
             <img
               src={thumbnailUrl}
