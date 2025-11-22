@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useState, useEffect, useRef } from 'react'
 import { useBookmark } from '../contexts/BookmarkContext'
 import { handleImageError, optimizeThumbnailUrl, getOptimizedImageStyles, handleImageLoadQuality } from '../utils/imageUtils'
-import { trackEvent } from '../utils/analytics'
+import { trackEvent } from '../utils/analytics-core'
 
 function VideoCard({ video, simple = false, featured = false, hideBookmark = false, active = false, themeColors = null, cardWidth = null, cardHeight = null, analyticsContext = null }) {
   const navigate = useNavigate()

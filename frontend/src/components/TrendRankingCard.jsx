@@ -2,7 +2,7 @@ import { Star, ArrowUp, ArrowDown, Minus, Bookmark } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useBookmark } from '../contexts/BookmarkContext'
 import { handleImageError, optimizeThumbnailUrl, getOptimizedImageStyles, handleImageLoadQuality } from '../utils/imageUtils'
-import { trackEvent } from '../utils/analytics'
+import { trackEvent } from '../utils/analytics-core'
 
 function TrendRankingCard({ rank, video, change }) {
   const navigate = useNavigate()

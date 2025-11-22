@@ -6,7 +6,7 @@ import AppLayout from './layouts/AppLayout'
 import { optimizeThumbnailUrl } from '../utils/imageUtils'
 import { addToWatchHistory } from '../utils/watchHistory'
 // 순환 의존성 방지를 위해 analytics-core에서 직접 import
-import { trackEvent } from '../utils/analytics-core'
+import { trackEvent, trackPageView } from '../utils/analytics-core'
 import { fetchVideoDetail as fetchVideoDetailApi } from '../api/videos'
 
 const API_BASE_URL = import.meta.env?.VITE_API_URL || '/api'
@@ -38,15 +38,9 @@ function VideoDetail() {
 
   // 페이지 추적을 useEffect 내부로 이동 (TDZ 방지)
   useEffect(() => {
-    // usePageTracking은 내부적으로 useLocation을 사용하므로 안전하게 처리
+    // trackPageView를 analytics-core에서 직접 import하여 순환 의존성 방지
     try {
-      // 직접 trackPageView 호출로 변경하여 useLocation 의존성 제거
-      if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
-        window.gtag('event', 'page_view', {
-          page_title: 'VideoDetail',
-          page_path: window.location.pathname + window.location.search
-        })
-      }
+      trackPageView('VideoDetail', window.location.pathname + window.location.search)
     } catch (e) {
       console.warn('[VideoDetail] Error tracking page view:', e)
     }
