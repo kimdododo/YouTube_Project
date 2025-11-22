@@ -295,7 +295,8 @@ function RecommendedVideos() {
         />
 
         {/* 테마별 추천 섹션 */}
-        {!loading && !error && recommendedVideos.length > 0 && (
+        {/* themesLoading이 false이고 themes가 있을 때만 표시 */}
+        {!themesLoading && themes && themes.length > 0 && (
           <ThemeRecommendationSection 
             themes={themes}
             userName={userName}
