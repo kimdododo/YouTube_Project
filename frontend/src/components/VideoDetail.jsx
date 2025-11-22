@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef, startTransition } from 'react'
+import { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef, startTransition } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Star, ChevronLeft, ChevronRight, Bookmark } from 'lucide-react'
 import { useBookmark } from '../contexts/BookmarkContext'
@@ -206,9 +206,11 @@ function VideoDetail() {
       setLoading(false)
     }
   }, [videoId, formatViews])
-  
-  // ref에 함수 저장 (TDZ 방지)
-  fetchVideoDetailRef.current = fetchVideoDetail
+
+  // ref 업데이트를 useLayoutEffect로 분리 (TDZ 방지 - 동기적으로 처리)
+  useLayoutEffect(() => {
+    fetchVideoDetailRef.current = fetchVideoDetail
+  }, [fetchVideoDetail])
 
   const fetchSimilarVideos = useCallback(async () => {
     try {
@@ -224,9 +226,11 @@ function VideoDetail() {
       console.error('[VideoDetail] Failed to fetch similar videos:', err)
     }
   }, [videoId])
-  
-  // ref에 함수 저장 (TDZ 방지)
-  fetchSimilarVideosRef.current = fetchSimilarVideos
+
+  // ref 업데이트를 useLayoutEffect로 분리 (TDZ 방지 - 동기적으로 처리)
+  useLayoutEffect(() => {
+    fetchSimilarVideosRef.current = fetchSimilarVideos
+  }, [fetchSimilarVideos])
 
   const fetchAiSummary = useCallback(async (targetVideoId) => {
     if (!targetVideoId) return
@@ -287,7 +291,7 @@ function VideoDetail() {
     return () => {
       isMounted = false
     }
-  }, [videoId]) // 의존성 배열에서 함수 제거 - videoId만 의존
+  }, [videoId]) // videoId만 의존 - ref는 useLayoutEffect에서 업데이트됨
 
   useEffect(() => {
     if (!videoId) return
