@@ -344,11 +344,23 @@ function VideoCard({ video, simple = false, featured = false, hideBookmark = fal
               top: '-10px',
               transform: 'translateX(-50%) translateY(-100%)',
               marginBottom: '8px',
-              zIndex: 9999,
-              animation: 'tooltipFadeIn 200ms ease-in-out',
-              animationFillMode: 'forwards'
+              zIndex: 99999,
+              opacity: 0,
+              animation: 'tooltipFadeIn 200ms ease-in-out forwards'
             }}
           >
+            <style>{`
+              @keyframes tooltipFadeIn {
+                from {
+                  opacity: 0;
+                  transform: translateX(-50%) translateY(-5px);
+                }
+                to {
+                  opacity: 1;
+                  transform: translateX(-50%) translateY(0);
+                }
+              }
+            `}</style>
             <div 
               className="text-white text-xs rounded-lg shadow-xl px-3 py-2 whitespace-nowrap relative"
               style={{

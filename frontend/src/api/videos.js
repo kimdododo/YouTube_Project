@@ -399,15 +399,23 @@ export const getRecommendedVideos = async (query = null, useRerank = false, limi
     return videos.map(video => {
       const videoId = video.id || video.video_id
       const isShorts = video.is_shorts || false
+      const viewCount = video.view_count || video.views || 0
       // YouTube 비디오 ID 유효성 검사 (일반적으로 11자리 문자열)
       const isValidVideoId = videoId && typeof videoId === 'string' && videoId.length >= 10 && videoId.length <= 12
       return {
         id: videoId,
+        video_id: videoId,
         thumbnail_url: optimizeThumbnailUrl(video.thumbnail_url, videoId, isShorts), // 고화질 썸네일로 최적화
         title: video.title,
+        channel_title: video.channel_title,
+        channel_id: video.channel_id,
         description: video.description,
         category: video.keyword || video.region || '기타',
-        views: formatViews(video.view_count || video.views),
+        keyword: video.keyword,
+        region: video.region,
+        views: formatViews(viewCount),
+        view_count: typeof viewCount === 'number' ? viewCount : (typeof viewCount === 'string' ? parseInt(viewCount.replace(/[^0-9]/g, '')) || 0 : 0), // view_count 보존
+        like_count: video.like_count || video.likes || 0, // like_count 보존
         rating: video.rating || 5, // 기본값
         showRating: true,
         type: determineVideoType(video), // 'simple' or 'featured'
@@ -608,14 +616,22 @@ export const getAllVideos = async (skip = 0, limit = 100) => {
     return videos.map(video => {
       const videoId = video.id || video.video_id
       const isShorts = video.is_shorts || false
+      const viewCount = video.view_count || video.views || 0
       return {
         id: videoId,
+        video_id: videoId,
         thumbnail_url: optimizeThumbnailUrl(video.thumbnail_url, videoId, isShorts), // 고화질 썸네일로 최적화
         title: video.title,
+        channel_title: video.channel_title,
+        channel_id: video.channel_id,
         description: video.description,
         channel: video.keyword || video.region || '기타',
-        channel_id: video.channel_id,
-        views: formatViews(video.view_count || video.views),
+        category: video.keyword || video.region || '기타',
+        keyword: video.keyword,
+        region: video.region,
+        views: formatViews(viewCount),
+        view_count: typeof viewCount === 'number' ? viewCount : (typeof viewCount === 'string' ? parseInt(viewCount.replace(/[^0-9]/g, '')) || 0 : 0), // view_count 보존
+        like_count: video.like_count || video.likes || 0, // like_count 보존
         rating: 5, // 기본값 (실제 평점 데이터가 있다면 사용)
         showRating: true,
         youtube_url: createYouTubeUrl(videoId), // YouTube URL 생성

@@ -939,6 +939,7 @@ function VideoDetail() {
                         onClick={() => navigate(`/video/${videoId}`)}
                         className="flex-shrink-0 transition-all duration-300 hover:z-10 cursor-pointer group"
                         style={{ width: `${cardWidth}px` }}
+                        title="" // 브라우저 기본 툴팁 방지
                       >
                         <div className="bg-[#0f1629]/40 backdrop-blur-sm rounded-xl overflow-hidden border border-black/50 hover:border-black/70 transition-all duration-300 ease-out hover:-translate-y-2 hover:shadow-2xl h-full flex flex-col" style={{ height: '460px' }}>
                           {/* 카테고리 */}
