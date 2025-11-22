@@ -82,7 +82,19 @@ function VideoDetail() {
       if (!detail.video) {
         throw new Error('비디오를 찾을 수 없습니다.')
       }
+      
+      // LCP 최적화: 비디오 정보를 먼저 표시 (analysis는 나중에)
       setVideo(detail.video)
+      setLoading(false) // 비디오 정보가 있으면 즉시 로딩 해제
+      
+      // 메인 썸네일 이미지 preload (LCP 요소)
+      if (detail.video.thumbnail_url) {
+        const img = new Image()
+        const optimizedUrl = optimizeThumbnailUrl(detail.video.thumbnail_url, detail.video.id, detail.video.is_shorts || false)
+        img.src = optimizedUrl
+      }
+      
+      // Analysis는 별도로 비동기 처리 (블로킹하지 않음)
       startTransition(() => {
         const sanitizedAnalysis = detail.analysis
           ? (() => {
@@ -93,32 +105,53 @@ function VideoDetail() {
         setAnalysis(sanitizedAnalysis)
       })
       
-      // 디버깅: analysis 데이터 확인
-      console.log('[VideoDetail] Analysis data:', detail.analysis)
-      if (detail.analysis) {
-        console.log('[VideoDetail] Sentiment ratio:', detail.analysis.sentiment_ratio)
-        console.log('[VideoDetail] Top keywords:', detail.analysis.top_keywords)
-        console.log('[VideoDetail] Top comments:', detail.analysis.top_comments)
-        if (detail.analysis.top_comments) {
-          console.log('[VideoDetail] Top comments count:', detail.analysis.top_comments.length)
-          console.log('[VideoDetail] Top comments labels:', detail.analysis.top_comments.map(c => ({ label: c.label, text_preview: c.text?.substring(0, 30) })))
+      // 디버깅: analysis 데이터 확인 (비동기로 처리)
+      if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+        if (detail.analysis) {
+          window.requestIdleCallback(() => {
+            console.log('[VideoDetail] Analysis data:', detail.analysis)
+            console.log('[VideoDetail] Sentiment ratio:', detail.analysis.sentiment_ratio)
+            console.log('[VideoDetail] Top keywords:', detail.analysis.top_keywords)
+            console.log('[VideoDetail] Top comments:', detail.analysis.top_comments)
+            if (detail.analysis.top_comments) {
+              console.log('[VideoDetail] Top comments count:', detail.analysis.top_comments.length)
+              console.log('[VideoDetail] Top comments labels:', detail.analysis.top_comments.map(c => ({ label: c.label, text_preview: c.text?.substring(0, 30) })))
+            }
+          }, { timeout: 100 })
+        } else {
+          console.warn('[VideoDetail] No analysis data received')
         }
       } else {
-        console.warn('[VideoDetail] No analysis data received')
+        // requestIdleCallback이 없으면 즉시 실행
+        if (detail.analysis) {
+          console.log('[VideoDetail] Analysis data:', detail.analysis)
+        } else {
+          console.warn('[VideoDetail] No analysis data received')
+        }
       }
       
-      // 시청 기록에 추가
+      // 시청 기록에 추가 (비동기로 처리)
       if (detail.video && detail.video.id) {
-        addToWatchHistory({
-          ...detail.video,
-          views: detail.video.view_count ? formatViews(detail.video.view_count) : '0회',
-          category: detail.video.keyword || detail.video.region || '기타'
-        })
+        if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+          window.requestIdleCallback(() => {
+            addToWatchHistory({
+              ...detail.video,
+              views: detail.video.view_count ? formatViews(detail.video.view_count) : '0회',
+              category: detail.video.keyword || detail.video.region || '기타'
+            })
+          }, { timeout: 500 })
+        } else {
+          // requestIdleCallback이 없으면 즉시 실행
+          addToWatchHistory({
+            ...detail.video,
+            views: detail.video.view_count ? formatViews(detail.video.view_count) : '0회',
+            category: detail.video.keyword || detail.video.region || '기타'
+          })
+        }
       }
     } catch (err) {
       console.error('[VideoDetail] Failed to fetch video:', err)
       setError(err.message || '비디오를 불러오는데 실패했습니다.')
-    } finally {
       setLoading(false)
     }
   }, [videoId, formatViews])
@@ -344,7 +377,7 @@ function VideoDetail() {
   const displayedPositiveComments = useMemo(() => {
     const initialCount = 2
     if (showAllPositiveComments) {
-      return positiveCommentHighlights.slice(0, 4)
+      return positiveCommentHighlights.slice(0, 3)
     }
     return positiveCommentHighlights.slice(0, initialCount)
   }, [positiveCommentHighlights, showAllPositiveComments])
@@ -352,7 +385,7 @@ function VideoDetail() {
   const displayedNegativeComments = useMemo(() => {
     const initialCount = 2
     if (showAllNegativeComments) {
-      return negativeCommentHighlights.slice(0, 4)
+      return negativeCommentHighlights.slice(0, 3)
     }
     return negativeCommentHighlights.slice(0, initialCount)
   }, [negativeCommentHighlights, showAllNegativeComments])
@@ -450,6 +483,8 @@ function VideoDetail() {
                 alt={video.title || 'Video'}
                 className="w-full h-full object-cover"
                 loading="eager"
+                width="1280"
+                height="720"
               />
             ) : (
               <div className="w-full h-full bg-gradient-to-br from-blue-900/80 to-purple-900/80 flex items-center justify-center">
@@ -637,7 +672,7 @@ function VideoDetail() {
                         onClick={() => setShowAllPositiveComments(!showAllPositiveComments)}
                         className="text-blue-400 hover:text-blue-300 text-xs font-medium mt-3 transition-colors"
                       >
-                        {showAllPositiveComments ? '간략히' : `더보기 (${positiveCommentHighlights.length - 2}개 더)`}
+                        {showAllPositiveComments ? '간략히' : `더보기 (${Math.min(positiveCommentHighlights.length - 2, 1)}개 더)`}
                       </button>
                     )}
                   </>
@@ -668,7 +703,7 @@ function VideoDetail() {
                         onClick={() => setShowAllNegativeComments(!showAllNegativeComments)}
                         className="text-blue-400 hover:text-blue-300 text-xs font-medium mt-3 transition-colors"
                       >
-                        {showAllNegativeComments ? '간략히' : `더보기 (${negativeCommentHighlights.length - 2}개 더)`}
+                        {showAllNegativeComments ? '간략히' : `더보기 (${Math.min(negativeCommentHighlights.length - 2, 1)}개 더)`}
                       </button>
                     )}
                   </>
