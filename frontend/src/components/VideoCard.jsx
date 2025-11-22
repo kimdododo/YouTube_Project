@@ -37,9 +37,22 @@ function VideoCard({ video, simple = false, featured = false, hideBookmark = fal
   
   // 썸네일 URL 최적화 (videoId가 있으면 항상 고화질 URL 사용)
   const rawThumbnailUrl = video.thumbnail_url || video.thumbnail || null
-  const thumbnailUrl = video.id 
-    ? optimizeThumbnailUrl(rawThumbnailUrl, video.id, video.is_shorts || false)
+  const videoIdForThumbnail = video.id || video.video_id
+  const thumbnailUrl = videoIdForThumbnail
+    ? optimizeThumbnailUrl(rawThumbnailUrl, videoIdForThumbnail, video.is_shorts || false)
     : rawThumbnailUrl
+  
+  // 디버깅: simple 모드에서 썸네일 URL 확인
+  if (simple) {
+    console.log('[VideoCard] Simple mode thumbnail:', {
+      videoId: videoIdForThumbnail,
+      rawThumbnailUrl,
+      thumbnailUrl,
+      hasThumbnail: !!thumbnailUrl,
+      cardWidth,
+      cardHeight
+    })
+  }
   const shouldShowRating = video.showRating !== false && video.rating != null
   const categoryLabel = video.category ? String(video.category).replace(/^channel:\s*/i, '') : null
   const optimizedStyles = getOptimizedImageStyles()
@@ -173,7 +186,7 @@ function VideoCard({ video, simple = false, featured = false, hideBookmark = fal
               width: `${cardWidth}px`,
               height: `${cardHeight}px`
             } : {
-              aspectRatio: '9/16'
+              aspectRatio: '16/9' // 9/16에서 16/9로 변경 (일반 비디오 비율)
             })
           }}
         >
@@ -186,9 +199,17 @@ function VideoCard({ video, simple = false, featured = false, hideBookmark = fal
               loading="lazy"
               decoding="async"
               fetchpriority="high"
-              onLoad={(e) => handleImageLoadQuality(e, video.id, video.is_shorts)}
+              onLoad={(e) => {
+                console.log('[VideoCard] Simple mode image loaded:', thumbnailUrl)
+                handleImageLoadQuality(e, videoIdForThumbnail, video.is_shorts)
+              }}
               onError={(e) => {
-                handleImageError(e, video.id, video.is_shorts)
+                console.error('[VideoCard] Simple mode image error:', {
+                  thumbnailUrl,
+                  videoId: videoIdForThumbnail,
+                  error: e
+                })
+                handleImageError(e, videoIdForThumbnail, video.is_shorts)
                 if (e.target.style.display === 'none') {
                   if (e.target.nextElementSibling) {
                     e.target.nextElementSibling.style.display = 'flex'
@@ -196,14 +217,11 @@ function VideoCard({ video, simple = false, featured = false, hideBookmark = fal
                 }
               }}
             />
-          ) : null}
-          {/* Placeholder */}
-          <div 
-            className="w-full h-full bg-gradient-to-br from-blue-900/80 to-purple-900/80 flex items-center justify-center absolute inset-0"
-            style={{ display: thumbnailUrl ? 'none' : 'flex' }}
-          >
-            <Play className="w-10 h-10 text-white/40" />
-          </div>
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-blue-900/80 to-purple-900/80 flex items-center justify-center">
+              <Play className="w-10 h-10 text-white/40" />
+            </div>
+          )}
           
           {/* Rating badge (우측 상단) */}
           {shouldShowRating && (

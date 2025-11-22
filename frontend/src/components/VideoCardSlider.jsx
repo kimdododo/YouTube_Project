@@ -19,7 +19,9 @@ function VideoCardSlider({ videos, cardWidth = 320, cardHeight = null, gap = 24,
       video_id: v.video_id,
       title: v.title,
       view_count: v.view_count
-    }))
+    })),
+    // 호출 스택 추적
+    callStack: new Error().stack?.split('\n').slice(0, 5).join('\n')
   })
   
   // videos가 없거나 빈 배열인 경우 조기 반환
