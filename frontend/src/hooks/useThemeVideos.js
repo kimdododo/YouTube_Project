@@ -272,6 +272,27 @@ function useThemeVideos() {
               console.log(`[useThemeVideos] Theme "${theme.name}": Found ${filteredVideos.length - additionalVideos.length} matching videos, added ${additionalVideos.length} fallback videos`)
             }
             
+            // 매칭된 비디오가 전혀 없으면 모든 비디오에서 랜덤하게 할당 (최후의 수단)
+            if (filteredVideos.length === 0) {
+              const unassignedVideos = allVideos.filter((video) => {
+                const videoId = video.id || video.video_id
+                return !assignedVideoIds.has(videoId)
+              })
+              
+              // 최소 10개는 할당 (비디오가 충분하면)
+              const minVideos = Math.min(10, unassignedVideos.length)
+              if (minVideos > 0) {
+                filteredVideos = unassignedVideos.slice(0, minVideos)
+                console.warn(`[useThemeVideos] Theme "${theme.name}": No matching videos found, assigned ${filteredVideos.length} random videos as fallback`)
+              } else {
+                // 할당 가능한 비디오가 없으면 이미 할당된 비디오를 재사용 (중복 허용)
+                if (allVideos.length > 0) {
+                  filteredVideos = allVideos.slice(0, Math.min(10, allVideos.length))
+                  console.warn(`[useThemeVideos] Theme "${theme.name}": All videos assigned, reusing first ${filteredVideos.length} videos`)
+                }
+              }
+            }
+            
             // 각 테마당 최대 50개로 제한
             filteredVideos = filteredVideos.slice(0, 50)
             
