@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import AppLayout from './layouts/AppLayout'
 import TrendRankingCard from './TrendRankingCard'
 import VideoCard from './VideoCard'
@@ -33,20 +33,6 @@ function TravelTrends() {
     activity: ['액티비티', '스포츠', '레저', '등산', '스키', '다이빙', 'activity', 'sports', 'adventure', 'hiking']
   }
 
-  // 트렌드 비디오 데이터 가져오기 (period 변경 시에도 재호출)
-  useEffect(() => {
-    if (activeTab === 'trending') {
-      fetchTrendVideos()
-    }
-  }, [activePeriod, activeTab])
-
-  // 테마별 여행지 비디오 가져오기 (카테고리 변경 시)
-  useEffect(() => {
-    if (activeTab === 'theme') {
-      fetchThemeCategoryVideos()
-    }
-  }, [activeThemeCategory, activeTab])
-
   const diversifyByChannel = (items, target = 8, maxPerChannel = 1) => {
     if (!items || items.length === 0) return []
     const out = []
@@ -73,7 +59,7 @@ function TravelTrends() {
     return out
   }
 
-  const fetchTrendVideos = async () => {
+  const fetchTrendVideos = useCallback(async () => {
     try {
       setLoading(true)
       
@@ -225,9 +211,9 @@ function TravelTrends() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [activePeriod])
 
-  const fetchThemeCategoryVideos = async () => {
+  const fetchThemeCategoryVideos = useCallback(async () => {
     try {
       setLoading(true)
       
@@ -288,7 +274,21 @@ function TravelTrends() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [activeThemeCategory])
+
+  // 트렌드 비디오 데이터 가져오기 (period 변경 시에도 재호출)
+  useEffect(() => {
+    if (activeTab === 'trending') {
+      fetchTrendVideos()
+    }
+  }, [activeTab, fetchTrendVideos])
+
+  // 테마별 여행지 비디오 가져오기 (카테고리 변경 시)
+  useEffect(() => {
+    if (activeTab === 'theme') {
+      fetchThemeCategoryVideos()
+    }
+  }, [activeTab, fetchThemeCategoryVideos])
 
   // 순위 변동 데이터 (예시)
   const rankChanges = [2, -1, 0, 'NEW', 0, 0, 0, 0]

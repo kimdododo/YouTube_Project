@@ -108,13 +108,29 @@ function VideoDetail() {
       
       // Analysis는 별도로 비동기 처리 (블로킹하지 않음)
       startTransition(() => {
-        const sanitizedAnalysis = detail.analysis
-          ? (() => {
-              const { model, ...rest } = detail.analysis
-              return rest
-            })()
-          : null
-        setAnalysis(sanitizedAnalysis)
+        try {
+          if (detail.analysis && typeof detail.analysis === 'object') {
+            // 안전하게 model 필드 제거
+            const { model, ...rest } = detail.analysis
+            // sentiment_ratio 안전성 검사
+            if (rest.sentiment_ratio && typeof rest.sentiment_ratio === 'object') {
+              // top_comments가 배열인지 확인
+              if (rest.top_comments && !Array.isArray(rest.top_comments)) {
+                rest.top_comments = []
+              }
+              // top_keywords가 배열인지 확인
+              if (rest.top_keywords && !Array.isArray(rest.top_keywords)) {
+                rest.top_keywords = []
+              }
+            }
+            setAnalysis(rest)
+          } else {
+            setAnalysis(null)
+          }
+        } catch (e) {
+          console.warn('[VideoDetail] Error sanitizing analysis:', e)
+          setAnalysis(null)
+        }
       })
       
       // 디버깅: analysis 데이터 확인 (비동기로 처리)
@@ -380,44 +396,76 @@ function VideoDetail() {
   )
 
   const sentimentPercentages = useMemo(() => {
-    if (!analysis?.sentiment_ratio) return null
-    const normalize = (value = 0) => {
-      if (value <= 1) {
-        return Math.round(value * 100)
+    try {
+      if (!analysis || !analysis.sentiment_ratio || typeof analysis.sentiment_ratio !== 'object') {
+        return null
       }
-      return Math.round(value)
-    }
-    return {
-      positive: normalize(analysis.sentiment_ratio.pos),
-      neutral: normalize(analysis.sentiment_ratio.neu),
-      negative: normalize(analysis.sentiment_ratio.neg),
+      const normalize = (value = 0) => {
+        if (typeof value !== 'number' || isNaN(value)) return 0
+        if (value <= 1) {
+          return Math.round(value * 100)
+        }
+        return Math.round(value)
+      }
+      const sr = analysis.sentiment_ratio
+      return {
+        positive: normalize(sr.pos),
+        neutral: normalize(sr.neu),
+        negative: normalize(sr.neg),
+      }
+    } catch (e) {
+      console.warn('[VideoDetail] Error calculating sentiment percentages:', e)
+      return null
     }
   }, [analysis])
 
-  const topKeywords = useMemo(
-    () => (analysis?.top_keywords || []).slice(0, 12),
-    [analysis]
-  )
-
-  const topComments = useMemo(
-    () => (analysis?.top_comments || []).slice(0, 20),
-    [analysis]
-  )
-
-  const positiveCommentHighlights = useMemo(() => {
-    if (!topComments.length) {
-      console.log('[VideoDetail] No topComments available for positive highlights')
+  const topKeywords = useMemo(() => {
+    try {
+      if (!analysis || !analysis.top_keywords) return []
+      if (!Array.isArray(analysis.top_keywords)) return []
+      return analysis.top_keywords.slice(0, 12)
+    } catch (e) {
+      console.warn('[VideoDetail] Error processing top keywords:', e)
       return []
     }
-    const filtered = topComments.filter((comment) => comment.label === 'pos')
-    console.log('[VideoDetail] Positive comments filtered:', filtered.length, 'out of', topComments.length)
-    const mapped = filtered.map((comment) => ({
-      id: comment.comment_id || `${comment.text?.slice(0, 20)}-pos`,
-      text: comment.text?.trim() || '',
-    }))
-    const withText = mapped.filter((comment) => comment.text.length > 0)
-    console.log('[VideoDetail] Positive comments with text:', withText.length)
-    return withText
+  }, [analysis])
+
+  const topComments = useMemo(() => {
+    try {
+      if (!analysis || !analysis.top_comments) return []
+      if (!Array.isArray(analysis.top_comments)) return []
+      return analysis.top_comments.slice(0, 20)
+    } catch (e) {
+      console.warn('[VideoDetail] Error processing top comments:', e)
+      return []
+    }
+  }, [analysis])
+
+  const positiveCommentHighlights = useMemo(() => {
+    try {
+      if (!topComments || !Array.isArray(topComments) || !topComments.length) {
+        console.log('[VideoDetail] No topComments available for positive highlights')
+        return []
+      }
+      const filtered = topComments.filter((comment) => {
+        if (!comment || typeof comment !== 'object') return false
+        return comment.label === 'pos'
+      })
+      console.log('[VideoDetail] Positive comments filtered:', filtered.length, 'out of', topComments.length)
+      const mapped = filtered.map((comment) => {
+        if (!comment || typeof comment !== 'object') return null
+        return {
+          id: comment.comment_id || `${(comment.text || '').slice(0, 20)}-pos`,
+          text: (comment.text || '').trim() || '',
+        }
+      }).filter(Boolean)
+      const withText = mapped.filter((comment) => comment && comment.text && comment.text.length > 0)
+      console.log('[VideoDetail] Positive comments with text:', withText.length)
+      return withText
+    } catch (e) {
+      console.warn('[VideoDetail] Error processing positive comments:', e)
+      return []
+    }
   }, [topComments])
 
   const displayedPositiveComments = useMemo(() => {
@@ -429,27 +477,48 @@ function VideoDetail() {
   }, [negativeCommentHighlights])
 
   const negativeCommentHighlights = useMemo(() => {
-    if (!topComments.length) {
-      console.log('[VideoDetail] No topComments available for negative highlights')
+    try {
+      if (!topComments || !Array.isArray(topComments) || !topComments.length) {
+        console.log('[VideoDetail] No topComments available for negative highlights')
+        return []
+      }
+      const filtered = topComments.filter((comment) => {
+        if (!comment || typeof comment !== 'object') return false
+        return comment.label === 'neg'
+      })
+      console.log('[VideoDetail] Negative comments filtered:', filtered.length, 'out of', topComments.length)
+      const mapped = filtered.map((comment) => {
+        if (!comment || typeof comment !== 'object') return null
+        return {
+          id: comment.comment_id || `${(comment.text || '').slice(0, 20)}-neg`,
+          text: (comment.text || '').trim() || '',
+        }
+      }).filter(Boolean)
+      const withText = mapped.filter((comment) => comment && comment.text && comment.text.length > 0)
+      console.log('[VideoDetail] Negative comments with text:', withText.length)
+      return withText
+    } catch (e) {
+      console.warn('[VideoDetail] Error processing negative comments:', e)
       return []
     }
-    const filtered = topComments.filter((comment) => comment.label === 'neg')
-    console.log('[VideoDetail] Negative comments filtered:', filtered.length, 'out of', topComments.length)
-    const mapped = filtered.map((comment) => ({
-      id: comment.comment_id || `${comment.text?.slice(0, 20)}-neg`,
-      text: comment.text?.trim() || '',
-    }))
-    const withText = mapped.filter((comment) => comment.text.length > 0)
-    console.log('[VideoDetail] Negative comments with text:', withText.length)
-    return withText
   }, [topComments])
 
   const summaryLines = useMemo(() => {
-    if (analysis?.summary_lines && analysis.summary_lines.length > 0) {
-      return analysis.summary_lines.slice(0, 3)
+    try {
+      if (analysis?.summary_lines && Array.isArray(analysis.summary_lines) && analysis.summary_lines.length > 0) {
+        return analysis.summary_lines.slice(0, 3).filter(Boolean)
+      }
+      if (!topComments || !Array.isArray(topComments) || !topComments.length) return []
+      return topComments.slice(0, 3)
+        .map((comment) => {
+          if (!comment || typeof comment !== 'object') return null
+          return comment.text || ''
+        })
+        .filter(Boolean)
+    } catch (e) {
+      console.warn('[VideoDetail] Error processing summary lines:', e)
+      return []
     }
-    if (!topComments.length) return []
-    return topComments.slice(0, 3).map((comment) => comment.text)
   }, [analysis?.summary_lines, topComments])
 
   const sentimentBars = useMemo(
