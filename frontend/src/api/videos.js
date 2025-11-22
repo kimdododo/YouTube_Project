@@ -536,6 +536,15 @@ export const getDiversifiedVideos = async (total = 20, maxPerChannel = 1) => {
     }
     const result = await response.json()
     const videos = result.videos || result
+    // 디버깅: 첫 번째 비디오의 조회수 확인
+    if (videos.length > 0) {
+      console.log('[videos.js] getDiversifiedVideos - Sample video from API:', {
+        id: videos[0].id || videos[0].video_id,
+        view_count: videos[0].view_count,
+        views: videos[0].views,
+        title: videos[0].title
+      })
+    }
     return videos.map(video => {
       const videoId = video.id || video.video_id
       const isShorts = video.is_shorts || false

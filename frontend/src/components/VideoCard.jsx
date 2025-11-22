@@ -477,6 +477,17 @@ function VideoCard({ video, simple = false, featured = false, hideBookmark = fal
               
               // 여러 필드에서 조회수 찾기
               const viewCount = video.view_count ?? video.views ?? video.viewCount ?? 0
+              // 디버깅: 조회수가 0인 경우 로그 출력
+              if (featured && viewCount === 0 && video.id) {
+                console.warn('[VideoCard] View count is 0 for video:', {
+                  id: video.id,
+                  video_id: video.video_id,
+                  view_count: video.view_count,
+                  views: video.views,
+                  viewCount: video.viewCount,
+                  title: video.title
+                })
+              }
               const formattedViews = formatViews(viewCount)
               
               return formattedViews ? (

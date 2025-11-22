@@ -168,6 +168,15 @@ function RecommendedVideos() {
 
       const unique = dedupeById(recommended)
       console.log('[RecommendedVideos] After deduplication:', unique.length)
+      // 조회수 디버깅: 첫 번째 비디오의 조회수 확인
+      if (unique.length > 0) {
+        console.log('[RecommendedVideos] Sample video after dedupe:', {
+          id: unique[0].id,
+          view_count: unique[0].view_count,
+          views: unique[0].views,
+          title: unique[0].title
+        })
+      }
       
       for (let i = unique.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1))
@@ -176,6 +185,15 @@ function RecommendedVideos() {
       
       const diversified = diversifyWithFallback(unique, 48, 1)
       console.log('[RecommendedVideos] Final diversified videos:', diversified.length)
+      // 조회수 디버깅: 첫 번째 비디오의 조회수 확인
+      if (diversified.length > 0) {
+        console.log('[RecommendedVideos] Sample video after diversification:', {
+          id: diversified[0].id,
+          view_count: diversified[0].view_count,
+          views: diversified[0].views,
+          title: diversified[0].title
+        })
+      }
       
       if (diversified.length === 0) {
         console.warn('[RecommendedVideos] No videos after diversification, checking source data...')

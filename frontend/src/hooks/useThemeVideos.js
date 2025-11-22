@@ -180,6 +180,19 @@ function useThemeVideos() {
           const allVideos = await getDiversifiedVideos(500, 1) // 최대 500개까지 가져오기 (백엔드 제한)
           console.log(`[useThemeVideos] Fetched ${allVideos.length} videos from API`)
           
+          // 디버깅: 첫 번째 비디오의 구조 확인
+          if (allVideos && allVideos.length > 0) {
+            console.log('[useThemeVideos] Sample video structure:', {
+              id: allVideos[0].id,
+              video_id: allVideos[0].video_id,
+              title: allVideos[0].title,
+              keyword: allVideos[0].keyword,
+              region: allVideos[0].region,
+              category: allVideos[0].category,
+              view_count: allVideos[0].view_count
+            })
+          }
+          
           if (!allVideos || allVideos.length === 0) {
             console.warn('[useThemeVideos] No videos returned from API, setting empty videos for themes')
             setThemes(userThemes.map(theme => ({ ...theme, videos: [] })))
@@ -249,11 +262,29 @@ function useThemeVideos() {
             
             theme.videos = filteredVideos
             console.log(`[useThemeVideos] Theme "${theme.name}": Assigned ${filteredVideos.length} videos`)
+            
+            // 디버깅: 비디오가 없는 경우 상세 로그
+            if (filteredVideos.length === 0) {
+              console.warn(`[useThemeVideos] Theme "${theme.name}" has no videos. Keywords:`, theme.keywords)
+              console.warn(`[useThemeVideos] Sample video keywords from API:`, allVideos.slice(0, 3).map(v => ({
+                title: v.title,
+                keyword: v.keyword,
+                region: v.region,
+                category: v.category
+              })))
+            }
           })
 
           setThemes(userThemes)
+          console.log('[useThemeVideos] Themes set successfully. Total themes:', userThemes.length)
+          console.log('[useThemeVideos] Themes with videos:', userThemes.filter(t => t.videos && t.videos.length > 0).length)
         } catch (apiError) {
-          console.warn('[useThemeVideos] API 호출 실패, 빈 비디오로 설정:', apiError)
+          console.error('[useThemeVideos] API 호출 실패, 빈 비디오로 설정:', apiError)
+          console.error('[useThemeVideos] Error details:', {
+            message: apiError.message,
+            stack: apiError.stack,
+            name: apiError.name
+          })
           // API 실패 시 사용자 테마는 유지하되 비디오는 빈 배열
           setThemes(userThemes.map(theme => ({ ...theme, videos: [] })))
         }

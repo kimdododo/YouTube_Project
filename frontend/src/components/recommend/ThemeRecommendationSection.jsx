@@ -7,7 +7,18 @@ import VideoCardSlider from '../VideoCardSlider'
  * 각 테마별로 좌우 가로 슬라이더 형태의 카드 리스트 제공
  */
 function ThemeRecommendationSection({ themes, userName = '' }) {
+  // 디버깅: themes 상태 확인
+  console.log('[ThemeRecommendationSection] Received themes:', {
+    themesCount: themes?.length || 0,
+    themes: themes?.map(t => ({
+      name: t.name,
+      videosCount: t.videos?.length || 0,
+      hasVideos: !!(t.videos && t.videos.length > 0)
+    }))
+  })
+  
   if (!themes || themes.length === 0) {
+    console.warn('[ThemeRecommendationSection] No themes provided')
     return null
   }
 
