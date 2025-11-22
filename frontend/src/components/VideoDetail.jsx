@@ -31,8 +31,6 @@ function VideoDetail() {
   const [aiSummary, setAiSummary] = useState('')
   const [aiSummaryError, setAiSummaryError] = useState('')
   const [isLoadingSummary, setIsLoadingSummary] = useState(false)
-  const [showAllPositiveComments, setShowAllPositiveComments] = useState(false)
-  const [showAllNegativeComments, setShowAllNegativeComments] = useState(false)
   
   // timeout refs for cleanup
   const slideTimeoutRef = useRef(null)
@@ -53,11 +51,25 @@ function VideoDetail() {
     return text
   }, [])
 
-  const bookmarked = video ? isBookmarked(video.id || video.video_id) : false
+  const bookmarked = useMemo(() => {
+    if (!video || !isBookmarked) return false
+    try {
+      const id = video.id || video.video_id
+      if (!id) return false
+      return isBookmarked(id)
+    } catch (e) {
+      console.warn('[VideoDetail] Error checking bookmark status:', e)
+      return false
+    }
+  }, [video?.id, video?.video_id, isBookmarked])
 
   const handleBookmarkClick = useCallback(() => {
     if (video) {
-      toggleBookmark(video)
+      try {
+        toggleBookmark(video)
+      } catch (e) {
+        console.error('[VideoDetail] Error toggling bookmark:', e)
+      }
     }
   }, [video, toggleBookmark])
 
@@ -132,21 +144,27 @@ function VideoDetail() {
       
       // 시청 기록에 추가 (비동기로 처리)
       if (detail.video && detail.video.id) {
+        const videoForHistory = {
+          ...detail.video,
+          views: detail.video.view_count ? formatViews(detail.video.view_count) : '0회',
+          category: detail.video.keyword || detail.video.region || '기타'
+        }
+        
         if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
           window.requestIdleCallback(() => {
-            addToWatchHistory({
-              ...detail.video,
-              views: detail.video.view_count ? formatViews(detail.video.view_count) : '0회',
-              category: detail.video.keyword || detail.video.region || '기타'
-            })
+            try {
+              addToWatchHistory(videoForHistory)
+            } catch (e) {
+              console.warn('[VideoDetail] Error adding to watch history:', e)
+            }
           }, { timeout: 500 })
         } else {
           // requestIdleCallback이 없으면 즉시 실행
-          addToWatchHistory({
-            ...detail.video,
-            views: detail.video.view_count ? formatViews(detail.video.view_count) : '0회',
-            category: detail.video.keyword || detail.video.region || '기타'
-          })
+          try {
+            addToWatchHistory(videoForHistory)
+          } catch (e) {
+            console.warn('[VideoDetail] Error adding to watch history:', e)
+          }
         }
       }
     } catch (err) {
@@ -193,9 +211,37 @@ function VideoDetail() {
 
   useEffect(() => {
     if (!videoId) return
-    fetchVideoDetail()
-    fetchSimilarVideos()
+    
+    // 안전한 함수 호출을 위한 래퍼
+    let isMounted = true
+    
+    const runFetches = async () => {
+      try {
+        await Promise.all([
+          fetchVideoDetail().catch(err => {
+            if (isMounted) {
+              console.error('[VideoDetail] Error in fetchVideoDetail:', err)
+            }
+          }),
+          fetchSimilarVideos().catch(err => {
+            if (isMounted) {
+              console.error('[VideoDetail] Error in fetchSimilarVideos:', err)
+            }
+          })
+        ])
+      } catch (err) {
+        if (isMounted) {
+          console.error('[VideoDetail] Error in parallel fetches:', err)
+        }
+      }
+    }
+    
+    runFetches()
     setShowFullDescription(false)
+    
+    return () => {
+      isMounted = false
+    }
   }, [videoId, fetchVideoDetail, fetchSimilarVideos])
 
   useEffect(() => {
@@ -375,20 +421,12 @@ function VideoDetail() {
   }, [topComments])
 
   const displayedPositiveComments = useMemo(() => {
-    const initialCount = 2
-    if (showAllPositiveComments) {
-      return positiveCommentHighlights.slice(0, 3)
-    }
-    return positiveCommentHighlights.slice(0, initialCount)
-  }, [positiveCommentHighlights, showAllPositiveComments])
+    return positiveCommentHighlights.slice(0, 4)
+  }, [positiveCommentHighlights])
 
   const displayedNegativeComments = useMemo(() => {
-    const initialCount = 2
-    if (showAllNegativeComments) {
-      return negativeCommentHighlights.slice(0, 3)
-    }
-    return negativeCommentHighlights.slice(0, initialCount)
-  }, [negativeCommentHighlights, showAllNegativeComments])
+    return negativeCommentHighlights.slice(0, 4)
+  }, [negativeCommentHighlights])
 
   const negativeCommentHighlights = useMemo(() => {
     if (!topComments.length) {
@@ -650,7 +688,7 @@ function VideoDetail() {
             </div>
           ) : analysis && analysis.sentiment_ratio ? (
             <div className="grid gap-6 lg:grid-cols-3">
-              <div className="rounded-2xl bg-[#11172b]/90 border border-white/10 p-6 text-white">
+              <div className="rounded-2xl bg-[#11172b]/90 border border-white/10 p-6 text-white overflow-visible">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-sm text-white/80">긍정 댓글</p>
                 </div>
@@ -667,21 +705,13 @@ function VideoDetail() {
                         </li>
                       ))}
                     </ul>
-                    {positiveCommentHighlights.length > 2 && (
-                      <button
-                        onClick={() => setShowAllPositiveComments(!showAllPositiveComments)}
-                        className="text-blue-400 hover:text-blue-300 text-xs font-medium mt-3 transition-colors"
-                      >
-                        {showAllPositiveComments ? '간략히' : `더보기 (${Math.min(positiveCommentHighlights.length - 2, 1)}개 더)`}
-                      </button>
-                    )}
                   </>
                 ) : (
                   <p className="text-white/50 text-sm">긍정적인 반응이 부족합니다.</p>
                 )}
               </div>
 
-              <div className="rounded-2xl bg-[#11172b]/90 border border-white/10 p-6 text-white">
+              <div className="rounded-2xl bg-[#11172b]/90 border border-white/10 p-6 text-white overflow-visible">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-sm text-white/80">부정 댓글</p>
                 </div>
@@ -698,14 +728,6 @@ function VideoDetail() {
                         </li>
                       ))}
                     </ul>
-                    {negativeCommentHighlights.length > 2 && (
-                      <button
-                        onClick={() => setShowAllNegativeComments(!showAllNegativeComments)}
-                        className="text-blue-400 hover:text-blue-300 text-xs font-medium mt-3 transition-colors"
-                      >
-                        {showAllNegativeComments ? '간략히' : `더보기 (${Math.min(negativeCommentHighlights.length - 2, 1)}개 더)`}
-                      </button>
-                    )}
                   </>
                 ) : (
                   <p className="text-white/50 text-sm">부정적인 반응이 부족합니다.</p>
