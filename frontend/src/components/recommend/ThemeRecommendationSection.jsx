@@ -13,17 +13,46 @@ function ThemeSlider({ theme, cardWidth = 320, gap = 24, visibleCards = 4 }) {
   const [isTransitioning, setIsTransitioning] = useState(false)
   const slideTimeoutRef = useRef(null)
 
+  // 디버깅: theme prop 확인
+  console.log('[ThemeSlider] ===== Component rendered =====')
+  console.log('[ThemeSlider] Received theme:', {
+    themeName: theme?.name,
+    themeId: theme?.id,
+    videosCount: theme?.videos?.length || 0,
+    videosType: typeof theme?.videos,
+    isArray: Array.isArray(theme?.videos),
+    videos: theme?.videos ? theme.videos.map(v => ({
+      id: v.id,
+      video_id: v.video_id,
+      title: v.title?.substring(0, 30),
+      view_count: v.view_count
+    })) : []
+  })
+
   // 무한루프를 위한 비디오 복제
   const sliderVideos = useMemo(() => {
-    if (!theme.videos || theme.videos.length === 0) return []
+    if (!theme.videos || theme.videos.length === 0) {
+      console.warn('[ThemeSlider] No videos in theme:', theme?.name)
+      return []
+    }
+    console.log('[ThemeSlider] Creating sliderVideos:', {
+      originalCount: theme.videos.length,
+      visibleCards,
+      willClone: theme.videos.length > visibleCards
+    })
     if (theme.videos.length <= visibleCards) return theme.videos
     return [...theme.videos, ...theme.videos]
   }, [theme.videos, visibleCards])
 
-  const renderedVideos = useMemo(() => 
-    sliderVideos.length > 0 ? sliderVideos : theme.videos || [],
-    [sliderVideos, theme.videos]
-  )
+  const renderedVideos = useMemo(() => {
+    const result = sliderVideos.length > 0 ? sliderVideos : theme.videos || []
+    console.log('[ThemeSlider] renderedVideos:', {
+      sliderVideosCount: sliderVideos.length,
+      themeVideosCount: theme.videos?.length || 0,
+      finalCount: result.length
+    })
+    return result
+  }, [sliderVideos, theme.videos])
 
   // 슬라이더 핸들러
   const slideHandler = useCallback(

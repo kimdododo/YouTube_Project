@@ -13,7 +13,8 @@ function VideoCardSlider({ videos, cardWidth = 320, cardHeight = null, gap = 24,
     videosCount: videos?.length || 0,
     videosType: typeof videos,
     isArray: Array.isArray(videos),
-    videos: videos?.slice(0, 2).map(v => ({
+    fullVideosArray: videos, // 전체 배열 표시
+    firstTwoVideos: videos?.slice(0, 2).map(v => ({
       id: v.id,
       video_id: v.video_id,
       title: v.title,
