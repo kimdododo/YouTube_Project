@@ -40,11 +40,14 @@ function VideoCard({ video, simple = false, featured = false, hideBookmark = fal
     return reason
   }, [recommendationReasons])
 
+  // featured가 true일 때만 추천 이유 계산 (Recommended 페이지에서만)
   const recommendationReason = useMemo(() => {
-    const reason = getRecommendationReason(videoId)
-    if (featured) {
-      console.log('[VideoCard] Recommendation reason calculated:', { videoId, reason, featured })
+    // featured가 false이면 추천 이유를 계산하지 않음
+    if (!featured) {
+      return null
     }
+    const reason = getRecommendationReason(videoId)
+    console.log('[VideoCard] Recommendation reason calculated:', { videoId, reason, featured })
     return reason
   }, [videoId, getRecommendationReason, featured])
 
@@ -290,22 +293,25 @@ function VideoCard({ video, simple = false, featured = false, hideBookmark = fal
           zIndex: isHovered ? 50 : 'auto'
         }}
         onMouseEnter={(e) => {
-          setIsHovered(true)
-          // 디버깅: 툴팁 조건 확인
-          if (featured && recommendationReason) {
-            console.log('[VideoCard] Tooltip should show:', {
-              isHovered: true,
-              featured,
-              recommendationReason,
-              videoId
-            })
-          } else {
-            console.log('[VideoCard] Tooltip conditions not met:', {
-              isHovered: true,
-              featured,
-              recommendationReason,
-              videoId
-            })
+          // featured가 true일 때만 hover 상태 설정 (Recommended 페이지에서만 툴팁 표시)
+          if (featured) {
+            setIsHovered(true)
+            // 디버깅: 툴팁 조건 확인
+            if (recommendationReason) {
+              console.log('[VideoCard] Tooltip should show:', {
+                isHovered: true,
+                featured,
+                recommendationReason,
+                videoId
+              })
+            } else {
+              console.log('[VideoCard] Tooltip conditions not met:', {
+                isHovered: true,
+                featured,
+                recommendationReason,
+                videoId
+              })
+            }
           }
           if (!active) {
             const thumbnailDiv = e.currentTarget.querySelector('.thumbnail-container')
@@ -316,7 +322,10 @@ function VideoCard({ video, simple = false, featured = false, hideBookmark = fal
           }
         }}
         onMouseLeave={(e) => {
-          setIsHovered(false)
+          // featured가 true일 때만 hover 상태 해제
+          if (featured) {
+            setIsHovered(false)
+          }
           if (!active) {
             const thumbnailDiv = e.currentTarget.querySelector('.thumbnail-container')
             if (thumbnailDiv) {

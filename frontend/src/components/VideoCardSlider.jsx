@@ -263,7 +263,7 @@ function VideoCardSlider({ videos, cardWidth = 320, cardHeight = null, gap = 24,
                 >
                   <VideoCard 
                     video={video} 
-                    featured 
+                    featured={false}
                     hideBookmark={hideBookmark} 
                     active={isVisible}
                     themeColors={themeColors}
