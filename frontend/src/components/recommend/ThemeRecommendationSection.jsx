@@ -194,32 +194,49 @@ function ThemeRecommendationSection({ themes, userName = '' }) {
             </div>
 
             {/* 가로 슬라이더 카드 리스트 */}
-            {theme.videos && theme.videos.length > 0 ? (
-              <VideoCardSlider 
-                videos={theme.videos} 
-                cardWidth={317.5}
-                cardHeight={175.5}
-                gap={24}
-                hideBookmark={true}
-                themeColors={{
-                  borderColor: '#000000',
-                  textColor: '#000000',
-                  glowColor: 'rgba(0, 0, 0, 0.5)'
-                }}
-              />
-            ) : (
-              <div className="text-center py-8 text-white/60">
-                <p style={{ fontSize: '14px', fontFamily: 'Arial, sans-serif' }}>
-                  이 테마에 해당하는 영상이 없습니다.
-                </p>
-                {/* 디버깅: 테마 정보 출력 */}
-                {console.log('[ThemeRecommendationSection] Theme has no videos:', {
-                  themeName: theme.name,
-                  videosCount: theme.videos?.length || 0,
-                  videos: theme.videos
-                })}
-              </div>
-            )}
+            {(() => {
+              const hasVideos = theme.videos && Array.isArray(theme.videos) && theme.videos.length > 0
+              console.log(`[ThemeRecommendationSection] Theme "${theme.name}" video check:`, {
+                hasVideos,
+                videosCount: theme.videos?.length || 0,
+                videosType: typeof theme.videos,
+                isArray: Array.isArray(theme.videos),
+                firstVideo: theme.videos?.[0]
+              })
+              
+              if (hasVideos) {
+                return (
+                  <VideoCardSlider 
+                    videos={theme.videos} 
+                    cardWidth={317.5}
+                    cardHeight={175.5}
+                    gap={24}
+                    hideBookmark={true}
+                    themeColors={{
+                      borderColor: '#000000',
+                      textColor: '#000000',
+                      glowColor: 'rgba(0, 0, 0, 0.5)'
+                    }}
+                  />
+                )
+              } else {
+                return (
+                  <div className="text-center py-8 text-white/60">
+                    <p style={{ fontSize: '14px', fontFamily: 'Arial, sans-serif' }}>
+                      이 테마에 해당하는 영상이 없습니다.
+                    </p>
+                    {/* 디버깅: 테마 정보 출력 */}
+                    {console.log('[ThemeRecommendationSection] Theme has no videos:', {
+                      themeName: theme.name,
+                      videosCount: theme.videos?.length || 0,
+                      videos: theme.videos,
+                      videosType: typeof theme.videos,
+                      isArray: Array.isArray(theme.videos)
+                    })}
+                  </div>
+                )
+              }
+            })()}
           </div>
         ))}
       </div>

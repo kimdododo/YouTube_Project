@@ -480,18 +480,19 @@ function VideoCard({ video, simple = false, featured = false, hideBookmark = fal
               }
               
               // 여러 필드에서 조회수 찾기 (우선순위: view_count > views > viewCount)
-              const viewCount = video.view_count ?? video.views ?? video.viewCount
+              const viewCount = video.view_count ?? video.views ?? video.viewCount ?? 0
               
-              // 디버깅: 조회수 정보 로그 출력
-              if (featured && video.id) {
-                console.log('[VideoCard] View count debug for video:', {
+              // 디버깅: 조회수 정보 로그 출력 (조회수가 0이거나 없을 때만)
+              if ((!viewCount || viewCount === 0) && video.id) {
+                console.warn('[VideoCard] View count is 0 or missing for video:', {
                   id: video.id,
                   video_id: video.video_id,
                   view_count: video.view_count,
                   views: video.views,
                   viewCount: video.viewCount,
                   finalViewCount: viewCount,
-                  title: video.title
+                  title: video.title,
+                  featured
                 })
               }
               

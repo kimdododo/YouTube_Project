@@ -18,7 +18,20 @@ function RecommendedVideos() {
   usePageTracking('RecommendedVideos')
   
   // 테마별 비디오 데이터 가져오기
-  const { themes, loading: themesLoading } = useThemeVideos()
+  const { themes, loading: themesLoading, error: themesError } = useThemeVideos()
+  
+  // 디버깅: useThemeVideos 훅 상태 확인
+  useEffect(() => {
+    console.log('[RecommendedVideos] useThemeVideos state:', {
+      themesLoading,
+      themesCount: themes?.length || 0,
+      themesError,
+      themes: themes?.map(t => ({
+        name: t.name,
+        videosCount: t.videos?.length || 0
+      }))
+    })
+  }, [themes, themesLoading, themesError])
 
   // NEW: 사용자 ID 가져오기 (getCurrentUser 사용 - 401 오류 자동 처리)
   useEffect(() => {
@@ -299,6 +312,7 @@ function RecommendedVideos() {
         {console.log('[RecommendedVideos] Rendering check:', {
           themesLoading,
           themesCount: themes?.length || 0,
+          themesError,
           themes: themes?.map(t => ({ name: t.name, videosCount: t.videos?.length || 0 }))
         })}
         {/* themesLoading이 false이고 themes가 있을 때만 표시 */}
@@ -310,10 +324,23 @@ function RecommendedVideos() {
         ) : (
           <div className="mb-16">
             <div className="text-center py-8 text-white/60">
-              <p>테마별 영상을 불러오는 중...</p>
-              {themesLoading && <p className="text-sm mt-2">로딩 중...</p>}
-              {!themesLoading && (!themes || themes.length === 0) && (
-                <p className="text-sm mt-2">테마가 없습니다.</p>
+              {themesLoading ? (
+                <>
+                  <p>테마별 영상을 불러오는 중...</p>
+                  <p className="text-sm mt-2">로딩 중...</p>
+                </>
+              ) : themesError ? (
+                <>
+                  <p className="text-red-400">테마별 영상을 불러오는데 실패했습니다.</p>
+                  <p className="text-sm mt-2 text-red-300">{themesError}</p>
+                </>
+              ) : (!themes || themes.length === 0) ? (
+                <>
+                  <p>테마가 없습니다.</p>
+                  <p className="text-sm mt-2">회원가입 시 선택한 키워드를 기반으로 테마가 생성됩니다.</p>
+                </>
+              ) : (
+                <p>테마별 영상을 준비 중입니다...</p>
               )}
             </div>
           </div>

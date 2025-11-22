@@ -575,10 +575,25 @@ export const getDiversifiedVideos = async (total = 20, maxPerChannel = 1) => {
         title: videos[0].title
       })
     }
-    return videos.map(video => {
+    return videos.map((video, index) => {
       const videoId = video.id || video.video_id
       const isShorts = video.is_shorts || false
-      const viewCount = video.view_count || video.views || 0
+      // view_count 처리 (다른 함수들과 동일한 로직 - ?? 연산자 사용)
+      const viewCount = video.view_count ?? video.views ?? video.viewCount ?? 0
+      const likeCount = video.like_count ?? video.likes ?? video.likeCount ?? 0
+      
+      // 디버깅: 첫 번째 비디오의 view_count 확인
+      if (index === 0) {
+        console.log('[videos.js] getDiversifiedVideos - First video view_count:', {
+          video_id: videoId,
+          view_count: video.view_count,
+          views: video.views,
+          viewCount: video.viewCount,
+          finalViewCount: viewCount,
+          title: video.title
+        })
+      }
+      
       return {
         id: videoId,
         video_id: videoId,
@@ -592,7 +607,7 @@ export const getDiversifiedVideos = async (total = 20, maxPerChannel = 1) => {
         region: video.region,
         views: formatViews(viewCount),
         view_count: typeof viewCount === 'number' ? viewCount : (typeof viewCount === 'string' ? parseInt(viewCount.replace(/[^0-9]/g, '')) || 0 : 0), // view_count 보존
-        like_count: video.like_count || video.likes || 0, // like_count 보존
+        like_count: typeof likeCount === 'number' ? likeCount : (typeof likeCount === 'string' ? parseInt(likeCount.replace(/[^0-9]/g, '')) || 0 : 0), // like_count 보존
         rating: video.rating || 5,
         showRating: true,
         youtube_url: createYouTubeUrl(videoId),

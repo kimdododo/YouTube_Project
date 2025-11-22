@@ -20,8 +20,19 @@ function VideoCardSlider({ videos, cardWidth = 320, cardHeight = null, gap = 24,
   
   // videos가 없거나 빈 배열인 경우 조기 반환
   if (!videos || videos.length === 0) {
-    console.warn('[VideoCardSlider] No videos provided, returning null')
-    return null
+    console.warn('[VideoCardSlider] No videos provided:', {
+      videos,
+      videosType: typeof videos,
+      isArray: Array.isArray(videos),
+      length: videos?.length
+    })
+    return (
+      <div className="text-center py-8 text-white/60">
+        <p style={{ fontSize: '14px', fontFamily: 'Arial, sans-serif' }}>
+          영상을 불러오는 중...
+        </p>
+      </div>
+    )
   }
   
   const cardStep = cardWidth + gap

@@ -119,8 +119,12 @@ function useThemeVideos() {
   }
 
   useEffect(() => {
+    console.log('[useThemeVideos] ===== Hook initialized, starting fetchThemeVideos =====')
+    console.log('[useThemeVideos] Component mounted, useEffect triggered')
+    
     const fetchThemeVideos = async () => {
       try {
+        console.log('[useThemeVideos] Setting loading to true')
         setLoading(true)
         setError(null)
 
@@ -164,6 +168,7 @@ function useThemeVideos() {
           console.log('[useThemeVideos] Using default themes:', userKeywords)
         }
 
+        console.log('[useThemeVideos] Creating themes from keywords:', userKeywords)
         // 사용자 키워드를 기반으로 테마 생성
         const userThemes = userKeywords
           .filter(keywordId => keywordToTheme[keywordId]) // 매핑된 키워드만 사용
@@ -172,13 +177,27 @@ function useThemeVideos() {
             ...keywordToTheme[keywordId],
             videos: [] // 나중에 API로 채워짐
           }))
+        
+        console.log('[useThemeVideos] Created themes:', userThemes.length, userThemes.map(t => t.name))
 
         // 실제 비디오 데이터 가져오기 (임시로 전체 비디오에서 필터링)
         try {
           console.log('[useThemeVideos] Fetching videos from API...')
           // 백엔드 API의 최대값이 500이므로 500으로 제한
-          const allVideos = await getDiversifiedVideos(500, 1) // 최대 500개까지 가져오기 (백엔드 제한)
-          console.log(`[useThemeVideos] Fetched ${allVideos.length} videos from API`)
+          let allVideos
+          try {
+            allVideos = await getDiversifiedVideos(500, 1) // 최대 500개까지 가져오기 (백엔드 제한)
+            console.log(`[useThemeVideos] Fetched ${allVideos?.length || 0} videos from API`)
+          } catch (apiError) {
+            console.error('[useThemeVideos] getDiversifiedVideos failed:', apiError)
+            console.error('[useThemeVideos] Error details:', {
+              message: apiError?.message,
+              stack: apiError?.stack,
+              name: apiError?.name
+            })
+            // API 실패 시 빈 배열로 설정
+            allVideos = []
+          }
           
           // 디버깅: 첫 번째 비디오의 구조 확인
           if (allVideos && allVideos.length > 0) {
@@ -213,7 +232,8 @@ function useThemeVideos() {
           const assignedVideoIds = new Set()
           
           // 키워드 기반으로 테마별 비디오 필터링
-          userThemes.forEach((theme) => {
+          // 새로운 배열을 생성하여 불변성 유지
+          const updatedThemes = userThemes.map((theme) => {
             const keywords = theme.keywords || []
             console.log(`[useThemeVideos] Filtering videos for theme "${theme.name}" with keywords:`, keywords)
             
@@ -304,7 +324,6 @@ function useThemeVideos() {
               }
             })
             
-            theme.videos = filteredVideos
             console.log(`[useThemeVideos] Theme "${theme.name}": Assigned ${filteredVideos.length} videos`)
             
             // 디버깅: 비디오가 없는 경우 상세 로그
@@ -317,31 +336,76 @@ function useThemeVideos() {
                 category: v.category
               })))
             }
+            
+            // 새로운 객체를 반환하여 불변성 유지
+            return {
+              ...theme,
+              videos: filteredVideos
+            }
           })
 
-          setThemes(userThemes)
-          console.log('[useThemeVideos] Themes set successfully. Total themes:', userThemes.length)
-          console.log('[useThemeVideos] Themes with videos:', userThemes.filter(t => t.videos && t.videos.length > 0).length)
+          setThemes(updatedThemes)
+          console.log('[useThemeVideos] Themes set successfully. Total themes:', updatedThemes.length)
+          console.log('[useThemeVideos] Themes with videos:', updatedThemes.filter(t => t.videos && t.videos.length > 0).length)
+          console.log('[useThemeVideos] Final themes structure:', updatedThemes.map(t => ({
+            name: t.name,
+            videosCount: t.videos?.length || 0,
+            hasVideos: !!(t.videos && t.videos.length > 0)
+          })))
         } catch (apiError) {
           console.error('[useThemeVideos] API 호출 실패, 빈 비디오로 설정:', apiError)
           console.error('[useThemeVideos] Error details:', {
-            message: apiError.message,
-            stack: apiError.stack,
-            name: apiError.name
+            message: apiError?.message,
+            stack: apiError?.stack,
+            name: apiError?.name
           })
           // API 실패 시 사용자 테마는 유지하되 비디오는 빈 배열
-          setThemes(userThemes.map(theme => ({ ...theme, videos: [] })))
+          const themesWithEmptyVideos = userThemes.map(theme => ({ ...theme, videos: [] }))
+          console.log('[useThemeVideos] Setting themes with empty videos:', themesWithEmptyVideos.length)
+          setThemes(themesWithEmptyVideos)
         }
       } catch (err) {
-        console.error('[useThemeVideos] Error:', err)
-        setError(err.message || '테마별 영상을 불러오는데 실패했습니다.')
+        console.error('[useThemeVideos] Outer catch - Error:', err)
+        console.error('[useThemeVideos] Error details:', {
+          message: err?.message,
+          stack: err?.stack,
+          name: err?.name
+        })
+        setError(err?.message || '테마별 영상을 불러오는데 실패했습니다.')
+        // 에러 발생 시에도 기본 테마는 설정
+        const defaultThemes = ['budget', 'solo', 'aesthetic']
+          .filter(keywordId => keywordToTheme[keywordId])
+          .map(keywordId => ({
+            ...keywordToTheme[keywordId],
+            videos: []
+          }))
+        console.log('[useThemeVideos] Setting default themes due to error:', defaultThemes.length)
+        setThemes(defaultThemes)
       } finally {
+        console.log('[useThemeVideos] Setting loading to false')
         setLoading(false)
       }
     }
 
-    fetchThemeVideos()
+    fetchThemeVideos().catch(err => {
+      console.error('[useThemeVideos] Unhandled error in fetchThemeVideos:', err)
+      setError(err?.message || '테마별 영상을 불러오는데 실패했습니다.')
+      setLoading(false)
+    })
   }, [])
+  
+  // 디버깅: themes 상태 변경 시 로그
+  useEffect(() => {
+    console.log('[useThemeVideos] Themes state changed:', {
+      themesCount: themes?.length || 0,
+      loading,
+      error,
+      themes: themes?.map(t => ({
+        name: t.name,
+        videosCount: t.videos?.length || 0
+      }))
+    })
+  }, [themes, loading, error])
 
   return { themes, loading, error }
 }
