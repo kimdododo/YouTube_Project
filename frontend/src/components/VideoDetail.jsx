@@ -74,6 +74,7 @@ function VideoDetail() {
 
   const handleBookmarkClick = useCallback(() => {
     if (video) {
+      // INP 최적화: 즉시 UI 업데이트, 무거운 작업은 비동기로 처리
       try {
         toggleBookmark(video)
       } catch (e) {
@@ -350,10 +351,26 @@ function VideoDetail() {
       }
       carouselCooldown.current = true
       setIsTransitioning(true)
-      trackEvent('similar_videos_carousel', {
-        direction,
-        video_id: video?.id || video?.video_id || videoId
-      })
+      
+      // INP 최적화: trackEvent를 비동기로 처리 (메인 스레드 블로킹 방지)
+      if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+        window.requestIdleCallback(() => {
+          trackEvent('similar_videos_carousel', {
+            direction,
+            video_id: video?.id || video?.video_id || videoId
+          })
+        }, { timeout: 100 })
+      } else {
+        // requestIdleCallback이 없으면 setTimeout으로 비동기 처리
+        setTimeout(() => {
+          trackEvent('similar_videos_carousel', {
+            direction,
+            video_id: video?.id || video?.video_id || videoId
+          })
+        }, 0)
+      }
+      
+      // 상태 업데이트는 즉시 수행 (사용자 경험을 위해)
       setCurrentIndex((prev) => {
         if (direction === 'next') {
           const nextIndex = prev + visibleCards
@@ -711,11 +728,24 @@ function VideoDetail() {
                     onClick={() => {
                       const nextState = !showFullDescription
                       setShowFullDescription(nextState)
-                      trackEvent('description_toggle', {
-                        video_id: video.id || video.video_id || videoId,
-                        expanded: nextState,
-                        page: 'VideoDetail'
-                      })
+                      // INP 최적화: trackEvent를 비동기로 처리
+                      if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+                        window.requestIdleCallback(() => {
+                          trackEvent('description_toggle', {
+                            video_id: video.id || video.video_id || videoId,
+                            expanded: nextState,
+                            page: 'VideoDetail'
+                          })
+                        }, { timeout: 100 })
+                      } else {
+                        setTimeout(() => {
+                          trackEvent('description_toggle', {
+                            video_id: video.id || video.video_id || videoId,
+                            expanded: nextState,
+                            page: 'VideoDetail'
+                          })
+                        }, 0)
+                      }
                     }}
                     className="text-blue-400 hover:text-blue-300 text-sm font-medium transition-colors"
                   >
@@ -742,8 +772,17 @@ function VideoDetail() {
                 <div className="text-blue-400 font-semibold">AI 한줄평</div>
                 <button
                   onClick={() => {
-                    trackEvent('ai_summary_request', { video_id: videoId })
                     fetchAiSummary(videoId)
+                    // INP 최적화: trackEvent를 비동기로 처리
+                    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+                      window.requestIdleCallback(() => {
+                        trackEvent('ai_summary_request', { video_id: videoId })
+                      }, { timeout: 100 })
+                    } else {
+                      setTimeout(() => {
+                        trackEvent('ai_summary_request', { video_id: videoId })
+                      }, 0)
+                    }
                   }}
                   disabled={isLoadingSummary}
                   className="text-xs text-white/70 hover:text-white transition-colors disabled:opacity-50"
@@ -767,19 +806,21 @@ function VideoDetail() {
           </div>
         </div>
 
-        {/* 댓글 분석 섹션 */}
+        {/* 댓글 분석 섹션 - CLS 최적화: 고정 높이 설정 */}
         <div className="mb-12">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-bold text-white">댓글 분석</h2>
           </div>
 
-          {loading ? (
-            <div className="grid gap-6 lg:grid-cols-3">
-              {Array.from({ length: 3 }).map((_, idx) => (
-                <SkeletonBox key={idx} className="h-64" />
-              ))}
-            </div>
-          ) : analysis && analysis.sentiment_ratio ? (
+          {/* CLS 최적화: 고정 높이로 레이아웃 시프트 방지 */}
+          <div className="min-h-[400px]" style={{ contentVisibility: 'auto' }}>
+            {loading ? (
+              <div className="grid gap-6 lg:grid-cols-3">
+                {Array.from({ length: 3 }).map((_, idx) => (
+                  <SkeletonBox key={idx} className="h-64" />
+                ))}
+              </div>
+            ) : analysis && analysis.sentiment_ratio ? (
             <div className="grid gap-6 lg:grid-cols-3">
               <div className="rounded-2xl bg-[#11172b]/90 border border-white/10 p-6 text-white overflow-visible">
                 <div className="flex items-center justify-between mb-2">
@@ -851,15 +892,18 @@ function VideoDetail() {
             <div className="bg-[#11172b]/70 border border-dashed border-white/10 rounded-xl p-6 text-white/60 text-sm">
               댓글 분석을 준비 중입니다... 잠시만 기다려주세요.
             </div>
-          )}
+            )}
+          </div>
         </div>
 
-        {/* 추천 영상 섹션 - 무한루프 슬라이더 */}
-        {similarVideos.length > 0 && (
-          <div>
-            <h2 className="text-2xl font-bold text-white mb-6">이런 영상은 어떠세요?</h2>
-            <div className="relative overflow-hidden">
-              {/* 왼쪽 화살표 */}
+        {/* 추천 영상 섹션 - 무한루프 슬라이더 - CLS 최적화: 고정 높이 */}
+        {/* CLS 최적화: similarVideos가 없어도 공간을 예약하여 레이아웃 시프트 방지 */}
+        <div style={{ minHeight: similarVideos.length > 0 ? 'auto' : '0px' }}>
+          {similarVideos.length > 0 && (
+            <div>
+              <h2 className="text-2xl font-bold text-white mb-6">이런 영상은 어떠세요?</h2>
+              <div className="relative overflow-hidden">
+                {/* 왼쪽 화살표 */}
               <button
                 onClick={slidePrev}
                 className="absolute left-0 top-1/2 -translate-y-1/2 z-20 bg-black/70 hover:bg-black/90 rounded-full p-3 text-white transition-all shadow-lg"
@@ -868,8 +912,8 @@ function VideoDetail() {
                 <ChevronLeft className="w-6 h-6" />
               </button>
 
-              {/* 비디오 카드 컨테이너 */}
-              <div className="relative overflow-hidden px-12" style={{ height: '480px' }}>
+                {/* 비디오 카드 컨테이너 */}
+                <div className="relative overflow-hidden px-12" style={{ height: '480px' }}>
                 <div
                   className="flex gap-6 absolute top-0"
                   style={{
@@ -940,19 +984,20 @@ function VideoDetail() {
                     )
                   })}
                 </div>
-              </div>
+                </div>
 
-              {/* 오른쪽 화살표 */}
-              <button
+                {/* 오른쪽 화살표 */}
+                <button
                 onClick={slideNext}
                 className="absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-black/70 hover:bg-black/90 rounded-full p-3 text-white transition-all shadow-lg"
                 disabled={isTransitioning}
               >
                 <ChevronRight className="w-6 h-6" />
-              </button>
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </AppLayout>
   )
