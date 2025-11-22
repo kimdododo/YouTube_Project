@@ -50,18 +50,25 @@ export const fetchPersonalizedRecommendations = async (userId) => {
         thumbnail_url: item.thumbnail_url,
         title: item.title,
         channel_title: item.channel_title,
-        channel_id: null, // 채널 ID는 백엔드에서 제공하지 않으면 null
+        channel_id: item.channel_id || null,
         similarity_score: item.similarity_score,
         reason: item.reason,
         // 기존 형식과 호환성을 위한 필드
-        description: '',
-        views: 0,
-        likes: 0,
-        rating: 5,
-        showRating: false,
+        description: item.description || '',
+        // view_count를 보존하고 views도 포맷팅하여 제공
+        view_count: item.view_count || item.views || 0,
+        views: formatViews(item.view_count || item.views || 0),
+        like_count: item.like_count || item.likes || 0,
+        likes: formatViews(item.like_count || item.likes || 0),
+        rating: item.rating || 5,
+        showRating: item.rating != null,
         type: 'personalized',
         youtube_url: createYouTubeUrl(item.video_id),
-        is_shorts: false
+        is_shorts: item.is_shorts || false,
+        // 추가 필드 보존
+        keyword: item.keyword,
+        region: item.region,
+        category: item.keyword || item.region || '기타'
       }))
     }
     

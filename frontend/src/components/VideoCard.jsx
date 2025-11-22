@@ -30,13 +30,23 @@ function VideoCard({ video, simple = false, featured = false, hideBookmark = fal
 
   // 비디오별 추천 이유 결정 (비디오 ID 기반으로 일관성 있게)
   const getRecommendationReason = useCallback((videoId) => {
-    if (!videoId) return recommendationReasons[0]
+    if (!videoId) {
+      console.warn('[VideoCard] No videoId provided for recommendation reason')
+      return recommendationReasons[0]
+    }
     // 비디오 ID의 해시값을 사용하여 일관된 추천 이유 할당
     const hash = videoId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
-    return recommendationReasons[hash % recommendationReasons.length]
+    const reason = recommendationReasons[hash % recommendationReasons.length]
+    return reason
   }, [recommendationReasons])
 
-  const recommendationReason = useMemo(() => getRecommendationReason(videoId), [videoId, getRecommendationReason])
+  const recommendationReason = useMemo(() => {
+    const reason = getRecommendationReason(videoId)
+    if (featured) {
+      console.log('[VideoCard] Recommendation reason calculated:', { videoId, reason, featured })
+    }
+    return reason
+  }, [videoId, getRecommendationReason, featured])
 
   // 반응형 감지
   useEffect(() => {
@@ -276,10 +286,27 @@ function VideoCard({ video, simple = false, featured = false, hideBookmark = fal
         style={{
           transform: active ? 'scale(1.02) translateY(-8px)' : 'none',
           border: 'none',
-          borderColor: 'transparent'
+          borderColor: 'transparent',
+          zIndex: isHovered ? 50 : 'auto'
         }}
         onMouseEnter={(e) => {
           setIsHovered(true)
+          // 디버깅: 툴팁 조건 확인
+          if (featured && recommendationReason) {
+            console.log('[VideoCard] Tooltip should show:', {
+              isHovered: true,
+              featured,
+              recommendationReason,
+              videoId
+            })
+          } else {
+            console.log('[VideoCard] Tooltip conditions not met:', {
+              isHovered: true,
+              featured,
+              recommendationReason,
+              videoId
+            })
+          }
           if (!active) {
             const thumbnailDiv = e.currentTarget.querySelector('.thumbnail-container')
             if (thumbnailDiv) {
@@ -301,31 +328,43 @@ function VideoCard({ video, simple = false, featured = false, hideBookmark = fal
         onClick={handleClick}
       >
         {/* 추천 이유 툴팁 */}
-        {isHovered && featured && (
+        {isHovered && featured && recommendationReason ? (
           <div 
-            className="absolute -top-2 left-1/2 -translate-x-1/2 -translate-y-full z-[100] pointer-events-none tooltip-fade-in"
+            className="absolute left-1/2 pointer-events-none"
             style={{
-              marginBottom: '8px'
+              top: '-10px',
+              transform: 'translateX(-50%) translateY(-100%)',
+              marginBottom: '8px',
+              zIndex: 9999,
+              animation: 'tooltipFadeIn 200ms ease-in-out',
+              animationFillMode: 'forwards'
             }}
           >
             <div 
-              className="bg-[#111] bg-opacity-80 backdrop-blur-md text-white text-xs rounded-lg shadow-xl px-3 py-2 whitespace-nowrap relative"
+              className="text-white text-xs rounded-lg shadow-xl px-3 py-2 whitespace-nowrap relative"
               style={{
                 color: '#ffff',
-                fontSize: '12px'
+                fontSize: '12px',
+                backgroundColor: 'rgba(17, 17, 17, 0.8)',
+                backdropFilter: 'blur(8px)',
+                WebkitBackdropFilter: 'blur(8px)',
+                boxShadow: '0 10px 15px rgba(0, 0, 0, 0.3)',
+                border: '1px solid rgba(255, 255, 255, 0.1)'
               }}
             >
               {recommendationReason}
               {/* 툴팁 화살표 */}
               <div 
-                className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-r-[6px] border-t-[6px] border-transparent"
+                className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0"
                 style={{
-                  borderTopColor: 'rgba(17, 17, 17, 0.8)'
+                  borderLeft: '6px solid transparent',
+                  borderRight: '6px solid transparent',
+                  borderTop: '6px solid rgba(17, 17, 17, 0.8)'
                 }}
               ></div>
             </div>
           </div>
-        )}
+        ) : null}
         <div 
           ref={thumbnailRef}
           className="relative overflow-hidden thumbnail-container rounded-xl border-solid" 
@@ -401,15 +440,34 @@ function VideoCard({ video, simple = false, featured = false, hideBookmark = fal
                 {video.title}
               </h3>
             )}
-            {video.views && (
-              <div className="flex items-center justify-end mt-1 sm:mt-2">
-                <span className="text-white text-xs sm:text-sm font-medium drop-shadow-lg" style={{
-                  textShadow: '0 2px 4px rgba(0, 0, 0, 0.8)'
-                }}>
-                  {video.views}
-                </span>
-              </div>
-            )}
+            {(() => {
+              // 조회수 포맷팅 헬퍼 함수
+              const formatViews = (count) => {
+                if (!count && count !== 0) return null
+                const num = typeof count === 'string' ? parseInt(count.replace(/[^0-9]/g, '')) : count
+                if (num >= 1000000) {
+                  return `${(num / 1000000).toFixed(1)}M회`
+                }
+                if (num >= 10000) {
+                  return `${(num / 10000).toFixed(1)}만회`
+                }
+                return `${num.toLocaleString()}회`
+              }
+              
+              // 여러 필드에서 조회수 찾기
+              const viewCount = video.view_count ?? video.views ?? video.viewCount ?? 0
+              const formattedViews = formatViews(viewCount)
+              
+              return formattedViews ? (
+                <div className="flex items-center justify-end mt-1 sm:mt-2">
+                  <span className="text-white text-xs sm:text-sm font-medium drop-shadow-lg" style={{
+                    textShadow: '0 2px 4px rgba(0, 0, 0, 0.8)'
+                  }}>
+                    {formattedViews}
+                  </span>
+                </div>
+              ) : null
+            })()}
           </div>
         </div>
       </div>

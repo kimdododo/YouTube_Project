@@ -125,7 +125,8 @@ function RecommendedVideos() {
           const id = it.id || it.video_id
           if (!id || seen.has(id)) continue
           seen.add(id)
-          out.push(it)
+          // 객체를 스프레드 연산자로 복사하여 모든 필드 보존
+          out.push({ ...it })
         }
         return out
       }
@@ -139,7 +140,8 @@ function RecommendedVideos() {
             const chId = it.channel_id || it.channelId || it.channel || `unknown-${it.id || Math.random()}`
             const cnt = seen.get(chId) || 0
             if (cnt < limitPerChannel) {
-              out.push(it)
+              // 객체를 스프레드 연산자로 복사하여 모든 필드 보존
+              out.push({ ...it })
               seen.set(chId, cnt + 1)
               if (out.length >= targetCount) break
             }
@@ -154,7 +156,8 @@ function RecommendedVideos() {
           const ids = new Set(result.map(v => v.id))
           for (const it of items) {
             if (!ids.has(it.id)) {
-              result.push(it)
+              // 객체를 스프레드 연산자로 복사하여 모든 필드 보존
+              result.push({ ...it })
               ids.add(it.id)
               if (result.length >= targetCount) break
             }
