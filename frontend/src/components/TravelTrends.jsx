@@ -78,14 +78,7 @@ function TravelTrends() {
       setLoading(true)
       
       // period에 따라 다른 limit 값 사용 (더 많은 데이터를 가져와서 필터링)
-      let limit = 100
-      if (activePeriod === 'daily') {
-        limit = 100 // 일간: 최근 100개에서 필터링
-      } else if (activePeriod === 'weekly') {
-        limit = 200 // 주간: 최근 200개에서 필터링
-      } else if (activePeriod === 'monthly') {
-        limit = 500 // 월간: 최근 500개에서 필터링 (백엔드 최대값 500)
-      }
+      let limit = 500 // 충분한 데이터를 가져와서 필터링
       
       // 1순위: 트렌드 API 호출 (period는 백엔드에서 지원하지 않으므로 클라이언트에서 필터링)
       try {
@@ -105,8 +98,7 @@ function TravelTrends() {
           const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
           filteredTrends = trends.filter(video => {
             if (!video.published_at) {
-              // published_at이 없으면 최신 영상으로 간주 (배열 앞부분)
-              return trends.indexOf(video) < 20 // 상위 20개만 포함
+              return false // published_at이 없으면 제외
             }
             try {
               const publishedDate = new Date(video.published_at)
@@ -115,13 +107,22 @@ function TravelTrends() {
               return false
             }
           })
+          
+          // 일간: 조회수 기준으로 정렬하여 최신 + 인기 영상 선택
+          filteredTrends.sort((a, b) => {
+            const viewDiff = (b.view_count || 0) - (a.view_count || 0)
+            if (viewDiff !== 0) return viewDiff
+            // 조회수가 같으면 최신순
+            const dateA = a.published_at ? new Date(a.published_at).getTime() : 0
+            const dateB = b.published_at ? new Date(b.published_at).getTime() : 0
+            return dateB - dateA
+          })
         } else if (activePeriod === 'weekly') {
           // 최근 7일
           const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
           filteredTrends = trends.filter(video => {
             if (!video.published_at) {
-              // published_at이 없으면 최신 영상으로 간주
-              return trends.indexOf(video) < 50 // 상위 50개만 포함
+              return false
             }
             try {
               const publishedDate = new Date(video.published_at)
@@ -130,13 +131,25 @@ function TravelTrends() {
               return false
             }
           })
+          
+          // 주간: 좋아요 수 기준으로 정렬
+          filteredTrends.sort((a, b) => {
+            const likeDiff = (b.like_count || 0) - (a.like_count || 0)
+            if (likeDiff !== 0) return likeDiff
+            // 좋아요가 같으면 조회수 기준
+            const viewDiff = (b.view_count || 0) - (a.view_count || 0)
+            if (viewDiff !== 0) return viewDiff
+            // 조회수도 같으면 최신순
+            const dateA = a.published_at ? new Date(a.published_at).getTime() : 0
+            const dateB = b.published_at ? new Date(b.published_at).getTime() : 0
+            return dateB - dateA
+          })
         } else if (activePeriod === 'monthly') {
           // 최근 30일
           const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
           filteredTrends = trends.filter(video => {
             if (!video.published_at) {
-              // published_at이 없으면 최신 영상으로 간주
-              return trends.indexOf(video) < 100 // 상위 100개만 포함
+              return false
             }
             try {
               const publishedDate = new Date(video.published_at)
@@ -145,17 +158,48 @@ function TravelTrends() {
               return false
             }
           })
+          
+          // 월간: 조회수 + 좋아요 수 합계 기준으로 정렬
+          filteredTrends.sort((a, b) => {
+            const scoreA = (a.view_count || 0) + (a.like_count || 0) * 10
+            const scoreB = (b.view_count || 0) + (b.like_count || 0) * 10
+            const scoreDiff = scoreB - scoreA
+            if (scoreDiff !== 0) return scoreDiff
+            // 점수가 같으면 최신순
+            const dateA = a.published_at ? new Date(a.published_at).getTime() : 0
+            const dateB = b.published_at ? new Date(b.published_at).getTime() : 0
+            return dateB - dateA
+          })
         }
         
         // 필터링된 결과가 부족하면 period에 따라 다른 fallback 전략 사용
         if (filteredTrends.length < 8) {
-          // period에 따라 다른 개수만큼만 사용 (항상 같은 결과 방지)
+          // period에 따라 다른 정렬 기준으로 다른 결과 선택
+          const sortedTrends = [...trends]
+          
           if (activePeriod === 'daily') {
-            filteredTrends = trends.slice(0, 20) // 일간: 최신 20개
+            // 일간: 최신순 + 조회수 기준
+            sortedTrends.sort((a, b) => {
+              const dateA = a.published_at ? new Date(a.published_at).getTime() : 0
+              const dateB = b.published_at ? new Date(b.published_at).getTime() : 0
+              if (dateB !== dateA) return dateB - dateA // 최신순
+              return (b.view_count || 0) - (a.view_count || 0) // 조회수
+            })
+            filteredTrends = sortedTrends.slice(0, 30) // 최신 30개
           } else if (activePeriod === 'weekly') {
-            filteredTrends = trends.slice(0, 50) // 주간: 최신 50개
+            // 주간: 좋아요 수 기준
+            sortedTrends.sort((a, b) => {
+              const likeDiff = (b.like_count || 0) - (a.like_count || 0)
+              if (likeDiff !== 0) return likeDiff
+              return (b.view_count || 0) - (a.view_count || 0)
+            })
+            filteredTrends = sortedTrends.slice(0, 60) // 상위 60개
           } else {
-            filteredTrends = trends.slice(0, 100) // 월간: 최신 100개
+            // 월간: 조회수 기준
+            sortedTrends.sort((a, b) => {
+              return (b.view_count || 0) - (a.view_count || 0)
+            })
+            filteredTrends = sortedTrends.slice(0, 100) // 상위 100개
           }
         }
         
@@ -163,7 +207,7 @@ function TravelTrends() {
         const diversified = diversifyByChannel(filteredTrends || [], 8, 1)
         setTrendVideos(diversified)
         
-        console.log(`[TravelTrends] ${activePeriod} period: filtered ${filteredTrends.length} videos from ${trends.length} total`)
+        console.log(`[TravelTrends] ${activePeriod} period: filtered ${filteredTrends.length} videos from ${trends.length} total, showing ${diversified.length}`)
       } catch (error) {
         console.error('Failed to fetch trend videos:', error)
         // 2순위: 채널 다양화 엔드포인트로 폴백
