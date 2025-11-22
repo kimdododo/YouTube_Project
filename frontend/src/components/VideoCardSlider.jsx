@@ -47,14 +47,18 @@ function VideoCardSlider({ videos, cardWidth = 320, cardHeight = null, gap = 24,
   const cardStep = cardWidth + gap
   const visibleCards = 4 // 한 번에 보여줄 카드 개수
   
-  // 무한 루프를 위한 초기 인덱스 (중간 지점으로 설정)
+  // 무한 루프를 위한 초기 인덱스 (0으로 시작하여 첫 번째 카드부터 표시)
   const getInitialIndex = () => {
     if (!videos || videos.length === 0) return 0
-    const cloneCount = Math.max(visibleCards * 2, 8)
-    return Math.floor(cloneCount / 2) * videos.length
+    // 0으로 시작하여 첫 번째 카드부터 표시
+    return 0
   }
   
-  const [currentIndex, setCurrentIndex] = useState(getInitialIndex)
+  const [currentIndex, setCurrentIndex] = useState(() => {
+    const initial = getInitialIndex()
+    console.log('[VideoCardSlider] Initial currentIndex set to:', initial)
+    return initial
+  })
   const [isTransitioning, setIsTransitioning] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const [startX, setStartX] = useState(0)
@@ -92,7 +96,8 @@ function VideoCardSlider({ videos, cardWidth = 320, cardHeight = null, gap = 24,
   // videos가 변경되면 초기 인덱스로 리셋
   useEffect(() => {
     if (videos && videos.length > 0) {
-      const initialIndex = getInitialIndex()
+      const initialIndex = 0 // 항상 0으로 시작하여 첫 번째 카드부터 표시
+      console.log('[VideoCardSlider] Videos changed, resetting currentIndex to:', initialIndex)
       setCurrentIndex(initialIndex)
       dragStateRef.current.currentIndex = initialIndex
     }
@@ -260,7 +265,7 @@ function VideoCardSlider({ videos, cardWidth = 320, cardHeight = null, gap = 24,
   const displayIndex = getRealIndex(currentIndex)
 
   return (
-    <div className="relative overflow-hidden" ref={containerRef}>
+    <div className="relative overflow-visible" ref={containerRef} style={{ minHeight: cardHeight ? `${cardHeight + 20}px` : '280px' }}>
       {/* 왼쪽 화살표 - 무한 루프이므로 항상 활성화 */}
       {showArrows && (
         <button
@@ -280,7 +285,7 @@ function VideoCardSlider({ videos, cardWidth = 320, cardHeight = null, gap = 24,
       {/* 슬라이더 컨테이너 */}
       <div 
         ref={sliderRef}
-        className="relative overflow-hidden cursor-grab active:cursor-grabbing select-none rounded-lg"
+        className="relative overflow-visible cursor-grab active:cursor-grabbing select-none rounded-lg"
         style={{ 
           height: cardHeight ? `${cardHeight + 20}px` : '280px', 
           userSelect: 'none',
@@ -289,7 +294,8 @@ function VideoCardSlider({ videos, cardWidth = 320, cardHeight = null, gap = 24,
           border: 'none',
           boxShadow: 'none',
           marginLeft: showArrows ? '48px' : '0',
-          marginRight: showArrows ? '48px' : '0'
+          marginRight: showArrows ? '48px' : '0',
+          minHeight: cardHeight ? `${cardHeight + 20}px` : '280px'
         }}
         onMouseDown={handleMouseDown}
         onTouchStart={handleTouchStart}
@@ -304,7 +310,9 @@ function VideoCardSlider({ videos, cardWidth = 320, cardHeight = null, gap = 24,
             transition: isTransitioning && !isDragging 
               ? 'transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)' 
               : 'none',
-            willChange: 'transform'
+            willChange: 'transform',
+            minWidth: 'fit-content',
+            width: 'max-content'
           }}
         >
           {/* 카드 렌더링 (무한 루프를 위해 충분한 수의 카드 복제) */}
@@ -312,13 +320,32 @@ function VideoCardSlider({ videos, cardWidth = 320, cardHeight = null, gap = 24,
             // 무한 루프를 위해 카드를 여러 번 복제
             const cloneCount = Math.max(visibleCards * 2, 8) // 최소 8개씩 복제
             const totalCards = videos.length * cloneCount
-            const startOffset = Math.floor(cloneCount / 2) * videos.length
+            
+            console.log('[VideoCardSlider] Rendering cards:', {
+              videosLength: videos.length,
+              cloneCount,
+              totalCards,
+              currentIndex,
+              cardStep,
+              transform: `translateX(-${currentIndex * cardStep}px)`
+            })
             
             return Array.from({ length: totalCards }, (_, i) => {
               const videoIndex = i % videos.length
               const video = videos[videoIndex]
-              const actualIndex = i - startOffset
-              const isVisible = actualIndex >= currentIndex && actualIndex < currentIndex + visibleCards
+              
+              // 디버깅: 첫 번째 카드 정보
+              if (i === 0) {
+                console.log('[VideoCardSlider] First card info:', {
+                  i,
+                  videoIndex,
+                  videoId: video.id || video.video_id,
+                  videoTitle: video.title,
+                  currentIndex,
+                  cardStep,
+                  transformValue: currentIndex * cardStep
+                })
+              }
               
               return (
                 <div 
@@ -330,7 +357,7 @@ function VideoCardSlider({ videos, cardWidth = 320, cardHeight = null, gap = 24,
                     video={video} 
                     featured={false}
                     hideBookmark={hideBookmark} 
-                    active={isVisible}
+                    active={false}
                     themeColors={themeColors}
                     cardWidth={cardWidth}
                     cardHeight={cardHeight}
