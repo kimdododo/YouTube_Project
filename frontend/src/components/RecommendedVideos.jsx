@@ -305,30 +305,21 @@ function RecommendedVideos() {
             themes={themes}
             userName={userName}
           />
-        ) : (
+        ) : themesError ? (
           <div className="mb-16">
             <div className="text-center py-8 text-white/60">
-              {themesLoading ? (
-                <>
-                  <p>테마별 영상을 불러오는 중...</p>
-                  <p className="text-sm mt-2">로딩 중...</p>
-                </>
-              ) : themesError ? (
-                <>
-                  <p className="text-red-400">테마별 영상을 불러오는데 실패했습니다.</p>
-                  <p className="text-sm mt-2 text-red-300">{themesError}</p>
-                </>
-              ) : (!themes || themes.length === 0) ? (
-                <>
-                  <p>테마가 없습니다.</p>
-                  <p className="text-sm mt-2">회원가입 시 선택한 키워드를 기반으로 테마가 생성됩니다.</p>
-                </>
-              ) : (
-                <p>테마별 영상을 준비 중입니다...</p>
-              )}
+              <p className="text-red-400">테마별 영상을 불러오는데 실패했습니다.</p>
+              <p className="text-sm mt-2 text-red-300">{themesError}</p>
             </div>
           </div>
-        )}
+        ) : (!themes || themes.length === 0) && !themesLoading ? (
+          <div className="mb-16">
+            <div className="text-center py-8 text-white/60">
+              <p>테마가 없습니다.</p>
+              <p className="text-sm mt-2">회원가입 시 선택한 키워드를 기반으로 테마가 생성됩니다.</p>
+            </div>
+          </div>
+        ) : null}
       </div>
     </AppLayout>
   )
