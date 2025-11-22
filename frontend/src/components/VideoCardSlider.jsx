@@ -128,7 +128,7 @@ function VideoCardSlider({ videos, cardWidth = 320, cardHeight = null, gap = 24,
   // 마우스 휠 이벤트 핸들러 (좌우 스크롤)
   // passive event listener 문제 해결을 위해 useEffect로 직접 등록
   useEffect(() => {
-    if (!sliderRef.current) return
+    if (!sliderRef.current || !videos || videos.length === 0) return
 
     const handleWheel = (e) => {
       if (!sliderRef.current) return
@@ -138,6 +138,7 @@ function VideoCardSlider({ videos, cardWidth = 320, cardHeight = null, gap = 24,
       
       if (isTransitioning) return
       
+      // preventDefault는 passive: false일 때만 가능
       e.preventDefault()
       e.stopPropagation()
       
@@ -155,12 +156,13 @@ function VideoCardSlider({ videos, cardWidth = 320, cardHeight = null, gap = 24,
     }
 
     const element = sliderRef.current
+    // passive: false로 등록하여 preventDefault 사용 가능
     element.addEventListener('wheel', handleWheel, { passive: false })
 
     return () => {
       element.removeEventListener('wheel', handleWheel)
     }
-  }, [isTransitioning, slideNext, slidePrev])
+  }, [isTransitioning, slideNext, slidePrev, videos])
 
   // 터치 이벤트 지원
   const handleTouchStart = (e) => {

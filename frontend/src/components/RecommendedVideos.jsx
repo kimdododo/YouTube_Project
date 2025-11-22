@@ -295,12 +295,28 @@ function RecommendedVideos() {
         />
 
         {/* 테마별 추천 섹션 */}
+        {/* 디버깅: themes 상태 확인 */}
+        {console.log('[RecommendedVideos] Rendering check:', {
+          themesLoading,
+          themesCount: themes?.length || 0,
+          themes: themes?.map(t => ({ name: t.name, videosCount: t.videos?.length || 0 }))
+        })}
         {/* themesLoading이 false이고 themes가 있을 때만 표시 */}
-        {!themesLoading && themes && themes.length > 0 && (
+        {!themesLoading && themes && themes.length > 0 ? (
           <ThemeRecommendationSection 
             themes={themes}
             userName={userName}
           />
+        ) : (
+          <div className="mb-16">
+            <div className="text-center py-8 text-white/60">
+              <p>테마별 영상을 불러오는 중...</p>
+              {themesLoading && <p className="text-sm mt-2">로딩 중...</p>}
+              {!themesLoading && (!themes || themes.length === 0) && (
+                <p className="text-sm mt-2">테마가 없습니다.</p>
+              )}
+            </div>
+          </div>
         )}
       </div>
     </AppLayout>
