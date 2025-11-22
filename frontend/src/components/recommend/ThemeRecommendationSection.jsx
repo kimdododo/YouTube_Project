@@ -1,6 +1,175 @@
-import React from 'react'
-import { Link } from 'react-router-dom'
-import VideoCardSlider from '../VideoCardSlider'
+import React, { useState, useCallback, useMemo, useRef } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { ChevronLeft, ChevronRight, Star } from 'lucide-react'
+import { optimizeThumbnailUrl } from '../../utils/imageUtils'
+
+/**
+ * 테마별 슬라이더 컴포넌트 (VideoDetail.jsx 구조 적용)
+ */
+function ThemeSlider({ theme, cardWidth = 320, gap = 24, visibleCards = 4 }) {
+  const navigate = useNavigate()
+  const cardStep = cardWidth + gap
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const [isTransitioning, setIsTransitioning] = useState(false)
+  const slideTimeoutRef = useRef(null)
+
+  // 무한루프를 위한 비디오 복제
+  const sliderVideos = useMemo(() => {
+    if (!theme.videos || theme.videos.length === 0) return []
+    if (theme.videos.length <= visibleCards) return theme.videos
+    return [...theme.videos, ...theme.videos]
+  }, [theme.videos, visibleCards])
+
+  const renderedVideos = useMemo(() => 
+    sliderVideos.length > 0 ? sliderVideos : theme.videos || [],
+    [sliderVideos, theme.videos]
+  )
+
+  // 슬라이더 핸들러
+  const slideHandler = useCallback(
+    (direction) => {
+      if (isTransitioning || !theme.videos || theme.videos.length === 0) return
+      
+      setIsTransitioning(true)
+      
+      setCurrentIndex((prev) => {
+        if (direction === 'next') {
+          const nextIndex = prev + 1
+          return nextIndex >= theme.videos.length ? 0 : nextIndex
+        }
+        const prevIndex = prev - 1
+        return prevIndex < 0 ? Math.max(0, theme.videos.length - visibleCards) : prevIndex
+      })
+
+      if (slideTimeoutRef.current) {
+        clearTimeout(slideTimeoutRef.current)
+      }
+      slideTimeoutRef.current = setTimeout(() => {
+        setIsTransitioning(false)
+      }, 500)
+    },
+    [isTransitioning, theme.videos, visibleCards]
+  )
+
+  const slideNext = useCallback(() => slideHandler('next'), [slideHandler])
+  const slidePrev = useCallback(() => slideHandler('prev'), [slideHandler])
+
+  // cleanup timeout on unmount
+  React.useEffect(() => {
+    return () => {
+      if (slideTimeoutRef.current) {
+        clearTimeout(slideTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  if (!theme.videos || theme.videos.length === 0) {
+    return (
+      <div className="text-center py-8 text-white/60">
+        <p style={{ fontSize: '14px', fontFamily: 'Arial, sans-serif' }}>
+          이 테마에 해당하는 영상이 없습니다.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="relative overflow-hidden">
+      {/* 왼쪽 화살표 */}
+      <button
+        onClick={slidePrev}
+        className="absolute left-0 top-1/2 -translate-y-1/2 z-20 bg-black/70 hover:bg-black/90 rounded-full p-3 text-white transition-all shadow-lg"
+        disabled={isTransitioning}
+      >
+        <ChevronLeft className="w-6 h-6" />
+      </button>
+
+      {/* 비디오 카드 컨테이너 */}
+      <div className="relative overflow-hidden px-12" style={{ height: '480px' }}>
+        <div
+          className="flex gap-6 absolute top-0"
+          style={{
+            left: '50%',
+            transform: `translateX(calc(-50% - ${currentIndex * cardStep}px))`,
+            transition: isTransitioning ? 'transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)' : 'none',
+            willChange: 'transform'
+          }}
+        >
+          {/* 무한루프를 위한 카드 복제 */}
+          {renderedVideos.map((v, index) => {
+            const actualIndex = index % (theme.videos?.length || 1)
+            const videoId = v.id || v.video_id
+            const thumbnailUrl = optimizeThumbnailUrl(v.thumbnail_url, videoId, v.is_shorts || false)
+            const categoryRaw = v.category || v.keyword || v.region || '여행'
+            const category = categoryRaw.toString().replace(/^channel:\s*/i, '')
+            const rating = v.rating || 5
+            const description = v.description || '여행의 감동을 잘 전달하는 영상이에요.'
+            
+            return (
+              <div 
+                key={`${videoId}-${index}`}
+                onClick={() => navigate(`/video/${videoId}`)}
+                className="flex-shrink-0 transition-all duration-300 hover:z-10 cursor-pointer group"
+                style={{ width: `${cardWidth}px` }}
+                title="" // 브라우저 기본 툴팁 방지
+              >
+                <div className="bg-[#0f1629]/40 backdrop-blur-sm rounded-xl overflow-hidden border border-black/50 hover:border-black/70 transition-all duration-300 ease-out hover:-translate-y-2 hover:shadow-2xl h-full flex flex-col" style={{ height: '460px' }}>
+                  {/* 카테고리 */}
+                  <div className="px-4 pt-4 pb-2">
+                    <span className="text-blue-400 text-xs font-medium">{category}</span>
+                  </div>
+                  
+                  {/* 썸네일 */}
+                  <div className="relative overflow-hidden flex-shrink-0" style={{ aspectRatio: '16/9' }}>
+                    {thumbnailUrl ? (
+                      <img
+                        src={thumbnailUrl}
+                        loading="lazy"
+                        decoding="async"
+                        alt={v.title || 'Video'}
+                        className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-blue-900/80 to-purple-900/80 flex items-center justify-center">
+                        <span className="text-white/40 text-sm">썸네일 없음</span>
+                      </div>
+                    )}
+                    {/* 평점 배지 */}
+                    <div className="absolute top-2 right-2 flex items-center space-x-1 bg-black/70 backdrop-blur-sm px-2 py-1 rounded-full z-10">
+                      <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                      <span className="text-white text-xs font-bold">{rating}</span>
+                    </div>
+                    {/* 그라데이션 오버레이 */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
+                  </div>
+                  
+                  {/* 제목과 설명 */}
+                  <div className="px-4 py-4 flex-1 flex flex-col">
+                    <h3 className="text-white font-bold text-base leading-tight line-clamp-2 mb-3">
+                      {v.title || '제목 없음'}
+                    </h3>
+                    <p className="text-white/70 text-sm leading-relaxed line-clamp-3">
+                      {description.length > 120 ? `${description.substring(0, 120)}...` : description}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* 오른쪽 화살표 */}
+      <button
+        onClick={slideNext}
+        className="absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-black/70 hover:bg-black/90 rounded-full p-3 text-white transition-all shadow-lg"
+        disabled={isTransitioning}
+      >
+        <ChevronRight className="w-6 h-6" />
+      </button>
+    </div>
+  )
+}
 
 /**
  * 테마별 추천 영상 섹션 컴포넌트
@@ -21,7 +190,6 @@ function ThemeRecommendationSection({ themes, userName = '' }) {
     console.warn('[ThemeRecommendationSection] No themes provided')
     return null
   }
-
 
   // 키워드별 색상 매핑
   const getKeywordColor = (keyword) => {
@@ -193,50 +361,8 @@ function ThemeRecommendationSection({ themes, userName = '' }) {
               )}
             </div>
 
-            {/* 가로 슬라이더 카드 리스트 */}
-            {(() => {
-              const hasVideos = theme.videos && Array.isArray(theme.videos) && theme.videos.length > 0
-              console.log(`[ThemeRecommendationSection] Theme "${theme.name}" video check:`, {
-                hasVideos,
-                videosCount: theme.videos?.length || 0,
-                videosType: typeof theme.videos,
-                isArray: Array.isArray(theme.videos),
-                firstVideo: theme.videos?.[0]
-              })
-              
-              if (hasVideos) {
-                return (
-                  <VideoCardSlider 
-                    videos={theme.videos} 
-                    cardWidth={317.5}
-                    cardHeight={175.5}
-                    gap={24}
-                    hideBookmark={true}
-                    themeColors={{
-                      borderColor: '#000000',
-                      textColor: '#000000',
-                      glowColor: 'rgba(0, 0, 0, 0.5)'
-                    }}
-                  />
-                )
-              } else {
-                return (
-                  <div className="text-center py-8 text-white/60">
-                    <p style={{ fontSize: '14px', fontFamily: 'Arial, sans-serif' }}>
-                      이 테마에 해당하는 영상이 없습니다.
-                    </p>
-                    {/* 디버깅: 테마 정보 출력 */}
-                    {console.log('[ThemeRecommendationSection] Theme has no videos:', {
-                      themeName: theme.name,
-                      videosCount: theme.videos?.length || 0,
-                      videos: theme.videos,
-                      videosType: typeof theme.videos,
-                      isArray: Array.isArray(theme.videos)
-                    })}
-                  </div>
-                )
-              }
-            })()}
+            {/* 가로 슬라이더 카드 리스트 - VideoDetail.jsx 구조 적용 */}
+            <ThemeSlider theme={theme} cardWidth={320} gap={24} visibleCards={4} />
           </div>
         ))}
       </div>
@@ -245,4 +371,3 @@ function ThemeRecommendationSection({ themes, userName = '' }) {
 }
 
 export default ThemeRecommendationSection
-
