@@ -32,6 +32,7 @@ function VideoDetail() {
   const [aiSummary, setAiSummary] = useState('')
   const [aiSummaryError, setAiSummaryError] = useState('')
   const [isLoadingSummary, setIsLoadingSummary] = useState(false)
+  const [hoveredVideoIndex, setHoveredVideoIndex] = useState(null)
   
   // timeout refs for cleanup
   const slideTimeoutRef = useRef(null)
@@ -424,6 +425,26 @@ function VideoDetail() {
     [sliderVideos, similarVideos]
   )
 
+  // 추천 이유 목록
+  const recommendationReasons = [
+    '최근 본 영상 기반',
+    '자주 시청한 채널 기반',
+    '북마크 기반',
+    '취향 유사 사용자 기반',
+    '트렌드 기반',
+    '시즌 기반',
+    '관련 콘텐츠 기반',
+    '실시간 인기 기반'
+  ]
+
+  // 비디오별 추천 이유 결정 (비디오 ID 기반으로 일관성 있게)
+  const getRecommendationReason = useCallback((videoId) => {
+    if (!videoId) return recommendationReasons[0]
+    // 비디오 ID의 해시값을 사용하여 일관된 추천 이유 할당
+    const hash = videoId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
+    return recommendationReasons[hash % recommendationReasons.length]
+  }, [])
+
   const sentimentPercentages = useMemo(() => {
     try {
       if (!analysis || !analysis.sentiment_ratio || typeof analysis.sentiment_ratio !== 'object') {
@@ -618,6 +639,22 @@ function VideoDetail() {
 
   return (
     <AppLayout>
+      {/* 툴팁 fade-in 애니메이션 */}
+      <style>{`
+        @keyframes tooltipFadeIn {
+          from {
+            opacity: 0;
+            transform: translateX(-50%) translateY(-5px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+          }
+        }
+        .tooltip-fade-in {
+          animation: tooltipFadeIn 200ms ease-in-out;
+        }
+      `}</style>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* 메인 비디오 섹션 */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
@@ -933,13 +970,41 @@ function VideoDetail() {
                     const rating = v.rating || 5
                     const description = v.description || '여행의 감동을 잘 전달하는 영상이에요.'
                     
+                    const recommendationReason = getRecommendationReason(videoId)
+                    const isHovered = hoveredVideoIndex === index
+                    
                     return (
                       <div 
                         key={`${videoId}-${index}`}
                         onClick={() => navigate(`/video/${videoId}`)}
-                        className="flex-shrink-0 transition-all duration-300 hover:z-10 cursor-pointer group"
+                        onMouseEnter={() => setHoveredVideoIndex(index)}
+                        onMouseLeave={() => setHoveredVideoIndex(null)}
+                        className="flex-shrink-0 transition-all duration-300 hover:z-10 cursor-pointer group relative"
                         style={{ width: `${cardWidth}px` }}
                       >
+                        {/* 추천 이유 툴팁 */}
+                        {isHovered && (
+                          <div 
+                            className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-full mb-2 z-50 pointer-events-none tooltip-fade-in"
+                          >
+                            <div 
+                              className="bg-[#111] bg-opacity-80 backdrop-blur-md text-white text-xs rounded-lg shadow-xl px-3 py-2 whitespace-nowrap"
+                              style={{
+                                color: '#ffff',
+                                fontSize: '12px'
+                              }}
+                            >
+                              {recommendationReason}
+                              {/* 툴팁 화살표 */}
+                              <div 
+                                className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-r-[6px] border-t-[6px] border-transparent"
+                                style={{
+                                  borderTopColor: 'rgba(17, 17, 17, 0.8)'
+                                }}
+                              ></div>
+                            </div>
+                          </div>
+                        )}
                         <div className="bg-[#0f1629]/40 backdrop-blur-sm rounded-xl overflow-hidden border border-black/50 hover:border-black/70 transition-all duration-300 ease-out hover:-translate-y-2 hover:shadow-2xl h-full flex flex-col" style={{ height: '460px' }}>
                           {/* 카테고리 */}
                           <div className="px-4 pt-4 pb-2">
