@@ -31,6 +31,8 @@ function VideoDetail() {
   const [aiSummary, setAiSummary] = useState('')
   const [aiSummaryError, setAiSummaryError] = useState('')
   const [isLoadingSummary, setIsLoadingSummary] = useState(false)
+  const [showAllPositiveComments, setShowAllPositiveComments] = useState(false)
+  const [showAllNegativeComments, setShowAllNegativeComments] = useState(false)
   
   // timeout refs for cleanup
   const slideTimeoutRef = useRef(null)
@@ -336,8 +338,24 @@ function VideoDetail() {
     }))
     const withText = mapped.filter((comment) => comment.text.length > 0)
     console.log('[VideoDetail] Positive comments with text:', withText.length)
-    return withText.slice(0, 4)
+    return withText
   }, [topComments])
+
+  const displayedPositiveComments = useMemo(() => {
+    const initialCount = 2
+    if (showAllPositiveComments) {
+      return positiveCommentHighlights.slice(0, 4)
+    }
+    return positiveCommentHighlights.slice(0, initialCount)
+  }, [positiveCommentHighlights, showAllPositiveComments])
+
+  const displayedNegativeComments = useMemo(() => {
+    const initialCount = 2
+    if (showAllNegativeComments) {
+      return negativeCommentHighlights.slice(0, 4)
+    }
+    return negativeCommentHighlights.slice(0, initialCount)
+  }, [negativeCommentHighlights, showAllNegativeComments])
 
   const negativeCommentHighlights = useMemo(() => {
     if (!topComments.length) {
@@ -352,7 +370,7 @@ function VideoDetail() {
     }))
     const withText = mapped.filter((comment) => comment.text.length > 0)
     console.log('[VideoDetail] Negative comments with text:', withText.length)
-    return withText.slice(0, 4)
+    return withText
   }, [topComments])
 
   const summaryLines = useMemo(() => {
@@ -603,16 +621,26 @@ function VideoDetail() {
                 </div>
                 <h3 className="text-3xl font-bold mb-4">{sentimentPercentages?.positive ?? 0}%</h3>
                 {positiveCommentHighlights.length > 0 ? (
-                  <ul className="space-y-3 text-white/80 text-sm">
-                    {positiveCommentHighlights.map((comment) => (
-                      <li key={comment.id} className="flex items-start gap-2">
-                        <span className="w-2 h-2 rounded-full bg-white/80 mt-2 flex-shrink-0" />
-                        <p className="text-white/80 text-sm leading-relaxed whitespace-pre-wrap break-words max-h-32 overflow-y-auto pr-1">
-                          {comment.text}
-                        </p>
-                      </li>
-                    ))}
-                  </ul>
+                  <>
+                    <ul className="space-y-3 text-white/80 text-sm">
+                      {displayedPositiveComments.map((comment) => (
+                        <li key={comment.id} className="flex items-start gap-2">
+                          <span className="w-2 h-2 rounded-full bg-white/80 mt-2 flex-shrink-0" />
+                          <p className="text-white/80 text-sm leading-relaxed whitespace-pre-wrap break-words">
+                            {comment.text}
+                          </p>
+                        </li>
+                      ))}
+                    </ul>
+                    {positiveCommentHighlights.length > 2 && (
+                      <button
+                        onClick={() => setShowAllPositiveComments(!showAllPositiveComments)}
+                        className="text-blue-400 hover:text-blue-300 text-xs font-medium mt-3 transition-colors"
+                      >
+                        {showAllPositiveComments ? '간략히' : `더보기 (${positiveCommentHighlights.length - 2}개 더)`}
+                      </button>
+                    )}
+                  </>
                 ) : (
                   <p className="text-white/50 text-sm">긍정적인 반응이 부족합니다.</p>
                 )}
@@ -624,16 +652,26 @@ function VideoDetail() {
                 </div>
                 <h3 className="text-3xl font-bold mb-4">{sentimentPercentages?.negative ?? 0}%</h3>
                 {negativeCommentHighlights.length > 0 ? (
-                  <ul className="space-y-3 text-white/80 text-sm">
-                    {negativeCommentHighlights.map((comment) => (
-                      <li key={comment.id} className="flex items-start gap-2">
-                        <span className="w-2 h-2 rounded-full bg-white/80 mt-2 flex-shrink-0" />
-                        <p className="text-white/80 text-sm leading-relaxed whitespace-pre-wrap break-words max-h-32 overflow-y-auto pr-1">
-                          {comment.text}
-                        </p>
-                      </li>
-                    ))}
-                  </ul>
+                  <>
+                    <ul className="space-y-3 text-white/80 text-sm">
+                      {displayedNegativeComments.map((comment) => (
+                        <li key={comment.id} className="flex items-start gap-2">
+                          <span className="w-2 h-2 rounded-full bg-white/80 mt-2 flex-shrink-0" />
+                          <p className="text-white/80 text-sm leading-relaxed whitespace-pre-wrap break-words">
+                            {comment.text}
+                          </p>
+                        </li>
+                      ))}
+                    </ul>
+                    {negativeCommentHighlights.length > 2 && (
+                      <button
+                        onClick={() => setShowAllNegativeComments(!showAllNegativeComments)}
+                        className="text-blue-400 hover:text-blue-300 text-xs font-medium mt-3 transition-colors"
+                      >
+                        {showAllNegativeComments ? '간략히' : `더보기 (${negativeCommentHighlights.length - 2}개 더)`}
+                      </button>
+                    )}
+                  </>
                 ) : (
                   <p className="text-white/50 text-sm">부정적인 반응이 부족합니다.</p>
                 )}
