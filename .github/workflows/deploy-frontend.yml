@@ -17,7 +17,7 @@ env:
   REGION: asia-northeast3
   DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
   DOCKER_IMAGE: docker.io/${{ secrets.DOCKER_USERNAME }}/youtube-frontend
-  VITE_API_URL: https://yt-backend-480607763463.asia-northeast3.run.app/api
+  VITE_API_URL: https://yt-backend-198410875006.asia-northeast3.run.app/api
 
 jobs:
   build-and-deploy:

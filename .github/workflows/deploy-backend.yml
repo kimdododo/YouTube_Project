@@ -34,7 +34,7 @@ env:
   LLM_MODEL: gpt-4o-mini
   LLM_TEMPERATURE: "0.7"
   LLM_MAX_TOKENS: "160"
-  BENTO_BASE_URL: https://simcse-server-480607763463.asia-northeast3.run.app
+  BENTO_BASE_URL: https://simcse-server-198410875006.asia-northeast3.run.app
 jobs:
   build-and-deploy:
     name: Build, Push to Docker Hub, and Deploy
