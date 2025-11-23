@@ -1,7 +1,7 @@
 #!/bin/bash
 # Cloud Run 로그 빠른 확인 스크립트
 
-PROJECT_ID="swift-hangar-477802-t3"
+PROJECT_ID="poised-journey-479005-f5"
 SERVICE_NAME="yt-backend"
 REGION="asia-northeast3"
 

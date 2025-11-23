@@ -19,10 +19,10 @@ env:
   DB_NAME: yt
   DB_USER: yt
   DB_PORT: "3306"
-  DB_HOST: /cloudsql/swift-hangar-477802-t3:asia-northeast3:youtube
-  CLOUD_SQL_INSTANCE: swift-hangar-477802-t3:asia-northeast3:youtube
+  DB_HOST: /cloudsql/poised-journey-479005-f5:asia-northeast3:youtube
+  CLOUD_SQL_INSTANCE: poised-journey-479005-f5:asia-northeast3:youtube
   USE_CLOUD_SQL_CONNECTOR: "true"
-  REDIS_URL: redis://10.27.151.3:6379/0
+  REDIS_URL: redis://10.91.115.179:6379/0
   SMTP_HOST: smtp.gmail.com
   SMTP_PORT: "587"
   SMTP_USERNAME: hyunggn68@gmail.com
@@ -259,8 +259,11 @@ jobs:
           # 첫 배포인 경우 서비스 생성, 이후에는 업데이트
           if [ "$SERVICE_EXISTS" = "false" ]; then
             echo "Creating new Cloud Run service..."
+            # latest 태그도 시도 (SHA 태그가 실패할 경우 대비)
+            IMAGE_URL_LATEST="docker.io/${{ secrets.DOCKER_USERNAME }}/youtube-backend:latest"
+            echo "Trying with latest tag: $IMAGE_URL_LATEST"
             gcloud run deploy ${{ env.SERVICE_NAME }} \
-              --image "$IMAGE_URL" \
+              --image "$IMAGE_URL_LATEST" \
               --region ${{ env.REGION }} \
               --project ${{ env.PROJECT_ID }} \
               --platform managed \
@@ -289,8 +292,10 @@ jobs:
               --quiet || echo "⚠️ Cloud SQL instance may already be connected"
             
             # 서비스 업데이트
+            # latest 태그 사용 (SHA 태그가 실패할 경우 대비)
+            IMAGE_URL_LATEST="docker.io/${{ secrets.DOCKER_USERNAME }}/youtube-backend:latest"
             gcloud run deploy ${{ env.SERVICE_NAME }} \
-              --image "$IMAGE_URL" \
+              --image "$IMAGE_URL_LATEST" \
               --region ${{ env.REGION }} \
               --project ${{ env.PROJECT_ID }} \
               --platform managed \

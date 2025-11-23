@@ -12,10 +12,10 @@ DB_PASSWORD = os.getenv('DB_PASSWORD')
 if not DB_PASSWORD:
     print("❌ DB_PASSWORD 환경 변수가 설정되지 않았습니다.")
     print("다음 명령어로 설정하세요:")
-    print("  export DB_PASSWORD=$(gcloud secrets versions access latest --secret=db-password --project=swift-hangar-477802-t3)")
+    print("  export DB_PASSWORD=$(gcloud secrets versions access latest --secret=db-password --project=poised-journey-479005-f5)")
     exit(1)
 
-INSTANCE_CONNECTION_NAME = 'swift-hangar-477802-t3:asia-northeast3:youtube'
+INSTANCE_CONNECTION_NAME = 'poised-journey-479005-f5:asia-northeast3:youtube'
 DB_USER = 'yt'
 DB_NAME = 'yt'
 

@@ -1,7 +1,7 @@
 #!/bin/bash
 # Cloud Shell에서 실행할 간단한 스크립트
 
-PROJECT_ID="swift-hangar-477802-t3"
+PROJECT_ID="poised-journey-479005-f5"
 
 echo "=========================================="
 echo "Alembic Version 수정 (간단 버전)"

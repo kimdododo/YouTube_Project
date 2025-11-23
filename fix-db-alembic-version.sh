@@ -1,7 +1,7 @@
 #!/bin/bash
 # Cloud Shell에서 실행할 스크립트: 데이터베이스의 잘못된 alembic revision 제거
 
-PROJECT_ID="swift-hangar-477802-t3"
+PROJECT_ID="poised-journey-479005-f5"
 INSTANCE_NAME="youtube"
 DB_NAME="yt"
 DB_USER="yt"
@@ -18,7 +18,7 @@ echo ""
 # gcloud sql connect 사용
 echo "다음 명령어를 Cloud Shell에서 실행하세요:"
 echo ""
-echo "gcloud sql connect youtube --user=yt --database=yt --project=swift-hangar-477802-t3"
+echo "gcloud sql connect youtube --user=yt --database=yt --project=poised-journey-479005-f5"
 echo ""
 echo "MySQL 프롬프트에서 다음 SQL을 실행:"
 echo ""
@@ -36,7 +36,7 @@ import pymysql
 import os
 
 connector = Connector()
-instance_connection_name = 'swift-hangar-477802-t3:asia-northeast3:youtube'
+instance_connection_name = 'poised-journey-479005-f5:asia-northeast3:youtube'
 
 def getconn():
     conn = connector.connect(

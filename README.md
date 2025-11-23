@@ -25,7 +25,7 @@
                │ Unix Socket
 ┌──────────────▼──────────────────┐
 │   Cloud SQL (MySQL)             │
-│   eastern-gravity-473301-n8:... │
+│   poised-journey-479005-f5:... │
 └─────────────────────────────────┘
 ```
 
@@ -40,7 +40,7 @@
 
 - **백엔드 URL**: https://yt-backend-678086020431.asia-northeast3.run.app
 - **프런트엔드 URL**: https://yt-frontend-hqgyuzrwxq-du.a.run.app
-- **데이터베이스**: Cloud SQL (MySQL) - `eastern-gravity-473301-n8:us-central1:kimdohyun`
+- **데이터베이스**: Cloud SQL (MySQL) - `poised-journey-479005-f5:asia-northeast3:youtube`
 
 ### 주요 기능
 

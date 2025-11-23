@@ -410,7 +410,7 @@ class BigQueryWriter:
             project_id: GCP 프로젝트 ID
             dataset_id: BigQuery 데이터셋 ID
         """
-        self.project_id = project_id or os.environ.get('PROJECT_ID', 'eastern-gravity-473301-n8')
+        self.project_id = project_id or os.environ.get('PROJECT_ID', 'poised-journey-479005-f5')
         self.dataset_id = dataset_id
         
         # 인증 확인

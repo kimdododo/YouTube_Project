@@ -15,8 +15,8 @@ env:
   REGION: asia-northeast3
   SERVICE_NAME: simcse-server
   DOCKER_IMAGE: docker.io/${{ secrets.DOCKER_USERNAME }}/simcse-serve-bento
-  EMBED_MODEL_DIR: gs://yt-model-server/simcse
-  SENTIMENT_MODEL_DIR: gs://yt-model-server/sentiment
+  EMBED_MODEL_DIR: gs://yt-model-server2/simcse
+  SENTIMENT_MODEL_DIR: gs://yt-model-server2/sentiment
 
 jobs:
   build-and-deploy:

@@ -587,9 +587,9 @@ def load_to_bigquery(**context):
     
     # 프로젝트 ID 가져오기 (환경변수 또는 Airflow Variable)
     try:
-        project_id = Variable.get("PROJECT_ID", default_var="eastern-gravity-473301-n8")
+        project_id = Variable.get("PROJECT_ID", default_var="poised-journey-479005-f5")
     except:
-        project_id = os.environ.get('PROJECT_ID', 'eastern-gravity-473301-n8')
+        project_id = os.environ.get('PROJECT_ID', 'poised-journey-479005-f5')
     
     try:
         dataset_id = Variable.get("BIGQUERY_DATASET_ID", default_var="youtube_data")

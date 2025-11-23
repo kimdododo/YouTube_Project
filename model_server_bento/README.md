@@ -67,7 +67,7 @@ gcloud run deploy simcse-server \
   --port 8080 \
   --memory 2Gi \
   --cpu 2 \
-  --service-account=github-actions@swift-hangar-477802-t3.iam.gserviceaccount.com
+  --service-account=github-actions@poised-journey-479005-f5.iam.gserviceaccount.com
 ```
 
 필요 시 `MODEL_PATH`, `TOKENIZER_PATH`, `MAX_SEQ_LENGTH` 등의 환경변수를 Cloud Run에
@@ -88,18 +88,18 @@ gcloud run deploy simcse-server \
 
 ## 모델 자산을 GCS에서 로드하기
 
-모델 파일은 로컬 Git에 포함하지 않고 Cloud Storage 버킷(예: `gs://yt-model-server/bento-models/`)에서 내려받아 사용합니다.
+모델 파일은 로컬 Git에 포함하지 않고 Cloud Storage 버킷(`gs://yt-model-server2/`)에서 내려받아 사용합니다.
 
 1. 버킷 업로드 예시
    ```bash
-   gsutil cp -r models/simcse gs://yt-model-server/bento-models/simcse
-   gsutil cp -r models/sentiment gs://yt-model-server/bento-models/sentiment
+   gsutil cp -r models/simcse gs://yt-model-server2/simcse
+   gsutil cp -r models/sentiment gs://yt-model-server2/sentiment
    ```
 
 2. 빌드/배포 환경 변수
-   - `EMBED_MODEL_DIR=gs://yt-model-server/bento-models/simcse`
-   - `SENTIMENT_MODEL_DIR=gs://yt-model-server/bento-models/sentiment`
-   - `ASPECT_MODEL_DIR=gs://yt-model-server/bento-models/aspect` (필요 시)
+   - `EMBED_MODEL_DIR=gs://yt-model-server2/simcse`
+   - `SENTIMENT_MODEL_DIR=gs://yt-model-server2/sentiment`
+   - `ASPECT_MODEL_DIR=gs://yt-model-server2/aspect` (필요 시)
 
 3. GitHub Actions 워크플로와 Cloud Run 배포 명령 모두 이 환경 변수를 사용하도록 구성되어 있으며, `service.py`는 GCS 경로를 감지해 `/tmp/bento_model_cache`에 자동 캐시합니다.
 
