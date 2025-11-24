@@ -3,32 +3,36 @@ Video API 라우터
 비디오 관련 REST API 엔드포인트
 """
 import logging
+import time
 import traceback
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import Dict, List, Optional
+
+from app.clients.bento import analyze_video_detail_for_bento
 from app.core.database import get_db
-from app.schemas.video import (
-    VideoCreate,
-    VideoResponse,
-    VideoListResponse,
-    VideoDetailResponse,
-    VideoAnalysis,
-)
-from app.schemas.recommendation import UserPreferenceRequest, RecommendationResponse
 from app.crud import video as crud_video
-from app.recommendations import ContentBasedRecommender
 from app.models.channel import Channel
+from app.recommendations import ContentBasedRecommender
+from app.schemas.recommendation import RecommendationResponse, UserPreferenceRequest
+from app.schemas.video import (
+    VideoAnalysis,
+    VideoCreate,
+    VideoDetailResponse,
+    VideoListResponse,
+    VideoResponse,
+)
 # ML API 서버 제거됨 - 재랭킹 기능 비활성화
 from app.services.comment_summary import generate_comment_summary
 from app.services.comment_summary_llm import generate_comment_three_line_summary
 from app.services.sentiment_summary import summarize_sentiment
-from app.clients.bento import analyze_video_detail_for_bento
 
 router = APIRouter(prefix="/api/videos", tags=["videos"])
 logger = logging.getLogger(__name__)
+detail_profiler = logging.getLogger("video_detail_profiler")
+detail_profiler.setLevel(logging.INFO)
 
 
 def _build_channel_name_map(db: Session, videos: List[object]) -> Dict[str, Optional[str]]:
@@ -515,14 +519,21 @@ def get_most_liked_videos(
 async def get_video(video_id: str, db: Session = Depends(get_db)):
     """특정 비디오 조회 + Bento 분석 결과"""
     try:
+        overall_start = time.perf_counter()
+        summary_elapsed = 0.0
+        bento_elapsed = 0.0
+
+        db_start = time.perf_counter()
         db_video = crud_video.get_video(db, video_id=video_id)
         if db_video is None:
             raise HTTPException(status_code=404, detail="Video not found")
-
+        db_elapsed = (time.perf_counter() - db_start) * 1000
+        comments_start = time.perf_counter()
         video_payload = VideoResponse.model_validate(db_video)
         analysis_payload: Optional[VideoAnalysis] = None
 
         comments = crud_video.get_comment_payloads_for_video(db, video_id=video_id, limit=150)
+        comments_elapsed = (time.perf_counter() - comments_start) * 1000
         logger.info("[VideoDetail] Retrieved %d comments for video %s", len(comments) if comments else 0, video_id)
         summary_lines: List[str] = []
 
@@ -537,18 +548,22 @@ async def get_video(video_id: str, db: Session = Depends(get_db)):
             comment_texts = [c.get("text", "") for c in comments if c.get("text")]
             if comment_texts:
                 try:
+                    summary_start = time.perf_counter()
                     summary_lines = generate_comment_three_line_summary(comment_texts)
+                    summary_elapsed = (time.perf_counter() - summary_start) * 1000
                 except Exception as exc:
                     logger.warning("[VideoDetail] Comment summary generation failed: %s", exc)
 
             try:
                 logger.info("[VideoDetail] Calling BentoML for video %s with %d comments", video_id, len(comments))
+                bento_start = time.perf_counter()
                 bento_result = await analyze_video_detail_for_bento(
                     video_id=video_id,
                     title=db_video.title or "",
                     description=db_video.description or "",
                     comments=comments,
                 )
+                bento_elapsed = (time.perf_counter() - bento_start) * 1000
                 if summary_lines:
                     bento_result["summary_lines"] = summary_lines
                 logger.info("[VideoDetail] BentoML response received: %s", list(bento_result.keys()) if isinstance(bento_result, dict) else "not a dict")
@@ -579,6 +594,16 @@ async def get_video(video_id: str, db: Session = Depends(get_db)):
         else:
             logger.info("[VideoDetail] No comments found for video %s", video_id)
 
+        total_elapsed = (time.perf_counter() - overall_start) * 1000
+        detail_profiler.info(
+            "[VideoDetailProfile] video_id=%s db=%.2fms comments=%.2fms summary=%.2fms bento=%.2fms total=%.2fms",
+            video_id,
+            db_elapsed,
+            comments_elapsed,
+            summary_elapsed,
+            bento_elapsed,
+            total_elapsed,
+        )
         return VideoDetailResponse(video=video_payload, analysis=analysis_payload)
     except HTTPException:
         raise

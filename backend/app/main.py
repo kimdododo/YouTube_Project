@@ -1,18 +1,19 @@
 """
 FastAPI 메인 애플리케이션
 """
-from fastapi import FastAPI, HTTPException, Query
+import logging
+import time
+
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.routes import video, channel
-from app.api.routes import recommend, auth, search, summary
-from app.api.routes import redis_test, personalized, videos_static
-from app.api.routes import personalized_recommendations
-from app.core.errors import attach_error_handlers
-from app.core.database import get_db
-from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from typing import Optional
 from sqlalchemy import text
+from typing import Optional
+
+from app.api.routes import auth, channel, personalized, personalized_recommendations
+from app.api.routes import recommend, redis_test, search, summary, video, videos_static
+from app.core.database import get_db
+from app.core.errors import attach_error_handlers
 
 # FastAPI 앱 생성
 app = FastAPI(
@@ -75,6 +76,29 @@ app.include_router(redis_test.router)
 app.include_router(personalized.router)  # /personalized/{user_id}/{video_id}
 app.include_router(videos_static.router)  # /videos/{video_id}/static
 app.include_router(personalized_recommendations.router)  # /api/recommendations/personalized
+
+# 요청별 전체 소요 시간을 기록하는 미들웨어
+request_logger = logging.getLogger("request_profiler")
+request_logger.setLevel(logging.INFO)
+
+
+@app.middleware("http")
+async def log_request_duration(request, call_next):
+    start = time.perf_counter()
+    response = await call_next(request)
+    duration_ms = (time.perf_counter() - start) * 1000
+    try:
+        status_code = response.status_code
+    except AttributeError:
+        status_code = "unknown"
+    request_logger.info(
+        "[Request] %s %s status=%s duration=%.2fms",
+        request.method,
+        request.url.path,
+        status_code,
+        duration_ms,
+    )
+    return response
 
 
 @app.get("/")
