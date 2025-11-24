@@ -12,10 +12,102 @@ import { fetchVideoDetail as fetchVideoDetailApi } from '../api/videos'
 const API_BASE_URL = import.meta.env?.VITE_API_URL || '/api'
 const SIMILAR_LIMIT = 12
 const SECONDARY_FETCH_DELAY = 250
+const TRANSPARENT_PIXEL = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=='
+const DETAIL_CACHE_TTL_MS = 1000 * 60 * 5
+const SIMILAR_CACHE_TTL_MS = 1000 * 60 * 2
+const SUMMARY_CACHE_TTL_MS = 1000 * 60 * 10
+
+const detailCache = new Map()
+const similarCache = new Map()
+const summaryCache = new Map()
+
+const getCachedValue = (cache, key) => {
+  const entry = cache.get(key)
+  if (!entry) return null
+  if (Date.now() > entry.expiresAt) {
+    cache.delete(key)
+    return null
+  }
+  return entry.value
+}
+
+const setCachedValue = (cache, key, value, ttl) => {
+  cache.set(key, {
+    value,
+    expiresAt: Date.now() + ttl,
+  })
+}
+
+const sanitizeAnalysisPayload = (analysis) => {
+  if (!analysis || typeof analysis !== 'object') {
+    return null
+  }
+  try {
+    const { model, ...rest } = analysis
+    if (rest.top_comments && !Array.isArray(rest.top_comments)) {
+      rest.top_comments = []
+    }
+    if (rest.top_keywords && !Array.isArray(rest.top_keywords)) {
+      rest.top_keywords = []
+    }
+    if (rest.sentiment_ratio && typeof rest.sentiment_ratio !== 'object') {
+      rest.sentiment_ratio = null
+    }
+    if (rest.summary_lines && !Array.isArray(rest.summary_lines)) {
+      rest.summary_lines = []
+    }
+    return rest
+  } catch (error) {
+    console.warn('[VideoDetail] Failed to sanitize analysis payload:', error)
+    return null
+  }
+}
 
 const SkeletonBox = ({ className = '' }) => (
   <div className={`animate-pulse bg-[#1f243d]/80 rounded-lg ${className}`} />
 )
+
+const LazyImage = ({ src, alt, className = '', ...rest }) => {
+  const [shouldLoad, setShouldLoad] = useState(false)
+  const imgRef = useRef(null)
+
+  useEffect(() => {
+    setShouldLoad(false)
+  }, [src])
+
+  useEffect(() => {
+    if (shouldLoad) return
+    const node = imgRef.current
+    if (!node) return
+    if (typeof window === 'undefined' || !('IntersectionObserver' in window)) {
+      setShouldLoad(true)
+      return
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setShouldLoad(true)
+            observer.disconnect()
+          }
+        })
+      },
+      { rootMargin: '200px 0px' }
+    )
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [shouldLoad, src])
+
+  return (
+    <img
+      ref={imgRef}
+      src={shouldLoad ? src : TRANSPARENT_PIXEL}
+      alt={alt}
+      className={className}
+      {...rest}
+    />
+  )
+}
 
 function VideoDetail() {
   const { videoId } = useParams()
@@ -97,18 +189,32 @@ function VideoDetail() {
 
   // fetch 함수들을 useEffect 내부로 이동하여 TDZ 방지
 
-  const fetchAiSummary = useCallback(async (targetVideoId) => {
+  const fetchAiSummary = useCallback(async (targetVideoId, options = {}) => {
     if (!targetVideoId) return
+    const { force = false } = options
+    const cachedSummary = force ? null : getCachedValue(summaryCache, targetVideoId)
+
+    if (cachedSummary) {
+      setAiSummary(cachedSummary)
+      setAiSummaryError('')
+      setIsLoadingSummary(false)
+      return
+    }
+
     setIsLoadingSummary(true)
     setAiSummaryError('')
-    setAiSummary('')
+    if (!cachedSummary) {
+      setAiSummary('')
+    }
     try {
       const response = await fetch(`${API_BASE_URL}/videos/${targetVideoId}/summary/one-line`)
       if (!response.ok) {
         throw new Error('AI 요약을 불러올 수 없습니다.')
       }
       const data = await response.json()
-      setAiSummary(data.summary || '')
+      const summaryText = data.summary || ''
+      setAiSummary(summaryText)
+      setCachedValue(summaryCache, targetVideoId, summaryText, SUMMARY_CACHE_TTL_MS)
     } catch (err) {
       console.warn('[VideoDetail] Failed to fetch AI summary:', err)
       setAiSummaryError('AI 요약을 불러오지 못했습니다.')
@@ -120,83 +226,70 @@ function VideoDetail() {
   useEffect(() => {
     if (!videoId) return
     
-    // 안전한 함수 호출을 위한 래퍼
     let isMounted = true
+
+    const cachedDetail = getCachedValue(detailCache, videoId)
+    if (cachedDetail && cachedDetail.video) {
+      setVideo(cachedDetail.video)
+      setAnalysis(cachedDetail.analysis ?? null)
+      setLoading(false)
+    } else {
+      setLoading(true)
+    }
+
+    const cachedSimilar = getCachedValue(similarCache, videoId)
+    if (cachedSimilar) {
+      setSimilarVideos(cachedSimilar)
+    }
     
-    // fetchVideoDetail 함수를 useEffect 내부에서 정의 (TDZ 방지)
     const fetchVideoDetail = async () => {
       try {
-        setLoading(true)
         setError(null)
         const detail = await fetchVideoDetailApi(videoId)
         if (!detail.video) {
           throw new Error('비디오를 찾을 수 없습니다.')
         }
         
-        // LCP 최적화: 비디오 정보를 먼저 표시 (analysis는 나중에)
-        setVideo(detail.video)
-        setLoading(false) // 비디오 정보가 있으면 즉시 로딩 해제
+        if (isMounted) {
+          setVideo(detail.video)
+          setLoading(false)
+        }
         
-        // 메인 썸네일 이미지 preload (LCP 요소)
-        if (detail.video.thumbnail_url) {
+        if (detail.video?.thumbnail_url) {
           const img = new Image()
           const optimizedUrl = optimizeThumbnailUrl(detail.video.thumbnail_url, detail.video.id, detail.video.is_shorts || false)
           img.src = optimizedUrl
         }
-        
-        // Analysis는 별도로 비동기 처리 (블로킹하지 않음)
+
+        const sanitizedAnalysis = sanitizeAnalysisPayload(detail.analysis)
         startTransition(() => {
-          try {
-            if (detail.analysis && typeof detail.analysis === 'object') {
-              // 안전하게 model 필드 제거
-              const { model, ...rest } = detail.analysis
-              // sentiment_ratio 안전성 검사
-              if (rest.sentiment_ratio && typeof rest.sentiment_ratio === 'object') {
-                // top_comments가 배열인지 확인
-                if (rest.top_comments && !Array.isArray(rest.top_comments)) {
-                  rest.top_comments = []
-                }
-                // top_keywords가 배열인지 확인
-                if (rest.top_keywords && !Array.isArray(rest.top_keywords)) {
-                  rest.top_keywords = []
-                }
-              }
-              setAnalysis(rest)
-            } else {
-              setAnalysis(null)
-            }
-          } catch (e) {
-            console.warn('[VideoDetail] Error sanitizing analysis:', e)
-            setAnalysis(null)
-          }
+          if (!isMounted) return
+          setAnalysis(sanitizedAnalysis)
         })
+        setCachedValue(
+          detailCache,
+          videoId,
+          {
+            video: detail.video,
+            analysis: sanitizedAnalysis,
+          },
+          DETAIL_CACHE_TTL_MS
+        )
         
-        // 디버깅: analysis 데이터 확인 (비동기로 처리)
         if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
           if (detail.analysis) {
             window.requestIdleCallback(() => {
               console.log('[VideoDetail] Analysis data:', detail.analysis)
-              console.log('[VideoDetail] Sentiment ratio:', detail.analysis.sentiment_ratio)
-              console.log('[VideoDetail] Top keywords:', detail.analysis.top_keywords)
-              console.log('[VideoDetail] Top comments:', detail.analysis.top_comments)
-              if (detail.analysis.top_comments) {
-                console.log('[VideoDetail] Top comments count:', detail.analysis.top_comments.length)
-                console.log('[VideoDetail] Top comments labels:', detail.analysis.top_comments.map(c => ({ label: c.label, text_preview: c.text?.substring(0, 30) })))
-              }
             }, { timeout: 100 })
           } else {
             console.warn('[VideoDetail] No analysis data received')
           }
+        } else if (detail.analysis) {
+          console.log('[VideoDetail] Analysis data:', detail.analysis)
         } else {
-          // requestIdleCallback이 없으면 즉시 실행
-          if (detail.analysis) {
-            console.log('[VideoDetail] Analysis data:', detail.analysis)
-          } else {
-            console.warn('[VideoDetail] No analysis data received')
-          }
+          console.warn('[VideoDetail] No analysis data received')
         }
         
-        // 시청 기록에 추가 (비동기로 처리)
         if (detail.video && detail.video.id) {
           const videoForHistory = {
             ...detail.video,
@@ -204,21 +297,18 @@ function VideoDetail() {
             category: detail.video.keyword || detail.video.region || '기타'
           }
           
-          if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-            window.requestIdleCallback(() => {
-              try {
-                addToWatchHistory(videoForHistory)
-              } catch (e) {
-                console.warn('[VideoDetail] Error adding to watch history:', e)
-              }
-            }, { timeout: 500 })
-          } else {
-            // requestIdleCallback이 없으면 즉시 실행
+          const addHistoryTask = () => {
             try {
               addToWatchHistory(videoForHistory)
             } catch (e) {
               console.warn('[VideoDetail] Error adding to watch history:', e)
             }
+          }
+          
+          if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+            window.requestIdleCallback(addHistoryTask, { timeout: 500 })
+          } else {
+            addHistoryTask()
           }
         }
       } catch (err) {
@@ -237,7 +327,9 @@ function VideoDetail() {
         if (response.ok) {
           const result = await response.json()
           const videos = result.videos || result
+          setCachedValue(similarCache, videoId, videos, SIMILAR_CACHE_TTL_MS)
           startTransition(() => {
+            if (!isMounted) return
             setSimilarVideos(videos)
           })
         }
@@ -248,23 +340,33 @@ function VideoDetail() {
       }
     }
     
-    // 함수들을 병렬로 실행
-    Promise.all([
-      fetchVideoDetail().catch(err => {
+    const pendingTasks = []
+    if (!cachedDetail) {
+      pendingTasks.push(
+        fetchVideoDetail().catch(err => {
+          if (isMounted) {
+            console.error('[VideoDetail] Error in fetchVideoDetail:', err)
+          }
+        })
+      )
+    }
+    if (!cachedSimilar) {
+      pendingTasks.push(
+        fetchSimilarVideos().catch(err => {
+          if (isMounted) {
+            console.error('[VideoDetail] Error in fetchSimilarVideos:', err)
+          }
+        })
+      )
+    }
+
+    if (pendingTasks.length) {
+      Promise.all(pendingTasks).catch(err => {
         if (isMounted) {
-          console.error('[VideoDetail] Error in fetchVideoDetail:', err)
-        }
-      }),
-      fetchSimilarVideos().catch(err => {
-        if (isMounted) {
-          console.error('[VideoDetail] Error in fetchSimilarVideos:', err)
+          console.error('[VideoDetail] Error in parallel fetches:', err)
         }
       })
-    ]).catch(err => {
-      if (isMounted) {
-        console.error('[VideoDetail] Error in parallel fetches:', err)
-      }
-    })
+    }
     
     setShowFullDescription(false)
     
@@ -772,7 +874,7 @@ function VideoDetail() {
                 <div className="text-blue-400 font-semibold">AI 한줄평</div>
                 <button
                   onClick={() => {
-                    fetchAiSummary(videoId)
+                    fetchAiSummary(videoId, { force: true })
                     // INP 최적화: trackEvent를 비동기로 처리
                     if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
                       window.requestIdleCallback(() => {
@@ -950,7 +1052,7 @@ function VideoDetail() {
                           {/* 썸네일 */}
                           <div className="relative overflow-hidden flex-shrink-0" style={{ aspectRatio: '16/9' }}>
                             {thumbnailUrl ? (
-                              <img
+                              <LazyImage
                                 src={thumbnailUrl}
                                 loading="lazy"
                                 decoding="async"
