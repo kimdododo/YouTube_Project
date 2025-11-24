@@ -2,16 +2,20 @@
 Video API 라우터
 비디오 관련 REST API 엔드포인트
 """
+import asyncio
 import logging
+import os
 import time
 import traceback
+from typing import Dict, List, Optional
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
-from typing import Dict, List, Optional
 
 from app.clients.bento import analyze_video_detail_for_bento
+from app.core.cache import Cache
 from app.core.database import get_db
 from app.crud import video as crud_video
 from app.models.channel import Channel
@@ -33,6 +37,44 @@ router = APIRouter(prefix="/api/videos", tags=["videos"])
 logger = logging.getLogger(__name__)
 detail_profiler = logging.getLogger("video_detail_profiler")
 detail_profiler.setLevel(logging.INFO)
+
+VIDEO_DETAIL_CACHE_TTL_SEC = int(os.getenv("VIDEO_DETAIL_CACHE_TTL_SEC", "900"))
+_CACHE_NAMESPACE = "video-detail"
+
+try:
+    _detail_cache: Optional[Cache] = Cache()
+except Exception as cache_error:
+    logging.getLogger(__name__).warning("[VideoDetail] Cache initialization failed: %s", cache_error)
+    _detail_cache = None
+
+
+def _cache_key(video_id: str) -> str:
+    return f"{_CACHE_NAMESPACE}:{video_id}"
+
+
+def _get_cached_analysis(video_id: str) -> Optional[dict]:
+    if not _detail_cache:
+        return None
+    try:
+        return _detail_cache.get_json(_cache_key(video_id))
+    except Exception as exc:
+        logger.warning("[VideoDetail] Failed to read cache for %s: %s", video_id, exc)
+        return None
+
+
+def _set_cached_analysis(video_id: str, payload: dict) -> None:
+    if not _detail_cache or not payload:
+        return
+    try:
+        _detail_cache.set_json(_cache_key(video_id), payload, ttl_sec=VIDEO_DETAIL_CACHE_TTL_SEC)
+        logger.info("[VideoDetail] Cached analysis for %s (ttl=%ss)", video_id, VIDEO_DETAIL_CACHE_TTL_SEC)
+    except Exception as exc:
+        logger.warning("[VideoDetail] Failed to cache analysis for %s: %s", video_id, exc)
+
+
+async def _generate_comment_summary_async(comment_texts: List[str]) -> List[str]:
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(None, generate_comment_three_line_summary, comment_texts)
 
 
 def _build_channel_name_map(db: Session, videos: List[object]) -> Dict[str, Optional[str]]:
@@ -516,88 +558,151 @@ def get_most_liked_videos(
 
 # 동적 경로는 정적 경로 다음에 정의
 @router.get("/{video_id}", response_model=VideoDetailResponse)
-async def get_video(video_id: str, db: Session = Depends(get_db)):
+async def get_video(
+    video_id: str,
+    force_refresh: bool = Query(False, description="캐시된 분석 결과를 무시하고 새로 계산"),
+    db: Session = Depends(get_db),
+):
     """특정 비디오 조회 + Bento 분석 결과"""
     try:
         overall_start = time.perf_counter()
         summary_elapsed = 0.0
         bento_elapsed = 0.0
+        comments_elapsed = 0.0
+        cache_hit = False
 
         db_start = time.perf_counter()
         db_video = crud_video.get_video(db, video_id=video_id)
         if db_video is None:
             raise HTTPException(status_code=404, detail="Video not found")
         db_elapsed = (time.perf_counter() - db_start) * 1000
-        comments_start = time.perf_counter()
+
         video_payload = VideoResponse.model_validate(db_video)
         analysis_payload: Optional[VideoAnalysis] = None
 
+        if not force_refresh:
+            cached_data = _get_cached_analysis(video_id)
+            if cached_data:
+                try:
+                    analysis_payload = VideoAnalysis.model_validate(cached_data)
+                    cache_hit = True
+                except ValidationError as exc:
+                    logger.warning("[VideoDetail] Cached data invalid for %s: %s", video_id, exc)
+
+        if cache_hit:
+            total_elapsed = (time.perf_counter() - overall_start) * 1000
+            detail_profiler.info(
+                "[VideoDetailProfile] video_id=%s cache_hit=%s db=%.2fms comments=0.00ms summary=0.00ms bento=0.00ms total=%.2fms",
+                video_id,
+                cache_hit,
+                db_elapsed,
+                total_elapsed,
+            )
+            return VideoDetailResponse(video=video_payload, analysis=analysis_payload)
+
+        comments_start = time.perf_counter()
         comments = crud_video.get_comment_payloads_for_video(db, video_id=video_id, limit=150)
         comments_elapsed = (time.perf_counter() - comments_start) * 1000
         logger.info("[VideoDetail] Retrieved %d comments for video %s", len(comments) if comments else 0, video_id)
         summary_lines: List[str] = []
 
         if comments:
-            # 댓글 데이터 샘플 로깅 (처음 3개만)
             sample_comments = comments[:3]
-            logger.info("[VideoDetail] Sample comments (first 3): %s", [
-                {"comment_id": c.get("comment_id"), "text_preview": (c.get("text", "")[:50] + "...") if len(c.get("text", "")) > 50 else c.get("text", ""), "like_count": c.get("like_count")}
-                for c in sample_comments
-            ])
-            
-            comment_texts = [c.get("text", "") for c in comments if c.get("text")]
-            if comment_texts:
-                try:
-                    summary_start = time.perf_counter()
-                    summary_lines = generate_comment_three_line_summary(comment_texts)
-                    summary_elapsed = (time.perf_counter() - summary_start) * 1000
-                except Exception as exc:
-                    logger.warning("[VideoDetail] Comment summary generation failed: %s", exc)
+            logger.info(
+                "[VideoDetail] Sample comments (first 3): %s",
+                [
+                    {
+                        "comment_id": c.get("comment_id"),
+                        "text_preview": (c.get("text", "")[:50] + "...") if len(c.get("text", "")) > 50 else c.get("text", ""),
+                        "like_count": c.get("like_count"),
+                    }
+                    for c in sample_comments
+                ],
+            )
 
-            try:
-                logger.info("[VideoDetail] Calling BentoML for video %s with %d comments", video_id, len(comments))
-                bento_start = time.perf_counter()
-                bento_result = await analyze_video_detail_for_bento(
+            comment_texts = [c.get("text", "") for c in comments if c.get("text")]
+            summary_task = None
+            summary_start = 0.0
+            if comment_texts:
+                summary_start = time.perf_counter()
+                summary_task = asyncio.create_task(_generate_comment_summary_async(comment_texts))
+
+            logger.info("[VideoDetail] Calling BentoML for video %s with %d comments", video_id, len(comments))
+            bento_start = time.perf_counter()
+            bento_task = asyncio.create_task(
+                analyze_video_detail_for_bento(
                     video_id=video_id,
                     title=db_video.title or "",
                     description=db_video.description or "",
                     comments=comments,
                 )
-                bento_elapsed = (time.perf_counter() - bento_start) * 1000
+            )
+
+            if summary_task:
+                summary_result, bento_result_raw = await asyncio.gather(summary_task, bento_task, return_exceptions=True)
+                summary_elapsed = (time.perf_counter() - summary_start) * 1000
+            else:
+                summary_result = []
+                bento_result_raw = await asyncio.gather(bento_task, return_exceptions=True)
+                bento_result_raw = bento_result_raw[0]
+
+            bento_elapsed = (time.perf_counter() - bento_start) * 1000
+
+            if isinstance(summary_result, Exception):
+                logger.warning("[VideoDetail] Comment summary generation failed: %s", summary_result)
+                summary_lines = []
+            else:
+                summary_lines = summary_result or []
+
+            if isinstance(bento_result_raw, Exception):
+                if isinstance(bento_result_raw, httpx.HTTPStatusError):
+                    logger.error(
+                        "[VideoDetail] BentoML HTTP error for %s: status=%s, body=%s",
+                        video_id,
+                        bento_result_raw.response.status_code,
+                        bento_result_raw.response.text[:500] if bento_result_raw.response.text else "no body",
+                    )
+                else:
+                    error_trace = traceback.format_exc()
+                    logger.error(
+                        "[VideoDetail] Bento analysis failed for %s: %s\n%s",
+                        video_id,
+                        str(bento_result_raw),
+                        error_trace,
+                    )
+                analysis_payload = None
+            else:
                 if summary_lines:
-                    bento_result["summary_lines"] = summary_lines
-                logger.info("[VideoDetail] BentoML response received: %s", list(bento_result.keys()) if isinstance(bento_result, dict) else "not a dict")
-                logger.info("[VideoDetail] BentoML sentiment_ratio: %s", bento_result.get("sentiment_ratio") if isinstance(bento_result, dict) else "N/A")
-                logger.info("[VideoDetail] BentoML top_comments count: %d", len(bento_result.get("top_comments", [])) if isinstance(bento_result, dict) else 0)
-                logger.info("[VideoDetail] BentoML top_keywords count: %d", len(bento_result.get("top_keywords", [])) if isinstance(bento_result, dict) else 0)
-                analysis_payload = VideoAnalysis.model_validate(bento_result)
+                    bento_result_raw["summary_lines"] = summary_lines
+                logger.info(
+                    "[VideoDetail] BentoML response received: %s",
+                    list(bento_result_raw.keys()) if isinstance(bento_result_raw, dict) else "not a dict",
+                )
+                logger.info(
+                    "[VideoDetail] BentoML sentiment_ratio: %s",
+                    bento_result_raw.get("sentiment_ratio") if isinstance(bento_result_raw, dict) else "N/A",
+                )
+                logger.info(
+                    "[VideoDetail] BentoML top_comments count: %d",
+                    len(bento_result_raw.get("top_comments", [])) if isinstance(bento_result_raw, dict) else 0,
+                )
+                logger.info(
+                    "[VideoDetail] BentoML top_keywords count: %d",
+                    len(bento_result_raw.get("top_keywords", [])) if isinstance(bento_result_raw, dict) else 0,
+                )
+                analysis_payload = VideoAnalysis.model_validate(bento_result_raw)
                 logger.info("[VideoDetail] Analysis payload validated successfully")
-            except httpx.HTTPStatusError as exc:
-                logger.error(
-                    "[VideoDetail] BentoML HTTP error for %s: status=%s, body=%s",
-                    video_id,
-                    exc.response.status_code,
-                    exc.response.text[:500] if exc.response.text else "no body",
-                )
-                # BentoML 호출 실패해도 비디오 정보는 반환
-                analysis_payload = None
-            except Exception as exc:
-                error_trace = traceback.format_exc()
-                logger.error(
-                    "[VideoDetail] Bento analysis failed for %s: %s\n%s",
-                    video_id,
-                    str(exc),
-                    error_trace,
-                )
-                # BentoML 호출 실패해도 비디오 정보는 반환
-                analysis_payload = None
         else:
             logger.info("[VideoDetail] No comments found for video %s", video_id)
 
+        if analysis_payload:
+            _set_cached_analysis(video_id, analysis_payload.model_dump())
+
         total_elapsed = (time.perf_counter() - overall_start) * 1000
         detail_profiler.info(
-            "[VideoDetailProfile] video_id=%s db=%.2fms comments=%.2fms summary=%.2fms bento=%.2fms total=%.2fms",
+            "[VideoDetailProfile] video_id=%s cache_hit=%s db=%.2fms comments=%.2fms summary=%.2fms bento=%.2fms total=%.2fms",
             video_id,
+            cache_hit,
             db_elapsed,
             comments_elapsed,
             summary_elapsed,
