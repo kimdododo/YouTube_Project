@@ -1,6 +1,7 @@
 """
 FastAPI 메인 애플리케이션
 """
+import asyncio
 import logging
 import time
 
@@ -12,6 +13,7 @@ from typing import Optional
 
 from app.api.routes import auth, channel, personalized, personalized_recommendations
 from app.api.routes import recommend, redis_test, search, summary, video, videos_static
+from app.clients.bento import warmup_bento
 from app.core.database import get_db
 from app.core.errors import attach_error_handlers
 
@@ -35,6 +37,11 @@ async def startup_event():
     print("[Startup] FastAPI application starting...")
     print("[Startup] Embedding service will be initialized on first request (lazy loading)")
     print("[Startup] FastAPI application ready")
+    try:
+        await warmup_bento()
+        print("[Startup] SimCSE/Bento warmup completed")
+    except Exception as exc:
+        print(f"[Startup] SimCSE/Bento warmup failed: {exc}")
 
 # CORS 설정 (React 프론트엔드에서 호출 가능하도록)
 import os

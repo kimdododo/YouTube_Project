@@ -7,7 +7,9 @@ doesn't need to worry about base URLs, timeouts, or payload formatting.
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import os
 from typing import Any, Dict, List
 
 import httpx
@@ -17,6 +19,9 @@ from app.core.config import BENTO_BASE_URL
 logger = logging.getLogger(__name__)
 
 DEFAULT_TIMEOUT = httpx.Timeout(30.0, read=30.0)
+BENTO_MAX_RETRIES = int(os.getenv("BENTO_MAX_RETRIES", "2"))
+BENTO_RETRY_BACKOFF_SECONDS = float(os.getenv("BENTO_RETRY_BACKOFF_SECONDS", "1.5"))
+BENTO_HEALTH_ENDPOINT = os.getenv("BENTO_HEALTH_ENDPOINT", "/health")
 
 
 def _get_base_url() -> str:
@@ -59,26 +64,44 @@ async def analyze_video_detail_for_bento(
 
     logger.info("[BentoClient] POST %s with %d comments", url, len(comments))
     if comments:
-        # 댓글 샘플 로깅
         sample = comments[:2]
-        logger.info("[BentoClient] Sample comments: %s", [
-            {"comment_id": c.get("comment_id"), "text_len": len(c.get("text", "")), "like_count": c.get("like_count")}
-            for c in sample
-        ])
+        logger.info(
+            "[BentoClient] Sample comments: %s",
+            [
+                {"comment_id": c.get("comment_id"), "text_len": len(c.get("text", "")), "like_count": c.get("like_count")}
+                for c in sample
+            ],
+        )
     else:
         logger.warning("[BentoClient] No comments in payload!")
 
-    async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
-        response = await client.post(url, json=payload)
+    response: httpx.Response | None = None
+    for attempt in range(1, BENTO_MAX_RETRIES + 2):
         try:
-            response.raise_for_status()
-        except httpx.HTTPStatusError as exc:
-            logger.error(
-                "[BentoClient] Bento request failed: status=%s body=%s",
-                exc.response.status_code,
-                exc.response.text[:500] if exc.response.text else "no body",
+            async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
+                response = await client.post(url, json=payload)
+                response.raise_for_status()
+            break
+        except (httpx.TimeoutException, httpx.HTTPStatusError) as exc:
+            logger.warning(
+                "[BentoClient] Attempt %s/%s failed for %s: %s",
+                attempt,
+                BENTO_MAX_RETRIES + 1,
+                video_id,
+                exc,
             )
-            raise
+            if attempt > BENTO_MAX_RETRIES:
+                if isinstance(exc, httpx.HTTPStatusError):
+                    logger.error(
+                        "[BentoClient] Bento request failed: status=%s body=%s",
+                        exc.response.status_code,
+                        exc.response.text[:500] if exc.response.text else "no body",
+                    )
+                raise
+            await asyncio.sleep(min(BENTO_RETRY_BACKOFF_SECONDS * attempt, 5))
+
+    if response is None:
+        raise RuntimeError("Bento response is None after retry loop")
 
     data = response.json()
     logger.info("[BentoClient] Response received: keys=%s, sentiment_ratio=%s, top_comments=%d, top_keywords=%d",
@@ -89,4 +112,16 @@ async def analyze_video_detail_for_bento(
     )
     return data
 
+
+async def warmup_bento() -> None:
+    """Call Bento health endpoint to warm up the model after deployment."""
+    base_url = _get_base_url()
+    health_url = f"{base_url}{BENTO_HEALTH_ENDPOINT}"
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(10.0, read=10.0)) as client:
+            response = await client.get(health_url)
+            response.raise_for_status()
+        logger.info("[BentoClient] Warmup request succeeded (%s)", health_url)
+    except Exception as exc:
+        logger.warning("[BentoClient] Warmup request failed (%s): %s", health_url, exc)
 

@@ -39,7 +39,14 @@ detail_profiler = logging.getLogger("video_detail_profiler")
 detail_profiler.setLevel(logging.INFO)
 
 VIDEO_DETAIL_CACHE_TTL_SEC = int(os.getenv("VIDEO_DETAIL_CACHE_TTL_SEC", "900"))
+VIDEO_DETAIL_RESPONSE_CACHE_TTL_SEC = int(os.getenv("VIDEO_DETAIL_RESPONSE_CACHE_TTL_SEC", "300"))
+VIDEO_TRENDS_CACHE_TTL_SEC = int(os.getenv("VIDEO_TRENDS_CACHE_TTL_SEC", "60"))
+VIDEO_DIVERSIFIED_CACHE_TTL_SEC = int(os.getenv("VIDEO_DIVERSIFIED_CACHE_TTL_SEC", "60"))
+
 _CACHE_NAMESPACE = "video-detail"
+_RESPONSE_CACHE_NAMESPACE = "video-detail-response"
+_TRENDS_CACHE_NAMESPACE = "video-trends"
+_DIVERSIFIED_CACHE_NAMESPACE = "video-diversified"
 
 try:
     _detail_cache: Optional[Cache] = Cache()
@@ -77,6 +84,51 @@ async def _generate_comment_summary_async(comment_texts: List[str]) -> List[str]
     return await loop.run_in_executor(None, generate_comment_three_line_summary, comment_texts)
 
 
+def _get_cached_response(video_id: str) -> Optional[dict]:
+    if not _detail_cache:
+        return None
+    key = f"{_RESPONSE_CACHE_NAMESPACE}:{video_id}"
+    try:
+        return _detail_cache.get_json(key)
+    except Exception as exc:
+        logger.warning("[VideoDetail] Failed to read response cache for %s: %s", video_id, exc)
+        return None
+
+
+def _set_cached_response(video_id: str, payload: dict) -> None:
+    if not _detail_cache or not payload:
+        return
+    key = f"{_RESPONSE_CACHE_NAMESPACE}:{video_id}"
+    try:
+        _detail_cache.set_json(key, payload, ttl_sec=VIDEO_DETAIL_RESPONSE_CACHE_TTL_SEC)
+        logger.info(
+            "[VideoDetail] Cached full response for %s (ttl=%ss)",
+            video_id,
+            VIDEO_DETAIL_RESPONSE_CACHE_TTL_SEC,
+        )
+    except Exception as exc:
+        logger.warning("[VideoDetail] Failed to cache full response for %s: %s", video_id, exc)
+
+
+def _get_cached_list(namespace: str, key_suffix: str) -> Optional[dict]:
+    if not _detail_cache:
+        return None
+    try:
+        return _detail_cache.get_json(f"{namespace}:{key_suffix}")
+    except Exception as exc:
+        logger.warning("[VideoListCache] Failed to read cache %s:%s: %s", namespace, key_suffix, exc)
+        return None
+
+
+def _set_cached_list(namespace: str, key_suffix: str, payload: dict, ttl_sec: int) -> None:
+    if not _detail_cache or not payload:
+        return
+    try:
+        _detail_cache.set_json(f"{namespace}:{key_suffix}", payload, ttl_sec=ttl_sec)
+    except Exception as exc:
+        logger.warning("[VideoListCache] Failed to cache %s:%s: %s", namespace, key_suffix, exc)
+
+
 def _build_channel_name_map(db: Session, videos: List[object]) -> Dict[str, Optional[str]]:
     """영상 목록에서 채널명을 일괄 조회하여 매핑"""
     channel_ids = {getattr(v, "channel_id", None) for v in videos if getattr(v, "channel_id", None)}
@@ -94,12 +146,21 @@ def get_diversified_videos(
     """채널 다양화를 보장하여 영상 목록 조회 (4분 이상만)"""
     import traceback
     try:
+        cache_key = f"{total}:{max_per_channel}"
+        cached_payload = _get_cached_list(_DIVERSIFIED_CACHE_NAMESPACE, cache_key)
+        if cached_payload:
+            logger.info("[Diversified] Cache hit for total=%s max_per_channel=%s", total, max_per_channel)
+            return VideoListResponse.model_validate(cached_payload)
+
         videos = crud_video.get_diversified_videos(db, total=total, max_per_channel=max_per_channel)
         channel_name_map = _build_channel_name_map(db, videos)
 
         video_responses = []
+        seen_ids = set()
         for v in videos:
             try:
+                if getattr(v, "id", None) in seen_ids:
+                    continue
                 video_dict = {
                     "id": v.id,
                     "channel_id": v.channel_id,
@@ -122,11 +183,19 @@ def get_diversified_videos(
                     "updated_at": v.updated_at,
                 }
                 video_responses.append(VideoResponse.model_validate(video_dict))
+                seen_ids.add(v.id)
             except Exception as ve:
                 print(f"[DEBUG] Error validating diversified video: {str(ve)}")
                 continue
 
-        return VideoListResponse(videos=video_responses, total=len(video_responses))
+        response_payload = VideoListResponse(videos=video_responses, total=len(video_responses))
+        _set_cached_list(
+            _DIVERSIFIED_CACHE_NAMESPACE,
+            cache_key,
+            response_payload.model_dump(),
+            VIDEO_DIVERSIFIED_CACHE_TTL_SEC,
+        )
+        return response_payload
     except Exception as e:
         error_trace = traceback.format_exc()
         print(f"[ERROR] Error in get_diversified_videos: {str(e)}")
@@ -190,8 +259,11 @@ async def get_recommended_videos(
         
         # 3. VideoResponse로 변환
         video_responses = []
+        seen_ids = set()
         for idx, v in enumerate(videos):
             try:
+                if getattr(v, "id", None) in seen_ids:
+                    continue
                 video_dict = {
                     "id": v.id,
                     "channel_id": v.channel_id,
@@ -215,6 +287,7 @@ async def get_recommended_videos(
                 }
                 video_response = VideoResponse.model_validate(video_dict)
                 video_responses.append(video_response)
+                seen_ids.add(v.id)
             except Exception as ve:
                 print(f"[DEBUG] Error validating video {idx}: {str(ve)}")
                 continue
@@ -251,6 +324,12 @@ def get_trend_videos(
     """트렌드 비디오 목록 조회 (최근 게시일 기준)"""
     import traceback
     try:
+        cache_key = f"{skip}:{limit}"
+        cached_payload = _get_cached_list(_TRENDS_CACHE_NAMESPACE, cache_key)
+        if cached_payload:
+            logger.info("[Trend] Cache hit for skip=%s limit=%s", skip, limit)
+            return VideoListResponse.model_validate(cached_payload)
+
         # 1. 데이터베이스에서 비디오 조회 (4분 이상만)
         videos = crud_video.get_trend_videos(db, skip=skip, limit=limit)
         print(f"[DEBUG] Found {len(videos)} trend videos (4min+)")
@@ -263,8 +342,11 @@ def get_trend_videos(
         
         # 3. VideoResponse로 변환 (에러 발생 가능 지점)
         video_responses = []
+        seen_ids = set()
         for idx, v in enumerate(videos):
             try:
+                if getattr(v, "id", None) in seen_ids:
+                    continue
                 # tags가 None이거나 이미 올바른 형식인지 확인
                 video_dict = {
                     "id": v.id,
@@ -289,15 +371,23 @@ def get_trend_videos(
                 }
                 video_response = VideoResponse.model_validate(video_dict)
                 video_responses.append(video_response)
+                seen_ids.add(v.id)
             except Exception as ve:
                 print(f"[DEBUG] Error validating video {idx}: {str(ve)}")
                 print(f"[DEBUG] Video data: id={v.id}, title={v.title}, tags={v.tags}, tags_type={type(v.tags)}")
                 raise
         
-        return VideoListResponse(
+        response_payload = VideoListResponse(
             videos=video_responses,
             total=total
         )
+        _set_cached_list(
+            _TRENDS_CACHE_NAMESPACE,
+            cache_key,
+            response_payload.model_dump(),
+            VIDEO_TRENDS_CACHE_TTL_SEC,
+        )
+        return response_payload
     except Exception as e:
         error_trace = traceback.format_exc()
         print(f"[ERROR] Error in get_trend_videos: {str(e)}")
@@ -512,8 +602,11 @@ def get_most_liked_videos(
 
         # 3. VideoResponse로 변환
         video_responses = []
+        seen_ids = set()
         for idx, v in enumerate(videos):
             try:
+                if getattr(v, "id", None) in seen_ids:
+                    continue
                 video_dict = {
                     "id": v.id,
                     "channel_id": v.channel_id,
@@ -536,6 +629,7 @@ def get_most_liked_videos(
                 }
                 video_response = VideoResponse.model_validate(video_dict)
                 video_responses.append(video_response)
+                seen_ids.add(v.id)
             except Exception as ve:
                 print(f"[DEBUG] Error validating video {idx}: {str(ve)}")
                 print(f"[DEBUG] Video data: id={v.id}, title={v.title}, tags={v.tags}, tags_type={type(v.tags)}")
@@ -569,7 +663,23 @@ async def get_video(
         summary_elapsed = 0.0
         bento_elapsed = 0.0
         comments_elapsed = 0.0
-        cache_hit = False
+        analysis_cache_hit = False
+        response_cache_hit = False
+
+        if not force_refresh:
+            cached_response_payload = _get_cached_response(video_id)
+            if cached_response_payload:
+                response_cache_hit = True
+                cached_response = VideoDetailResponse.model_validate(cached_response_payload)
+                total_elapsed = (time.perf_counter() - overall_start) * 1000
+                detail_profiler.info(
+                    "[VideoDetailProfile] video_id=%s response_cache=%s analysis_cache=%s db=0.00ms comments=0.00ms summary=0.00ms bento=0.00ms total=%.2fms",
+                    video_id,
+                    response_cache_hit,
+                    False,
+                    total_elapsed,
+                )
+                return cached_response
 
         db_start = time.perf_counter()
         db_video = crud_video.get_video(db, video_id=video_id)
@@ -585,20 +695,23 @@ async def get_video(
             if cached_data:
                 try:
                     analysis_payload = VideoAnalysis.model_validate(cached_data)
-                    cache_hit = True
+                    analysis_cache_hit = True
                 except ValidationError as exc:
                     logger.warning("[VideoDetail] Cached data invalid for %s: %s", video_id, exc)
 
-        if cache_hit:
+        if analysis_cache_hit:
+            response_payload = VideoDetailResponse(video=video_payload, analysis=analysis_payload)
+            _set_cached_response(video_id, response_payload.model_dump())
             total_elapsed = (time.perf_counter() - overall_start) * 1000
             detail_profiler.info(
-                "[VideoDetailProfile] video_id=%s cache_hit=%s db=%.2fms comments=0.00ms summary=0.00ms bento=0.00ms total=%.2fms",
+                "[VideoDetailProfile] video_id=%s response_cache=%s analysis_cache=%s db=%.2fms comments=0.00ms summary=0.00ms bento=0.00ms total=%.2fms",
                 video_id,
-                cache_hit,
+                False,
+                analysis_cache_hit,
                 db_elapsed,
                 total_elapsed,
             )
-            return VideoDetailResponse(video=video_payload, analysis=analysis_payload)
+            return response_payload
 
         comments_start = time.perf_counter()
         comments = crud_video.get_comment_payloads_for_video(db, video_id=video_id, limit=150)
@@ -698,18 +811,22 @@ async def get_video(
         if analysis_payload:
             _set_cached_analysis(video_id, analysis_payload.model_dump())
 
+        response_payload = VideoDetailResponse(video=video_payload, analysis=analysis_payload)
+        _set_cached_response(video_id, response_payload.model_dump())
+
         total_elapsed = (time.perf_counter() - overall_start) * 1000
         detail_profiler.info(
-            "[VideoDetailProfile] video_id=%s cache_hit=%s db=%.2fms comments=%.2fms summary=%.2fms bento=%.2fms total=%.2fms",
+            "[VideoDetailProfile] video_id=%s response_cache=%s analysis_cache=%s db=%.2fms comments=%.2fms summary=%.2fms bento=%.2fms total=%.2fms",
             video_id,
-            cache_hit,
+            response_cache_hit,
+            analysis_cache_hit,
             db_elapsed,
             comments_elapsed,
             summary_elapsed,
             bento_elapsed,
             total_elapsed,
         )
-        return VideoDetailResponse(video=video_payload, analysis=analysis_payload)
+        return response_payload
     except HTTPException:
         raise
     except Exception as e:
