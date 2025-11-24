@@ -220,42 +220,47 @@ function Dashboard() {
       // 채널 다양성 확보 + 2x2 채우기 보장
       const diversifyWithFallback = (items, targetCount = 4, initialMaxPerChannel = 1) => {
         if (!items || items.length === 0) return []
+
         const pick = (maxPerChannel) => {
-          const seen = new Map()
+          const seenPerChannel = new Map()
           const usedIds = new Set()
           const out = []
+
           for (const it of items) {
-            const chId = it.channel_id || it.channelId || 'unknown'
-            const vid = it.id || it.video_id || `${chId}:${Math.random()}`
-            if (usedIds.has(vid)) continue
-            const cnt = seen.get(chId) || 0
-            if (cnt < maxPerChannel) {
-              out.push(it)
-              usedIds.add(vid)
-              seen.set(chId, cnt + 1)
-              if (out.length >= targetCount) break
-            }
+            const channelId = it.channel_id || it.channelId || 'unknown'
+            const videoId = it.id || it.video_id
+
+            if (!videoId || usedIds.has(videoId)) continue
+            const channelCount = seenPerChannel.get(channelId) || 0
+            if (channelCount >= maxPerChannel) continue
+
+            out.push(it)
+            usedIds.add(videoId)
+            seenPerChannel.set(channelId, channelCount + 1)
+
+            if (out.length >= targetCount) break
           }
+
           return out
         }
-        // 1) 채널별 1개 시도
+
         let result = pick(initialMaxPerChannel)
-        // 2) 모자라면 채널별 2개로 완화
+
         if (result.length < targetCount) {
           result = pick(initialMaxPerChannel + 1)
         }
-        // 3) 그래도 모자라면 남은 아이템으로 채우기
+
         if (result.length < targetCount) {
-          const ids = new Set((result || []).map(v => v.id || v.video_id))
+          const used = new Set(result.map(v => v.id || v.video_id))
           for (const it of items) {
-            const vid = it.id || it.video_id
-            if (!vid || ids.has(vid)) continue
-            ids.add(vid)
-              result.push(it)
-              if (result.length >= targetCount) break
-            }
+            const videoId = it.id || it.video_id
+            if (!videoId || used.has(videoId)) continue
+            result.push(it)
+            used.add(videoId)
+            if (result.length >= targetCount) break
           }
         }
+
         return result
       }
 
