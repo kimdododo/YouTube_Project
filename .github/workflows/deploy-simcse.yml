@@ -87,8 +87,10 @@ jobs:
             --port 8080 \
             --cpu 2 \
             --memory 4Gi \
+            --min-instances 1 \
             --timeout 300 \
             --max-instances 10 \
+            --concurrency 4 \
             --service-account=github-actions@${{ env.PROJECT_ID }}.iam.gserviceaccount.com \
-            --set-env-vars EMBED_MODEL_DIR=${{ env.EMBED_MODEL_DIR }},SENTIMENT_MODEL_DIR=${{ env.SENTIMENT_MODEL_DIR }}
+            --set-env-vars EMBED_MODEL_DIR=${{ env.EMBED_MODEL_DIR }},SENTIMENT_MODEL_DIR=${{ env.SENTIMENT_MODEL_DIR }},MODEL_CACHE_ROOT=/var/tmp/bento_model_cache
 

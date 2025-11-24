@@ -18,6 +18,7 @@ import re
 import traceback
 from collections import Counter
 from pathlib import Path
+import threading
 from typing import Any, Dict, List, Union
 
 import bentoml
@@ -59,6 +60,8 @@ MODEL_CACHE_ROOT = Path(os.getenv("MODEL_CACHE_ROOT", "/tmp/bento_model_cache"))
 DEFAULT_SENTIMENT_LABELS = ["negative", "neutral", "positive"]
 MAX_SEQ_LENGTH = int(os.getenv("MAX_SEQ_LENGTH", "256"))
 NORMALIZE = os.getenv("NORMALIZE_EMBEDDINGS", "true").lower() in {"1", "true", "yes"}
+ENABLE_STARTUP_WARMUP = os.getenv("SIMCSE_ENABLE_WARMUP", "true").lower() in {"1", "true", "yes"}
+WARMUP_SAMPLE_TEXT = os.getenv("SIMCSE_WARMUP_TEXT", "warm up request")
 
 
 _storage_client = None
@@ -409,6 +412,26 @@ class SimCSEService:
     def __init__(self):
         self.embed_bundle = EMBED_BUNDLE
         self.sentiment_bundle = SENTIMENT_BUNDLE
+        self._warmed_up = False
+        self._warmup_lock = threading.Lock()
+        if ENABLE_STARTUP_WARMUP:
+            threading.Thread(target=self._safe_warmup, name="simcse-warmup", daemon=True).start()
+
+    def _safe_warmup(self) -> None:
+        if self._warmed_up:
+            return
+        with self._warmup_lock:
+            if self._warmed_up:
+                return
+            try:
+                logger.info("[BentoService] Running startup warmup...")
+                # Run a small embedding + sentiment request so that ONNX sessions are ready
+                self.embed_bundle.encode([WARMUP_SAMPLE_TEXT, "여행 테스트 문장"])
+                self.sentiment_bundle.logits([WARMUP_SAMPLE_TEXT, "여행 감성 테스트"])
+                self._warmed_up = True
+                logger.info("[BentoService] Warmup completed successfully")
+            except Exception as exc:
+                logger.warning("[BentoService] Warmup failed: %s", exc)
 
     @bentoml.api(route="/health")
     def health(self) -> Dict[str, Any]:
@@ -422,6 +445,7 @@ class SimCSEService:
             "sentiment_model_path": str(SENTIMENT_MODEL_PATH),
             "sentiment_tokenizer_path": str(SENTIMENT_TOKENIZER_PATH),
             "dimension": self.embed_bundle.hidden_dim,
+            "warmed_up": self._warmed_up,
         }
 
     @bentoml.api(route="/predict")

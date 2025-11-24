@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 
 from app.clients.bento import analyze_video_detail_for_bento
 from app.core.cache import Cache
-from app.core.database import get_db
+from app.core.database import get_db, SessionLocal
 from app.crud import video as crud_video
 from app.models.channel import Channel
 from app.recommendations import ContentBasedRecommender
@@ -42,11 +42,17 @@ VIDEO_DETAIL_CACHE_TTL_SEC = int(os.getenv("VIDEO_DETAIL_CACHE_TTL_SEC", "900"))
 VIDEO_DETAIL_RESPONSE_CACHE_TTL_SEC = int(os.getenv("VIDEO_DETAIL_RESPONSE_CACHE_TTL_SEC", "300"))
 VIDEO_TRENDS_CACHE_TTL_SEC = int(os.getenv("VIDEO_TRENDS_CACHE_TTL_SEC", "60"))
 VIDEO_DIVERSIFIED_CACHE_TTL_SEC = int(os.getenv("VIDEO_DIVERSIFIED_CACHE_TTL_SEC", "60"))
+VIDEO_RECOMMENDED_CACHE_TTL_SEC = int(os.getenv("VIDEO_RECOMMENDED_CACHE_TTL_SEC", "60"))
+VIDEO_MOST_LIKED_CACHE_TTL_SEC = int(os.getenv("VIDEO_MOST_LIKED_CACHE_TTL_SEC", "60"))
+VIDEO_SIMILAR_CACHE_TTL_SEC = int(os.getenv("VIDEO_SIMILAR_CACHE_TTL_SEC", "300"))
 
 _CACHE_NAMESPACE = "video-detail"
 _RESPONSE_CACHE_NAMESPACE = "video-detail-response"
 _TRENDS_CACHE_NAMESPACE = "video-trends"
 _DIVERSIFIED_CACHE_NAMESPACE = "video-diversified"
+_RECOMMENDED_CACHE_NAMESPACE = "video-recommended"
+_MOST_LIKED_CACHE_NAMESPACE = "video-most-liked"
+_SIMILAR_CACHE_NAMESPACE = "video-similar"
 
 try:
     _detail_cache: Optional[Cache] = Cache()
@@ -136,6 +142,50 @@ def _build_channel_name_map(db: Session, videos: List[object]) -> Dict[str, Opti
         return {}
     rows = db.query(Channel.id, Channel.title).filter(Channel.id.in_(channel_ids)).all()
     return {channel_id: title for channel_id, title in rows}
+
+
+def _serialize_videos(videos: List[object], channel_name_map: Optional[Dict[str, Optional[str]]] = None) -> List[VideoResponse]:
+    """공통 VideoResponse 변환 로직 (중복 제거 + channel_name 주입)"""
+    video_responses: List[VideoResponse] = []
+    seen_ids = set()
+    for idx, v in enumerate(videos):
+        try:
+            video_id = getattr(v, "id", None)
+            if not video_id or video_id in seen_ids:
+                continue
+            video_dict = {
+                "id": v.id,
+                "channel_id": v.channel_id,
+                "channel_name": channel_name_map.get(v.channel_id) if channel_name_map else getattr(v, "channel_name", None),
+                "title": v.title,
+                "description": v.description,
+                "published_at": v.published_at,
+                "duration": v.duration,
+                "duration_sec": v.duration_sec,
+                "view_count": v.view_count,
+                "like_count": v.like_count,
+                "comment_count": v.comment_count,
+                "category_id": v.category_id,
+                "tags": v.tags,
+                "thumbnail_url": v.thumbnail_url,
+                "keyword": v.keyword,
+                "region": v.region,
+                "is_shorts": v.is_shorts,
+                "created_at": v.created_at,
+                "updated_at": v.updated_at,
+            }
+            video_responses.append(VideoResponse.model_validate(video_dict))
+            seen_ids.add(video_id)
+        except Exception as exc:
+            logger.warning("[VideoSerialize] Failed to serialize video idx=%s id=%s: %s", idx, getattr(v, "id", None), exc)
+            continue
+    return video_responses
+
+
+def _build_video_list_response(db: Session, videos: List[object]) -> VideoListResponse:
+    channel_name_map = _build_channel_name_map(db, videos)
+    video_responses = _serialize_videos(videos, channel_name_map)
+    return VideoListResponse(videos=video_responses, total=len(video_responses))
 # 채널 다양화 추천 (정적 경로 - 동적보다 먼저)
 @router.get("/diversified", response_model=VideoListResponse)
 def get_diversified_videos(
@@ -155,39 +205,7 @@ def get_diversified_videos(
         videos = crud_video.get_diversified_videos(db, total=total, max_per_channel=max_per_channel)
         channel_name_map = _build_channel_name_map(db, videos)
 
-        video_responses = []
-        seen_ids = set()
-        for v in videos:
-            try:
-                if getattr(v, "id", None) in seen_ids:
-                    continue
-                video_dict = {
-                    "id": v.id,
-                    "channel_id": v.channel_id,
-                    "channel_name": channel_name_map.get(v.channel_id),
-                    "title": v.title,
-                    "description": v.description,
-                    "published_at": v.published_at,
-                    "duration": v.duration,
-                    "duration_sec": v.duration_sec,
-                    "view_count": v.view_count,
-                    "like_count": v.like_count,
-                    "comment_count": v.comment_count,
-                    "category_id": v.category_id,
-                    "tags": v.tags,
-                    "thumbnail_url": v.thumbnail_url,
-                    "keyword": v.keyword,
-                    "region": v.region,
-                    "is_shorts": v.is_shorts,
-                    "created_at": v.created_at,
-                    "updated_at": v.updated_at,
-                }
-                video_responses.append(VideoResponse.model_validate(video_dict))
-                seen_ids.add(v.id)
-            except Exception as ve:
-                print(f"[DEBUG] Error validating diversified video: {str(ve)}")
-                continue
-
+        video_responses = _serialize_videos(videos, channel_name_map)
         response_payload = VideoListResponse(videos=video_responses, total=len(video_responses))
         _set_cached_list(
             _DIVERSIFIED_CACHE_NAMESPACE,
@@ -247,6 +265,12 @@ async def get_recommended_videos(
     """
     import traceback
     try:
+        cache_key = f"{skip}:{limit}:{query or '-'}:{int(use_rerank)}"
+        cached_payload = _get_cached_list(_RECOMMENDED_CACHE_NAMESPACE, cache_key)
+        if cached_payload:
+            logger.info("[Recommended] Cache hit for skip=%s limit=%s query=%s", skip, limit, query)
+            return VideoListResponse.model_validate(cached_payload)
+
         # 1. 더 많이 가져와서 재랭킹 후 상위 limit개만 선택
         fetch_limit = limit * 2 if use_rerank and query else limit
         videos = crud_video.get_recommended_videos(db, skip=skip, limit=fetch_limit)
@@ -258,39 +282,7 @@ async def get_recommended_videos(
         # print(f"[DEBUG] Total videos (4min+): {total}")
         
         # 3. VideoResponse로 변환
-        video_responses = []
-        seen_ids = set()
-        for idx, v in enumerate(videos):
-            try:
-                if getattr(v, "id", None) in seen_ids:
-                    continue
-                video_dict = {
-                    "id": v.id,
-                    "channel_id": v.channel_id,
-                    "channel_name": channel_name_map.get(v.channel_id),
-                    "title": v.title,
-                    "description": v.description,
-                    "published_at": v.published_at,
-                    "duration": v.duration,
-                    "duration_sec": v.duration_sec,
-                    "view_count": v.view_count,
-                    "like_count": v.like_count,
-                    "comment_count": v.comment_count,
-                    "category_id": v.category_id,
-                    "tags": v.tags,
-                    "thumbnail_url": v.thumbnail_url,
-                    "keyword": v.keyword,
-                    "region": v.region,
-                    "is_shorts": v.is_shorts,
-                    "created_at": v.created_at,
-                    "updated_at": v.updated_at,
-                }
-                video_response = VideoResponse.model_validate(video_dict)
-                video_responses.append(video_response)
-                seen_ids.add(v.id)
-            except Exception as ve:
-                print(f"[DEBUG] Error validating video {idx}: {str(ve)}")
-                continue
+        video_responses = _serialize_videos(videos, channel_name_map)
         
         # 4. ML 재랭킹 기능 제거됨 (ML API 서버 미사용)
         # use_rerank 파라미터는 무시되고 기본 조회수 기준 정렬만 사용됨
@@ -299,11 +291,14 @@ async def get_recommended_videos(
         
         # total은 실제 반환된 비디오 개수 사용 (성능 최적화)
         total = len(video_responses)
-        
-        return VideoListResponse(
-            videos=video_responses,
-            total=total
+        response_payload = VideoListResponse(videos=video_responses, total=total)
+        _set_cached_list(
+            _RECOMMENDED_CACHE_NAMESPACE,
+            cache_key,
+            response_payload.model_dump(),
+            VIDEO_RECOMMENDED_CACHE_TTL_SEC,
         )
+        return response_payload
     except Exception as e:
         error_trace = traceback.format_exc()
         print(f"[ERROR] Error in get_recommended_videos: {str(e)}")
@@ -341,41 +336,7 @@ def get_trend_videos(
         total = len(videos)  # 실제 반환된 개수만 사용
         
         # 3. VideoResponse로 변환 (에러 발생 가능 지점)
-        video_responses = []
-        seen_ids = set()
-        for idx, v in enumerate(videos):
-            try:
-                if getattr(v, "id", None) in seen_ids:
-                    continue
-                # tags가 None이거나 이미 올바른 형식인지 확인
-                video_dict = {
-                    "id": v.id,
-                    "channel_id": v.channel_id,
-                    "channel_name": channel_name_map.get(v.channel_id),
-                    "title": v.title,
-                    "description": v.description,
-                    "published_at": v.published_at,
-                    "duration": v.duration,
-                    "duration_sec": v.duration_sec,
-                    "view_count": v.view_count,
-                    "like_count": v.like_count,
-                    "comment_count": v.comment_count,
-                    "category_id": v.category_id,
-                    "tags": v.tags,  # JSON 타입은 dict, list, 또는 None일 수 있음
-                    "thumbnail_url": v.thumbnail_url,
-                    "keyword": v.keyword,
-                    "region": v.region,
-                    "is_shorts": v.is_shorts,
-                    "created_at": v.created_at,
-                    "updated_at": v.updated_at,
-                }
-                video_response = VideoResponse.model_validate(video_dict)
-                video_responses.append(video_response)
-                seen_ids.add(v.id)
-            except Exception as ve:
-                print(f"[DEBUG] Error validating video {idx}: {str(ve)}")
-                print(f"[DEBUG] Video data: id={v.id}, title={v.title}, tags={v.tags}, tags_type={type(v.tags)}")
-                raise
+        video_responses = _serialize_videos(videos, channel_name_map)
         
         response_payload = VideoListResponse(
             videos=video_responses,
@@ -531,6 +492,12 @@ def get_similar_videos(
     """특정 영상과 유사한 영상 추천"""
     import traceback
     try:
+        cache_key = f"{video_id}:{limit}"
+        cached_payload = _get_cached_list(_SIMILAR_CACHE_NAMESPACE, cache_key)
+        if cached_payload:
+            logger.info("[Similar] Cache hit for video_id=%s limit=%s", video_id, limit)
+            return VideoListResponse.model_validate(cached_payload)
+
         recommender = ContentBasedRecommender()
         
         similar_videos = recommender.get_similar_videos(
@@ -540,40 +507,20 @@ def get_similar_videos(
             min_duration_sec=240
         )
         
-        # VideoResponse로 변환
-        video_responses = []
-        for video in similar_videos:
-            try:
-                video_dict = {
-                    "id": video.id,
-                    "channel_id": video.channel_id,
-                    "title": video.title,
-                    "description": video.description,
-                    "published_at": video.published_at,
-                    "duration": video.duration,
-                    "duration_sec": video.duration_sec,
-                    "view_count": video.view_count,
-                    "like_count": video.like_count,
-                    "comment_count": video.comment_count,
-                    "category_id": video.category_id,
-                    "tags": video.tags,
-                    "thumbnail_url": video.thumbnail_url,
-                    "keyword": video.keyword,
-                    "region": video.region,
-                    "is_shorts": video.is_shorts,
-                    "created_at": video.created_at,
-                    "updated_at": video.updated_at,
-                }
-                video_response = VideoResponse.model_validate(video_dict)
-                video_responses.append(video_response)
-            except Exception as ve:
-                print(f"[DEBUG] Error validating similar video: {str(ve)}")
-                continue
+        channel_name_map = _build_channel_name_map(db, similar_videos)
+        video_responses = _serialize_videos(similar_videos, channel_name_map)
         
-        return VideoListResponse(
+        response_payload = VideoListResponse(
             videos=video_responses,
             total=len(video_responses)
         )
+        _set_cached_list(
+            _SIMILAR_CACHE_NAMESPACE,
+            cache_key,
+            response_payload.model_dump(),
+            VIDEO_SIMILAR_CACHE_TTL_SEC,
+        )
+        return response_payload
     except Exception as e:
         error_trace = traceback.format_exc()
         print(f"[ERROR] Error in get_similar_videos: {str(e)}")
@@ -591,6 +538,12 @@ def get_most_liked_videos(
     """가장 많은 좋아요를 받은 비디오 목록 조회"""
     import traceback
     try:
+        cache_key = f"{skip}:{limit}"
+        cached_payload = _get_cached_list(_MOST_LIKED_CACHE_NAMESPACE, cache_key)
+        if cached_payload:
+            logger.info("[MostLiked] Cache hit for skip=%s limit=%s", skip, limit)
+            return VideoListResponse.model_validate(cached_payload)
+
         # 1. 데이터베이스에서 비디오 조회 (좋아요 수 기준, 4분 이상만)
         videos = crud_video.get_most_liked_videos(db, skip=skip, limit=limit)
         print(f"[DEBUG] Found {len(videos)} most liked videos (4min+)")
@@ -600,45 +553,20 @@ def get_most_liked_videos(
         # print(f"[DEBUG] Total videos (4min+): {total}")
         total = len(videos)  # 실제 반환된 개수만 사용
 
-        # 3. VideoResponse로 변환
-        video_responses = []
-        seen_ids = set()
-        for idx, v in enumerate(videos):
-            try:
-                if getattr(v, "id", None) in seen_ids:
-                    continue
-                video_dict = {
-                    "id": v.id,
-                    "channel_id": v.channel_id,
-                    "title": v.title,
-                    "description": v.description,
-                    "published_at": v.published_at,
-                    "duration": v.duration,
-                    "duration_sec": v.duration_sec,
-                    "view_count": v.view_count,
-                    "like_count": v.like_count,
-                    "comment_count": v.comment_count,
-                    "category_id": v.category_id,
-                    "tags": v.tags,
-                    "thumbnail_url": v.thumbnail_url,
-                    "keyword": v.keyword,
-                    "region": v.region,
-                    "is_shorts": v.is_shorts,
-                    "created_at": v.created_at,
-                    "updated_at": v.updated_at,
-                }
-                video_response = VideoResponse.model_validate(video_dict)
-                video_responses.append(video_response)
-                seen_ids.add(v.id)
-            except Exception as ve:
-                print(f"[DEBUG] Error validating video {idx}: {str(ve)}")
-                print(f"[DEBUG] Video data: id={v.id}, title={v.title}, tags={v.tags}, tags_type={type(v.tags)}")
-                continue
+        channel_name_map = _build_channel_name_map(db, videos)
+        video_responses = _serialize_videos(videos, channel_name_map)
 
-        return VideoListResponse(
+        response_payload = VideoListResponse(
             videos=video_responses,
             total=total
         )
+        _set_cached_list(
+            _MOST_LIKED_CACHE_NAMESPACE,
+            cache_key,
+            response_payload.model_dump(),
+            VIDEO_MOST_LIKED_CACHE_TTL_SEC,
+        )
+        return response_payload
     except Exception as e:
         error_trace = traceback.format_exc()
         print(f"[ERROR] Error in get_most_liked_videos: {str(e)}")
@@ -1333,3 +1261,73 @@ def _build_comment_summary_fallback(positive_count: int, negative_count: int) ->
         summary.append("영상 길이나 구성에 대한 아쉬움이 언급되고 있어요.")
         summary.append("전반적인 만족도는 보통 수준이에요.")
     return summary
+
+
+async def warm_video_list_caches() -> None:
+    """
+    서버 시작 시 주요 비디오 목록 캐시를 미리 채워 첫 요청 지연을 줄입니다.
+    """
+    if not _detail_cache:
+        logger.info("[CacheWarmup] Cache backend disabled, skipping prewarm")
+        return
+
+    def _prefetch() -> None:
+        db = SessionLocal()
+        try:
+            specs = [
+                {
+                    "label": "recommended",
+                    "namespace": _RECOMMENDED_CACHE_NAMESPACE,
+                    "key": "0:10:-:1",
+                    "ttl": VIDEO_RECOMMENDED_CACHE_TTL_SEC,
+                    "fetch": lambda: crud_video.get_recommended_videos(db, skip=0, limit=20),
+                },
+                {
+                    "label": "trends",
+                    "namespace": _TRENDS_CACHE_NAMESPACE,
+                    "key": "0:10",
+                    "ttl": VIDEO_TRENDS_CACHE_TTL_SEC,
+                    "fetch": lambda: crud_video.get_trend_videos(db, skip=0, limit=10),
+                },
+                {
+                    "label": "most-liked",
+                    "namespace": _MOST_LIKED_CACHE_NAMESPACE,
+                    "key": "0:10",
+                    "ttl": VIDEO_MOST_LIKED_CACHE_TTL_SEC,
+                    "fetch": lambda: crud_video.get_most_liked_videos(db, skip=0, limit=10),
+                },
+                {
+                    "label": "diversified",
+                    "namespace": _DIVERSIFIED_CACHE_NAMESPACE,
+                    "key": "20:1",
+                    "ttl": VIDEO_DIVERSIFIED_CACHE_TTL_SEC,
+                    "fetch": lambda: crud_video.get_diversified_videos(db, total=20, max_per_channel=1),
+                },
+            ]
+
+            for spec in specs:
+                try:
+                    if _get_cached_list(spec["namespace"], spec["key"]):
+                        continue
+                    videos = spec["fetch"]()
+                    if not videos:
+                        continue
+                    channel_name_map = _build_channel_name_map(db, videos)
+                    serialized = _serialize_videos(videos, channel_name_map)
+                    payload = VideoListResponse(
+                        videos=serialized,
+                        total=len(serialized),
+                    )
+                    _set_cached_list(
+                        spec["namespace"],
+                        spec["key"],
+                        payload.model_dump(),
+                        spec["ttl"],
+                    )
+                    logger.info("[CacheWarmup] Prefetched %s list (%d videos)", spec["label"], len(videos))
+                except Exception as warm_err:
+                    logger.warning("[CacheWarmup] Failed to prefetch %s cache: %s", spec["label"], warm_err)
+        finally:
+            db.close()
+
+    await asyncio.to_thread(_prefetch)

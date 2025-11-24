@@ -42,6 +42,11 @@ async def startup_event():
         print("[Startup] SimCSE/Bento warmup completed")
     except Exception as exc:
         print(f"[Startup] SimCSE/Bento warmup failed: {exc}")
+    try:
+        asyncio.create_task(video.warm_video_list_caches())
+        print("[Startup] Video cache warmup scheduled")
+    except Exception as exc:
+        print(f"[Startup] Video cache warmup scheduling failed: {exc}")
 
 # CORS 설정 (React 프론트엔드에서 호출 가능하도록)
 import os
