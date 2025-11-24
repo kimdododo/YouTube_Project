@@ -86,7 +86,7 @@ jobs:
             --allow-unauthenticated \
             --port 8080 \
             --cpu 2 \
-            --memory 2Gi \
+            --memory 4Gi \
             --timeout 300 \
             --max-instances 10 \
             --service-account=github-actions@${{ env.PROJECT_ID }}.iam.gserviceaccount.com \

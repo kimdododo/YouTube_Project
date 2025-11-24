@@ -222,12 +222,16 @@ function Dashboard() {
         if (!items || items.length === 0) return []
         const pick = (maxPerChannel) => {
           const seen = new Map()
+          const usedIds = new Set()
           const out = []
           for (const it of items) {
             const chId = it.channel_id || it.channelId || 'unknown'
+            const vid = it.id || it.video_id || `${chId}:${Math.random()}`
+            if (usedIds.has(vid)) continue
             const cnt = seen.get(chId) || 0
             if (cnt < maxPerChannel) {
               out.push(it)
+              usedIds.add(vid)
               seen.set(chId, cnt + 1)
               if (out.length >= targetCount) break
             }
@@ -242,11 +246,12 @@ function Dashboard() {
         }
         // 3) 그래도 모자라면 남은 아이템으로 채우기
         if (result.length < targetCount) {
-          const ids = new Set(result.map(v => v.id))
+          const ids = new Set((result || []).map(v => v.id || v.video_id))
           for (const it of items) {
-            if (!ids.has(it.id)) {
+            const vid = it.id || it.video_id
+            if (!vid || ids.has(vid)) continue
+            ids.add(vid)
               result.push(it)
-              ids.add(it.id)
               if (result.length >= targetCount) break
             }
           }
